@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/data/current-user";
 import { NovoColaboradorButton } from "./novo-colaborador-button";
 import { ImportarColaboradoresButton } from "./importar-colaboradores-button";
 import { DesligarColaboradorButton } from "./desligar-colaborador-button";
+import { BaixarFichaButton } from "./baixar-ficha-button";
 import { ColaboradoresFilters } from "./colaboradores-filters";
 
 function formatDate(value: string) {
@@ -110,13 +111,19 @@ export default async function ColaboradoresPage({
                     {c.ultimaEntrega ? formatDate(c.ultimaEntrega) : "—"}
                   </td>
                   <td className="px-4 py-3.5 text-right">
-                    {c.status === "ativo" && (
-                      <DesligarColaboradorButton
+                    <div className="flex items-center justify-end gap-1">
+                      <BaixarFichaButton
                         colaboradorId={c.id}
                         colaboradorNome={c.nome}
-                        userEmail={user?.email ?? ""}
                       />
-                    )}
+                      {c.status === "ativo" && (
+                        <DesligarColaboradorButton
+                          colaboradorId={c.id}
+                          colaboradorNome={c.nome}
+                          userEmail={user?.email ?? ""}
+                        />
+                      )}
+                    </div>
                   </td>
                 </ClickableRow>
               ))

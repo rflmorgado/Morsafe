@@ -7,12 +7,19 @@ import { ShieldIcon } from "@/components/brand/shield-icon";
 import { NAV_ITEMS } from "./nav-items";
 import { logout } from "@/app/(app)/actions";
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({
+  onNavigate,
+  isSuperAdmin,
+}: {
+  onNavigate?: () => void;
+  isSuperAdmin: boolean;
+}) {
   const pathname = usePathname();
+  const items = NAV_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin);
 
   return (
     <>
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const active = pathname.startsWith(item.href);
 
         if (item.comingSoon) {
@@ -60,10 +67,12 @@ export function AppShell({
   children,
   userNome,
   empresaNome,
+  isSuperAdmin = false,
 }: {
   children: React.ReactNode;
   userNome: string;
   empresaNome: string | null;
+  isSuperAdmin?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -93,7 +102,10 @@ export function AppShell({
 
           {menuOpen && (
             <div className="flex flex-col gap-0.5 px-3.5 pb-4">
-              <NavLinks onNavigate={() => setMenuOpen(false)} />
+              <NavLinks
+                onNavigate={() => setMenuOpen(false)}
+                isSuperAdmin={isSuperAdmin}
+              />
             </div>
           )}
         </div>
@@ -113,14 +125,14 @@ export function AppShell({
           <div className="mb-5 mt-1 flex items-center gap-2 rounded-lg bg-white/[0.06] px-2.5 py-2">
             <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-brand-500" />
             <div className="text-[11.5px] leading-tight text-white/70">
-              Empresa ativa
+              {isSuperAdmin ? "Acesso" : "Empresa ativa"}
               <span className="block text-[12.5px] font-semibold text-white">
-                {empresaNome ?? "—"}
+                {isSuperAdmin ? "Administrador MorSafe" : (empresaNome ?? "—")}
               </span>
             </div>
           </div>
 
-          <NavLinks />
+          <NavLinks isSuperAdmin={isSuperAdmin} />
 
           <div className="mt-auto space-y-2 border-t border-white/10 pt-4">
             <div className="px-2.5">

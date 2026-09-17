@@ -1,26 +1,44 @@
+import Link from "next/link";
 import { ClickableRow } from "@/components/ui/clickable-row";
-import { listColaboradores } from "@/lib/data/colaboradores";
+import {
+  listColaboradores,
+  COLABORADORES_PAGE_SIZE,
+} from "@/lib/data/colaboradores";
 import { listSetoresComCargos } from "@/lib/data/setores";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { NovoColaboradorButton } from "./novo-colaborador-button";
 import { ImportarColaboradoresButton } from "./importar-colaboradores-button";
 import { DesligarColaboradorButton } from "./desligar-colaborador-button";
+import { ColaboradoresFilters } from "./colaboradores-filters";
 
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
 }
 
+function buildHref(q: string | undefined, setor: string | undefined, page: number) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (setor) params.set("setor", setor);
+  if (page > 1) params.set("page", String(page));
+  const qs = params.toString();
+  return `/colaboradores${qs ? `?${qs}` : ""}`;
+}
+
 export default async function ColaboradoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; setor?: string; page?: string }>;
 }) {
-  const { q } = await searchParams;
-  const [colaboradores, setores, user] = await Promise.all([
-    listColaboradores(q),
+  const { q, setor, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
+
+  const [{ colaboradores, total }, setores, user] = await Promise.all([
+    listColaboradores({ query: q, setorId: setor, page }),
     listSetoresComCargos(),
     getCurrentUser(),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / COLABORADORES_PAGE_SIZE));
 
   return (
     <div className="space-y-1">
@@ -32,15 +50,7 @@ export default async function ColaboradoresPage({
       </p>
 
       <div className="mb-4 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-        <form method="get" className="max-w-[320px] flex-1">
-          <input
-            type="search"
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="Buscar colaborador…"
-            className="w-full rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none transition placeholder:text-text-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-          />
-        </form>
+        <ColaboradoresFilters setores={setores} />
         <div className="flex gap-2">
           <ImportarColaboradoresButton setores={setores} />
           <NovoColaboradorButton setores={setores} />
@@ -114,6 +124,41 @@ export default async function ColaboradoresPage({
           </tbody>
         </table>
       </div>
+
+      {total > 0 && (
+        <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+          <span className="text-[12.5px] text-text-secondary">
+            Página {page} de {totalPages} · {total} colaborador
+            {total === 1 ? "" : "es"}
+          </span>
+          <div className="flex gap-2">
+            <Link
+              href={buildHref(q, setor, page - 1)}
+              aria-disabled={page <= 1}
+              tabIndex={page <= 1 ? -1 : undefined}
+              className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+                page <= 1
+                  ? "pointer-events-none opacity-40"
+                  : "hover:bg-surface-muted"
+              }`}
+            >
+              ← Anterior
+            </Link>
+            <Link
+              href={buildHref(q, setor, page + 1)}
+              aria-disabled={page >= totalPages}
+              tabIndex={page >= totalPages ? -1 : undefined}
+              className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+                page >= totalPages
+                  ? "pointer-events-none opacity-40"
+                  : "hover:bg-surface-muted"
+              }`}
+            >
+              Próxima →
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

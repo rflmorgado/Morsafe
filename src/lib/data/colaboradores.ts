@@ -1,30 +1,59 @@
 import { createClient } from "@/lib/supabase/server";
 
-export async function listColaboradores(query?: string) {
+export const COLABORADORES_PAGE_SIZE = 20;
+
+export type ListColaboradoresOptions = {
+  query?: string;
+  setorId?: string;
+  page?: number;
+};
+
+/**
+ * Lista paginada de colaboradores (20 por página por padrão), com busca por
+ * nome e filtro por setor opcionais. Evita renderizar centenas de linhas de
+ * uma vez — importante já que uma empresa pode ter 100+ colaboradores e
+ * isso ficava enorme, principalmente no celular.
+ */
+export async function listColaboradores({
+  query,
+  setorId,
+  page = 1,
+}: ListColaboradoresOptions = {}) {
   const supabase = await createClient();
 
   let request = supabase
     .from("colaboradores")
-    .select(
-      "id, nome, status, setores ( nome ), cargos ( nome )",
-    )
+    .select("id, nome, status, setores ( nome ), cargos ( nome )", {
+      count: "exact",
+    })
     .order("nome", { ascending: true });
 
   if (query && query.trim()) {
     request = request.ilike("nome", `%${query.trim()}%`);
   }
-
-  const { data, error } = await request;
-
-  if (error) {
-    console.error("listColaboradores:", error.message);
-    return [];
+  if (setorId) {
+    request = request.eq("setor_id", setorId);
   }
 
-  const { data: entregas } = await supabase
-    .from("entregas")
-    .select("colaborador_id, data")
-    .order("data", { ascending: false });
+  const currentPage = page > 0 ? page : 1;
+  const from = (currentPage - 1) * COLABORADORES_PAGE_SIZE;
+  const to = from + COLABORADORES_PAGE_SIZE - 1;
+
+  const { data, error, count } = await request.range(from, to);
+
+  if (error || !data) {
+    console.error("listColaboradores:", error?.message);
+    return { colaboradores: [], total: 0 };
+  }
+
+  const ids = data.map((c) => c.id);
+  const { data: entregas } = ids.length
+    ? await supabase
+        .from("entregas")
+        .select("colaborador_id, data")
+        .in("colaborador_id", ids)
+        .order("data", { ascending: false })
+    : { data: [] as { colaborador_id: string; data: string }[] };
 
   const ultimaEntrega = new Map<string, string>();
   for (const e of entregas ?? []) {
@@ -33,14 +62,17 @@ export async function listColaboradores(query?: string) {
     }
   }
 
-  return data.map((c) => ({
-    id: c.id,
-    nome: c.nome,
-    status: c.status,
-    setor: (c.setores as unknown as { nome: string } | null)?.nome ?? "—",
-    cargo: (c.cargos as unknown as { nome: string } | null)?.nome ?? "—",
-    ultimaEntrega: ultimaEntrega.get(c.id) ?? null,
-  }));
+  return {
+    colaboradores: data.map((c) => ({
+      id: c.id,
+      nome: c.nome,
+      status: c.status,
+      setor: (c.setores as unknown as { nome: string } | null)?.nome ?? "—",
+      cargo: (c.cargos as unknown as { nome: string } | null)?.nome ?? "—",
+      ultimaEntrega: ultimaEntrega.get(c.id) ?? null,
+    })),
+    total: count ?? data.length,
+  };
 }
 
 export async function getColaboradorDetalhe(id: string) {

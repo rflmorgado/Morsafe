@@ -39,13 +39,13 @@ export default function LoginPage() {
             Entrar
           </h2>
           <p className="mb-7 mt-1 text-[13.5px] text-text-secondary">
-            Acesse o painel de controle de EPI da ViniPlast.
+            Acesse o painel de controle de EPI da sua empresa.
           </p>
 
           <LoginForm />
 
           <div className="mt-6 text-center text-xs text-text-muted">
-            Acesso restrito a colaboradores autorizados da ViniPlast
+            Acesso restrito a usuários autorizados
           </div>
         </div>
       </div>

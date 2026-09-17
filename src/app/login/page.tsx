@@ -17,8 +17,8 @@ export default function LoginPage() {
 
           <div>
             <div className="text-[34px] font-bold tracking-tight">
-              <span className="text-white">Mor</span>
-              <span className="text-brand-500">Safe</span>
+              <span className="text-brand-300">Mor</span>
+              <span className="font-extrabold text-brand-500">Safe</span>
             </div>
             <div className="mx-auto mt-2.5 h-0.5 w-10 rounded-full bg-brand-600" />
           </div>

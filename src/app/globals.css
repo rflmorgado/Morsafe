@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #16241c;
+
+  /* MorSafe brand — verde (NR-26) + branco, sem amarelo.
+     Valores extraídos do protótipo aprovado (reference/prototipo.html). */
+  --brand-50: #f3faf5;
+  --brand-100: #e5f3ea;
+  --brand-200: #c7e4d1;
+  --brand-300: #9bcdae;
+  --brand-400: #5cb37e;
+  --brand-500: #34a05e;
+  --brand-600: #278049;
+  --brand-700: #1f6338;
+  --brand-800: #1a4d2e;
+  --brand-900: #123524;
+  --brand-950: #0d2b1c;
+
+  --surface: #ffffff;
+  --surface-muted: #f4f7f5;
+  --border-subtle: #e0e9e3;
+  --border-strong: #c7d6cd;
+
+  --text-secondary: #5c6b62;
+  --text-muted: #93a29a;
+
+  --danger-bg: #fdecea;
+  --danger-text: #b3261e;
+  --warning-bg: #fef6e0;
+  --warning-text: #8a5a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface-muted: #0d1712;
+    --surface: #131f19;
+    --foreground: #eef4f0;
+    --text-secondary: #a8b7ae;
+    --text-muted: #71827a;
+    --border-subtle: #22322a;
+    --border-strong: #324438;
+    --brand-50: #152820;
+    --brand-100: #1a3427;
+    --danger-bg: #3a1a17;
+    --warning-bg: #3a2e0f;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-text: var(--danger-text);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-text: var(--warning-text);
+}
+
+body {
+  background: var(--surface-muted);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}

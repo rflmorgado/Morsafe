@@ -14,7 +14,7 @@
  * reconhece o schema e todo `.select()` cai em `never`.
  */
 
-export type PapelUsuario = "admin" | "encarregado" | "leitura";
+export type PapelUsuario = "super_admin" | "admin" | "encarregado" | "leitura";
 export type StatusColaborador = "ativo" | "inativo";
 export type MotivoEntrega =
   | "primeira_entrega"
@@ -91,13 +91,16 @@ export interface Database {
       usuarios: TableDef<
         {
           id: string; // = auth.users.id
-          empresa_id: string;
+          // null apenas para o(s) usuário(s) super_admin, que não pertencem
+          // a nenhuma empresa cliente (só eles podem cadastrar empresas
+          // novas em /setup-empresa).
+          empresa_id: string | null;
           nome: string;
           papel: PapelUsuario;
           ativo: boolean;
           criado_em: string;
         },
-        "id" | "empresa_id" | "nome",
+        "id" | "nome",
         [
           {
             foreignKeyName: "usuarios_empresa_id_fkey";

@@ -23,11 +23,11 @@ export default function LoginPage() {
             <div className="mx-auto mt-2.5 h-0.5 w-10 rounded-full bg-brand-600" />
           </div>
 
-          <div className="text-[13px] font-semibold uppercase tracking-[0.14em] text-brand-100/70">
+          <div className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white">
             Controle de EPI na prática
           </div>
 
-          <p className="mt-1 max-w-[280px] text-[13px] leading-relaxed text-brand-100/50">
+          <p className="mt-1 max-w-[280px] text-[13px] leading-relaxed text-white/80">
             Cada entrega registrada, cada colaborador protegido, cada
             auditoria tranquila.
           </p>

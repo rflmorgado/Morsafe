@@ -80,6 +80,9 @@ export async function criarEmpresa(
   }
 
   if (!signUpData.session) {
+    // Best-effort: remove a empresa órfã, já que sem sessão não dá pra
+    // seguir e vincular o usuário a ela.
+    await supabase.from("empresas").delete().eq("id", empresa.id);
     return {
       error:
         "O usuário foi criado, mas a confirmação de e-mail está ativa no Supabase (Authentication > Providers > Email > 'Confirm email'). Desative essa opção, apague o usuário incompleto em Authentication > Users e tente novamente.",

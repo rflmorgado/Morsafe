@@ -63,6 +63,7 @@ export interface Database {
           id: string;
           nome: string;
           cnpj: string | null;
+          endereco: string | null;
           ativo: boolean;
           criado_em: string;
         },

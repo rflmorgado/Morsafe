@@ -3,6 +3,7 @@ import { listColaboradores } from "@/lib/data/colaboradores";
 import { listSetoresComCargos } from "@/lib/data/setores";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { NovoColaboradorButton } from "./novo-colaborador-button";
+import { ImportarColaboradoresButton } from "./importar-colaboradores-button";
 import { DesligarColaboradorButton } from "./desligar-colaborador-button";
 
 function formatDate(value: string) {
@@ -40,7 +41,10 @@ export default async function ColaboradoresPage({
             className="w-full rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none transition placeholder:text-text-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
           />
         </form>
-        <NovoColaboradorButton setores={setores} />
+        <div className="flex gap-2">
+          <ImportarColaboradoresButton setores={setores} />
+          <NovoColaboradorButton setores={setores} />
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-[14px] border border-border-subtle">

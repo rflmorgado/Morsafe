@@ -47,6 +47,63 @@ export async function createColaborador(
   return { error: null, success: true };
 }
 
+export type ImportarColaboradorRow = {
+  nome: string;
+  setorId: string;
+  cargoId: string;
+  cpf?: string | null;
+  telefone?: string | null;
+};
+
+export type ImportarColaboradoresState = {
+  error: string | null;
+  inserted?: number;
+};
+
+/**
+ * Importação em massa — recebe linhas já validadas e mapeadas no cliente
+ * (setor/cargo já resolvidos para id) e insere tudo de uma vez. A validação
+ * de nome/setor/cargo acontece no componente cliente antes de chegar aqui;
+ * esta action confia nos ids recebidos e deixa a FK do banco barrar
+ * qualquer id inválido.
+ */
+export async function importarColaboradores(
+  rows: ImportarColaboradorRow[],
+): Promise<ImportarColaboradoresState> {
+  if (!rows.length) {
+    return { error: "Nenhuma linha válida para importar." };
+  }
+
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+
+  const supabase = await createClient();
+  const payload = rows.map((r) => ({
+    empresa_id: user.empresaId as string,
+    nome: r.nome,
+    setor_id: r.setorId,
+    cargo_id: r.cargoId,
+    cpf: r.cpf || null,
+    telefone: r.telefone || null,
+  }));
+
+  const { error, count } = await supabase
+    .from("colaboradores")
+    .insert(payload, { count: "exact" });
+
+  if (error) {
+    console.error("importarColaboradores:", error.message);
+    return {
+      error: "Não foi possível importar os colaboradores. Tente novamente.",
+    };
+  }
+
+  revalidatePath("/colaboradores");
+  return { error: null, inserted: count ?? payload.length };
+}
+
 export type DesligarColaboradorState = {
   error: string | null;
   success?: boolean;

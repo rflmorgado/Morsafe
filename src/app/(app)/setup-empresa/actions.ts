@@ -54,7 +54,9 @@ export async function criarEmpresa(
 
   if (empresaError || !empresa) {
     console.error("criarEmpresa (insert empresa):", empresaError?.message);
-    return { error: "Não foi possível criar a empresa. Tente novamente." };
+    return {
+      error: `Não foi possível criar a empresa. Detalhe: ${empresaError?.message ?? "erro desconhecido"}`,
+    };
   }
 
   // 2) Cria o usuário no Supabase Auth. Isso substitui, nos cookies do
@@ -73,7 +75,7 @@ export async function criarEmpresa(
       error:
         signUpError?.message === "User already registered"
           ? "Já existe um usuário com esse e-mail."
-          : "Não foi possível criar o usuário. Tente novamente.",
+          : `Não foi possível criar o usuário. Detalhe: ${signUpError?.message ?? "erro desconhecido"}`,
     };
   }
 
@@ -99,8 +101,7 @@ export async function criarEmpresa(
   if (usuarioError) {
     console.error("criarEmpresa (insert usuario):", usuarioError.message);
     return {
-      error:
-        "O usuário de autenticação foi criado, mas houve um erro ao vinculá-lo à empresa. Verifique manualmente no Supabase.",
+      error: `O usuário de autenticação foi criado, mas houve um erro ao vinculá-lo à empresa. Detalhe: ${usuarioError.message}`,
     };
   }
 

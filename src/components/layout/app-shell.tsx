@@ -75,8 +75,8 @@ export function AppShell({
           <div className="flex items-center justify-between px-4 py-3.5">
             <div className="flex items-center gap-2.5">
               <ShieldIcon className="h-6 w-6" />
-              <span className="text-base font-bold tracking-tight text-white">
-                Mor<span className="text-brand-500">Safe</span>
+              <span className="text-base font-bold tracking-tight text-brand-300">
+                Mor<span className="font-extrabold text-brand-500">Safe</span>
               </span>
             </div>
             <button
@@ -105,8 +105,8 @@ export function AppShell({
         >
           <div className="flex items-center gap-2.5 px-2.5 py-1">
             <ShieldIcon className="h-[30px] w-[30px]" />
-            <span className="text-[19px] font-bold tracking-tight text-white">
-              Mor<span className="text-brand-500">Safe</span>
+            <span className="text-[19px] font-bold tracking-tight text-brand-300">
+              Mor<span className="font-extrabold text-brand-500">Safe</span>
             </span>
           </div>
 

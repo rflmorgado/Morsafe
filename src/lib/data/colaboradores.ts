@@ -23,9 +23,10 @@ export async function listColaboradores({
 
   let request = supabase
     .from("colaboradores")
-    .select("id, nome, status, setores ( nome ), cargos ( nome )", {
-      count: "exact",
-    })
+    .select(
+      "id, nome, status, setor_id, cargo_id, cpf, telefone, setores ( nome ), cargos ( nome )",
+      { count: "exact" },
+    )
     .order("nome", { ascending: true });
 
   if (query && query.trim()) {
@@ -67,6 +68,10 @@ export async function listColaboradores({
       id: c.id,
       nome: c.nome,
       status: c.status,
+      setorId: c.setor_id,
+      cargoId: c.cargo_id,
+      cpf: c.cpf,
+      telefone: c.telefone,
       setor: (c.setores as unknown as { nome: string } | null)?.nome ?? "—",
       cargo: (c.cargos as unknown as { nome: string } | null)?.nome ?? "—",
       ultimaEntrega: ultimaEntrega.get(c.id) ?? null,

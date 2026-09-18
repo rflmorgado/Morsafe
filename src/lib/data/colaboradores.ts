@@ -86,6 +86,73 @@ export async function listColaboradores({
   };
 }
 
+export type ListColaboradoresExportOptions = {
+  query?: string;
+  setorId?: string;
+  status?: string;
+};
+
+/**
+ * Mesma busca e os mesmos filtros de listColaboradores, mas sem paginação —
+ * usada pela exportação em CSV, que precisa trazer todos os colaboradores
+ * que batem com o filtro atual da tela, não só os 20 da página visível.
+ */
+export async function listColaboradoresParaExportar({
+  query,
+  setorId,
+  status,
+}: ListColaboradoresExportOptions = {}) {
+  const supabase = await createClient();
+
+  let request = supabase
+    .from("colaboradores")
+    .select("id, nome, status, cpf, telefone, setores ( nome ), cargos ( nome )")
+    .order("nome", { ascending: true });
+
+  if (query && query.trim()) {
+    request = request.ilike("nome", `%${query.trim()}%`);
+  }
+  if (setorId) {
+    request = request.eq("setor_id", setorId);
+  }
+  if (status === "ativo" || status === "inativo") {
+    request = request.eq("status", status);
+  }
+
+  const { data, error } = await request;
+
+  if (error || !data) {
+    console.error("listColaboradoresParaExportar:", error?.message);
+    return [];
+  }
+
+  const ids = data.map((c) => c.id);
+  const { data: entregas } = ids.length
+    ? await supabase
+        .from("entregas")
+        .select("colaborador_id, data")
+        .in("colaborador_id", ids)
+        .order("data", { ascending: false })
+    : { data: [] as { colaborador_id: string; data: string }[] };
+
+  const ultimaEntrega = new Map<string, string>();
+  for (const e of entregas ?? []) {
+    if (!ultimaEntrega.has(e.colaborador_id)) {
+      ultimaEntrega.set(e.colaborador_id, e.data);
+    }
+  }
+
+  return data.map((c) => ({
+    nome: c.nome,
+    status: c.status,
+    setor: (c.setores as unknown as { nome: string } | null)?.nome ?? "—",
+    cargo: (c.cargos as unknown as { nome: string } | null)?.nome ?? "—",
+    cpf: c.cpf,
+    telefone: c.telefone,
+    ultimaEntrega: ultimaEntrega.get(c.id) ?? null,
+  }));
+}
+
 export async function getColaboradorDetalhe(id: string) {
   const supabase = await createClient();
 

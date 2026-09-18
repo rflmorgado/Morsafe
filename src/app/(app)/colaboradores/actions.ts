@@ -298,3 +298,44 @@ export async function desligarColaborador(
   revalidatePath(`/colaboradores/${colaboradorId}`);
   return { error: null, success: true };
 }
+
+export type ReativarColaboradorState = {
+  error: string | null;
+  success?: boolean;
+};
+
+/**
+ * Reativação — simétrica ao desligamento (volta o status para 'ativo').
+ * Não exige reautenticação por senha nem download de ficha: reativar não
+ * tem o mesmo peso de conformidade de desligar, já que não está removendo
+ * ninguém do controle de EPI, só voltando a acompanhar.
+ */
+export async function reativarColaborador(
+  colaboradorId: string,
+): Promise<ReativarColaboradorState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Sessão expirada. Faça login novamente." };
+  }
+
+  const { error } = await supabase
+    .from("colaboradores")
+    .update({ status: "ativo" })
+    .eq("id", colaboradorId);
+
+  if (error) {
+    console.error("reativarColaborador:", error.message);
+    return {
+      error: "Não foi possível reativar o colaborador. Tente novamente.",
+    };
+  }
+
+  revalidatePath("/colaboradores");
+  revalidatePath(`/colaboradores/${colaboradorId}`);
+  return { error: null, success: true };
+}

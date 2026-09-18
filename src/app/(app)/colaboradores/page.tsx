@@ -13,6 +13,7 @@ import { ReativarColaboradorButton } from "./reativar-colaborador-button";
 import { BaixarFichaButton } from "./baixar-ficha-button";
 import { EditarColaboradorButton } from "./editar-colaborador-button";
 import { ColaboradoresFilters } from "./colaboradores-filters";
+import { temPapelMinimo } from "@/lib/auth/permissoes";
 
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
@@ -119,6 +120,14 @@ export default async function ColaboradoresPage({
 
   const totalPages = Math.max(1, Math.ceil(total / COLABORADORES_PAGE_SIZE));
 
+  // Controle de acesso por papel: "leitura" só visualiza (busca, filtra,
+  // ordena, vê detalhe e baixa ficha); "encarregado" também cadastra, edita,
+  // importa e exporta; só "admin"+ desliga/reativa. As Server Actions e
+  // rotas fazem a mesma checagem de novo — esconder o botão aqui é só pra
+  // não oferecer uma ação que vai ser barrada, nunca a única barreira.
+  const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
+  const podeDesligarOuReativar = temPapelMinimo(user?.papel, "admin");
+
   return (
     <div className="space-y-1">
       <h2 className="text-xl font-bold tracking-tight text-foreground">
@@ -130,31 +139,33 @@ export default async function ColaboradoresPage({
 
       <div className="mb-4 flex flex-col gap-3">
         <ColaboradoresFilters setores={setores} />
-        <div className="flex flex-wrap justify-end gap-2">
-          <a
-            href={buildExportHref(q, setor, status, sort, dir)}
-            title="Exportar lista filtrada em CSV"
-            className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
+        {podeGerenciar && (
+          <div className="flex flex-wrap justify-end gap-2">
+            <a
+              href={buildExportHref(q, setor, status, sort, dir)}
+              title="Exportar lista filtrada em CSV"
+              className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
             >
-              <path d="M12 3v12" />
-              <path d="M7 10l5 5 5-5" />
-              <path d="M5 21h14" />
-            </svg>
-            Exportar CSV
-          </a>
-          <ImportarColaboradoresButton setores={setores} />
-          <NovoColaboradorButton setores={setores} />
-        </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <path d="M12 3v12" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M5 21h14" />
+              </svg>
+              Exportar CSV
+            </a>
+            <ImportarColaboradoresButton setores={setores} />
+            <NovoColaboradorButton setores={setores} />
+          </div>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-[14px] border border-border-subtle">
@@ -232,33 +243,36 @@ export default async function ColaboradoresPage({
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <EditarColaboradorButton
-                        colaborador={{
-                          id: c.id,
-                          nome: c.nome,
-                          setorId: c.setorId,
-                          cargoId: c.cargoId,
-                          cpf: c.cpf,
-                          telefone: c.telefone,
-                        }}
-                        setores={setores}
-                      />
+                      {podeGerenciar && (
+                        <EditarColaboradorButton
+                          colaborador={{
+                            id: c.id,
+                            nome: c.nome,
+                            setorId: c.setorId,
+                            cargoId: c.cargoId,
+                            cpf: c.cpf,
+                            telefone: c.telefone,
+                          }}
+                          setores={setores}
+                        />
+                      )}
                       <BaixarFichaButton
                         colaboradorId={c.id}
                         colaboradorNome={c.nome}
                       />
-                      {c.status === "ativo" ? (
-                        <DesligarColaboradorButton
-                          colaboradorId={c.id}
-                          colaboradorNome={c.nome}
-                          userEmail={user?.email ?? ""}
-                        />
-                      ) : (
-                        <ReativarColaboradorButton
-                          colaboradorId={c.id}
-                          colaboradorNome={c.nome}
-                        />
-                      )}
+                      {podeDesligarOuReativar &&
+                        (c.status === "ativo" ? (
+                          <DesligarColaboradorButton
+                            colaboradorId={c.id}
+                            colaboradorNome={c.nome}
+                            userEmail={user?.email ?? ""}
+                          />
+                        ) : (
+                          <ReativarColaboradorButton
+                            colaboradorId={c.id}
+                            colaboradorNome={c.nome}
+                          />
+                        ))}
                     </div>
                   </td>
                 </ClickableRow>

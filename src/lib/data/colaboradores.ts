@@ -18,6 +18,52 @@ function isSortColumn(value: string | undefined): value is SortColumn {
   return !!value && (SORT_COLUMNS as readonly string[]).includes(value);
 }
 
+type ColaboradorOrdenavel = {
+  nome: string;
+  setor: string;
+  cargo: string;
+  status: string;
+  ultimaEntrega: string | null;
+};
+
+/**
+ * Ordenação por coluna compartilhada entre a listagem da tela e a
+ * exportação em CSV — as duas precisam ordenar do mesmo jeito, inclusive
+ * por "última entrega" (que não é uma coluna do banco, ver comentário
+ * acima). Ordena em memória e retorna um array novo.
+ */
+function ordenarColaboradores<T extends ColaboradorOrdenavel>(
+  lista: T[],
+  sort: string | undefined,
+  dir: string | undefined,
+): T[] {
+  const sortKey: SortColumn = isSortColumn(sort) ? sort : "nome";
+  const ascending = dir !== "desc";
+
+  return [...lista].sort((a, b) => {
+    let cmp: number;
+    if (sortKey === "ultima_entrega") {
+      // Colaboradores sem nenhuma entrega registrada sempre vão para o
+      // final da lista, independente da direção — não tem "mais recente"
+      // ou "mais antigo" pra comparar quando não existe entrega nenhuma.
+      if (!a.ultimaEntrega && !b.ultimaEntrega) return 0;
+      if (!a.ultimaEntrega) return 1;
+      if (!b.ultimaEntrega) return -1;
+      cmp =
+        a.ultimaEntrega < b.ultimaEntrega
+          ? -1
+          : a.ultimaEntrega > b.ultimaEntrega
+            ? 1
+            : 0;
+    } else {
+      const va = String(a[sortKey]).toLowerCase();
+      const vb = String(b[sortKey]).toLowerCase();
+      cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    }
+    return ascending ? cmp : -cmp;
+  });
+}
+
 /**
  * Lista paginada de colaboradores (20 por página por padrão), com busca por
  * nome, filtro por setor/status e ordenação por coluna — inclusive por
@@ -90,39 +136,15 @@ export async function listColaboradores({
     ultimaEntrega: ultimaEntrega.get(c.id) ?? null,
   }));
 
-  const sortKey: SortColumn = isSortColumn(sort) ? sort : "nome";
-  const ascending = dir !== "desc";
+  const ordenados = ordenarColaboradores(mapeados, sort, dir);
 
-  mapeados.sort((a, b) => {
-    let cmp: number;
-    if (sortKey === "ultima_entrega") {
-      // Colaboradores sem nenhuma entrega registrada sempre vão para o
-      // final da lista, independente da direção — não tem "mais recente"
-      // ou "mais antigo" pra comparar quando não existe entrega nenhuma.
-      if (!a.ultimaEntrega && !b.ultimaEntrega) return 0;
-      if (!a.ultimaEntrega) return 1;
-      if (!b.ultimaEntrega) return -1;
-      cmp =
-        a.ultimaEntrega < b.ultimaEntrega
-          ? -1
-          : a.ultimaEntrega > b.ultimaEntrega
-            ? 1
-            : 0;
-    } else {
-      const va = String(a[sortKey]).toLowerCase();
-      const vb = String(b[sortKey]).toLowerCase();
-      cmp = va < vb ? -1 : va > vb ? 1 : 0;
-    }
-    return ascending ? cmp : -cmp;
-  });
-
-  const total = mapeados.length;
+  const total = ordenados.length;
   const currentPage = page > 0 ? page : 1;
   const from = (currentPage - 1) * COLABORADORES_PAGE_SIZE;
   const to = from + COLABORADORES_PAGE_SIZE;
 
   return {
-    colaboradores: mapeados.slice(from, to),
+    colaboradores: ordenados.slice(from, to),
     total,
   };
 }
@@ -131,24 +153,28 @@ export type ListColaboradoresExportOptions = {
   query?: string;
   setorId?: string;
   status?: string;
+  sort?: string;
+  dir?: string;
 };
 
 /**
- * Mesma busca e os mesmos filtros de listColaboradores, mas sem paginação —
- * usada pela exportação em CSV, que precisa trazer todos os colaboradores
- * que batem com o filtro atual da tela, não só os 20 da página visível.
+ * Mesma busca, os mesmos filtros e a mesma ordenação de listColaboradores,
+ * mas sem paginação — usada pela exportação em CSV, que precisa trazer
+ * todos os colaboradores que batem com o filtro atual da tela, não só os
+ * 20 da página visível.
  */
 export async function listColaboradoresParaExportar({
   query,
   setorId,
   status,
+  sort,
+  dir,
 }: ListColaboradoresExportOptions = {}) {
   const supabase = await createClient();
 
   let request = supabase
     .from("colaboradores")
-    .select("id, nome, status, cpf, telefone, setores ( nome ), cargos ( nome )")
-    .order("nome", { ascending: true });
+    .select("id, nome, status, cpf, telefone, setores ( nome ), cargos ( nome )");
 
   if (query && query.trim()) {
     request = request.ilike("nome", `%${query.trim()}%`);
@@ -183,7 +209,7 @@ export async function listColaboradoresParaExportar({
     }
   }
 
-  return data.map((c) => ({
+  const mapeados = data.map((c) => ({
     nome: c.nome,
     status: c.status,
     setor: (c.setores as unknown as { nome: string } | null)?.nome ?? "—",
@@ -192,6 +218,8 @@ export async function listColaboradoresParaExportar({
     telefone: c.telefone,
     ultimaEntrega: ultimaEntrega.get(c.id) ?? null,
   }));
+
+  return ordenarColaboradores(mapeados, sort, dir);
 }
 
 export async function getColaboradorDetalhe(id: string) {

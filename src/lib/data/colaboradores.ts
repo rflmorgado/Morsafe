@@ -5,18 +5,21 @@ export const COLABORADORES_PAGE_SIZE = 20;
 export type ListColaboradoresOptions = {
   query?: string;
   setorId?: string;
+  status?: string;
   page?: number;
 };
 
 /**
  * Lista paginada de colaboradores (20 por página por padrão), com busca por
- * nome e filtro por setor opcionais. Evita renderizar centenas de linhas de
- * uma vez — importante já que uma empresa pode ter 100+ colaboradores e
- * isso ficava enorme, principalmente no celular.
+ * nome, filtro por setor e filtro por status (ativo/inativo) opcionais.
+ * Evita renderizar centenas de linhas de uma vez — importante já que uma
+ * empresa pode ter 100+ colaboradores e isso ficava enorme, principalmente
+ * no celular.
  */
 export async function listColaboradores({
   query,
   setorId,
+  status,
   page = 1,
 }: ListColaboradoresOptions = {}) {
   const supabase = await createClient();
@@ -34,6 +37,9 @@ export async function listColaboradores({
   }
   if (setorId) {
     request = request.eq("setor_id", setorId);
+  }
+  if (status === "ativo" || status === "inativo") {
+    request = request.eq("status", status);
   }
 
   const currentPage = page > 0 ? page : 1;

@@ -104,6 +104,58 @@ export async function importarColaboradores(
   return { error: null, inserted: count ?? payload.length };
 }
 
+export type UpdateColaboradorState = {
+  error: string | null;
+  success?: boolean;
+};
+
+/**
+ * Edição de cadastro — permite corrigir dados e, principalmente, mudar
+ * setor/cargo em caso de promoção ou transferência interna, sem precisar
+ * desligar e recadastrar o colaborador.
+ */
+export async function updateColaborador(
+  _prevState: UpdateColaboradorState,
+  formData: FormData,
+): Promise<UpdateColaboradorState> {
+  const id = String(formData.get("id") ?? "").trim();
+  const nome = String(formData.get("nome") ?? "").trim();
+  const setorId = String(formData.get("setor_id") ?? "").trim();
+  const cargoId = String(formData.get("cargo_id") ?? "").trim();
+  const cpf = String(formData.get("cpf") ?? "").trim();
+  const telefone = String(formData.get("telefone") ?? "").trim();
+
+  if (!id) {
+    return { error: "Colaborador inválido." };
+  }
+  if (!nome || !setorId || !cargoId) {
+    return { error: "Preencha nome, setor e cargo." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("colaboradores")
+    .update({
+      nome,
+      setor_id: setorId,
+      cargo_id: cargoId,
+      cpf: cpf || null,
+      telefone: telefone || null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("updateColaborador:", error.message);
+    return {
+      error: "Não foi possível salvar as alterações. Tente novamente.",
+    };
+  }
+
+  revalidatePath("/colaboradores");
+  revalidatePath(`/colaboradores/${id}`);
+  return { error: null, success: true };
+}
+
 export type DesligarColaboradorState = {
   error: string | null;
   success?: boolean;

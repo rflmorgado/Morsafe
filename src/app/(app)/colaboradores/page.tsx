@@ -18,10 +18,16 @@ function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
 }
 
-function buildHref(q: string | undefined, setor: string | undefined, page: number) {
+function buildHref(
+  q: string | undefined,
+  setor: string | undefined,
+  status: string | undefined,
+  page: number,
+) {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (setor) params.set("setor", setor);
+  if (status) params.set("status", status);
   if (page > 1) params.set("page", String(page));
   const qs = params.toString();
   return `/colaboradores${qs ? `?${qs}` : ""}`;
@@ -30,13 +36,18 @@ function buildHref(q: string | undefined, setor: string | undefined, page: numbe
 export default async function ColaboradoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; setor?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    setor?: string;
+    status?: string;
+    page?: string;
+  }>;
 }) {
-  const { q, setor, page: pageParam } = await searchParams;
+  const { q, setor, status, page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
 
   const [{ colaboradores, total }, setores, user] = await Promise.all([
-    listColaboradores({ query: q, setorId: setor, page }),
+    listColaboradores({ query: q, setorId: setor, status, page }),
     listSetoresComCargos(),
     getCurrentUser(),
   ]);
@@ -158,7 +169,7 @@ export default async function ColaboradoresPage({
           </span>
           <div className="flex gap-2">
             <Link
-              href={buildHref(q, setor, page - 1)}
+              href={buildHref(q, setor, status, page - 1)}
               aria-disabled={page <= 1}
               tabIndex={page <= 1 ? -1 : undefined}
               className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
@@ -170,7 +181,7 @@ export default async function ColaboradoresPage({
               ← Anterior
             </Link>
             <Link
-              href={buildHref(q, setor, page + 1)}
+              href={buildHref(q, setor, status, page + 1)}
               aria-disabled={page >= totalPages}
               tabIndex={page >= totalPages ? -1 : undefined}
               className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${

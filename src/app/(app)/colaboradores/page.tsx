@@ -124,9 +124,9 @@ export default async function ColaboradoresPage({
         Lista com busca rápida e filtro por setor.
       </p>
 
-      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="mb-4 flex flex-col gap-3">
         <ColaboradoresFilters setores={setores} />
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <a
             href={buildExportHref(q, setor, status)}
             title="Exportar lista filtrada em CSV"

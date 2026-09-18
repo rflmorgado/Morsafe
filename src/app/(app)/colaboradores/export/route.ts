@@ -1,4 +1,6 @@
 import { listColaboradoresParaExportar } from "@/lib/data/colaboradores";
+import { getCurrentUser } from "@/lib/data/current-user";
+import { temPapelMinimo } from "@/lib/auth/permissoes";
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -23,8 +25,24 @@ function csvEscape(value: string) {
  * inteira que bate com o filtro. Usa ponto e vírgula como separador e BOM
  * UTF-8 porque é o que o Excel em português abre corretamente (vírgula é
  * separador decimal no Brasil, então o Excel BR espera ; nos CSVs).
+ *
+ * Exige papel "encarregado" ou superior: o CSV carrega CPF e telefone de
+ * toda a empresa de uma vez, então um usuário "leitura" não pode gerar esse
+ * arquivo, só consultar colaborador por colaborador na tela.
  */
 export async function GET(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return new Response("Sessão expirada. Faça login novamente.", {
+      status: 401,
+    });
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return new Response("Seu perfil de acesso não permite exportar.", {
+      status: 403,
+    });
+  }
+
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q") ?? undefined;
   const setor = searchParams.get("setor") ?? undefined;

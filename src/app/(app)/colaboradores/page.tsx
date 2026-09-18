@@ -10,6 +10,7 @@ import { NovoColaboradorButton } from "./novo-colaborador-button";
 import { ImportarColaboradoresButton } from "./importar-colaboradores-button";
 import { DesligarColaboradorButton } from "./desligar-colaborador-button";
 import { BaixarFichaButton } from "./baixar-ficha-button";
+import { EditarColaboradorButton } from "./editar-colaborador-button";
 import { ColaboradoresFilters } from "./colaboradores-filters";
 
 function formatDate(value: string) {
@@ -112,6 +113,17 @@ export default async function ColaboradoresPage({
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <EditarColaboradorButton
+                        colaborador={{
+                          id: c.id,
+                          nome: c.nome,
+                          setorId: c.setorId,
+                          cargoId: c.cargoId,
+                          cpf: c.cpf,
+                          telefone: c.telefone,
+                        }}
+                        setores={setores}
+                      />
                       <BaixarFichaButton
                         colaboradorId={c.id}
                         colaboradorNome={c.nome}

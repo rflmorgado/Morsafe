@@ -34,6 +34,18 @@ export async function GET(
     getCurrentUser(),
   ]);
 
+  // O proxy (middleware) já bloqueia quem não está logado antes de chegar
+  // aqui, mas confirmamos de novo — baixar ficha é permitido pra qualquer
+  // papel autenticado (inclusive "leitura"), então não há checagem de papel,
+  // só de sessão. O isolamento entre empresas fica por conta do RLS em
+  // getColaboradorDetalhe.
+  if (!user) {
+    return NextResponse.json(
+      { error: "Sessão expirada. Faça login novamente." },
+      { status: 401 },
+    );
+  }
+
   if (!colaborador) {
     return NextResponse.json(
       { error: "Colaborador não encontrado." },

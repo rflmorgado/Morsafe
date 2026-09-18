@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/modal";
-import { createColaborador } from "./actions";
+import { createColaborador, createSetor, createCargo } from "./actions";
 import type { SetorComCargos } from "@/lib/data/setores";
+
+const OUTRO = "__outro__";
 
 export function NovoColaboradorButton({
   setores,
@@ -12,21 +14,65 @@ export function NovoColaboradorButton({
 }) {
   const [open, setOpen] = useState(false);
   const [setorId, setSetorId] = useState("");
+  const [cargoId, setCargoId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const cargosDoSetor = setores.find((s) => s.id === setorId)?.cargos ?? [];
+  const setorNovo = setorId === OUTRO;
+  const cargoNovo = setorNovo || cargoId === OUTRO;
+
+  function reset() {
+    setSetorId("");
+    setCargoId("");
+    setError(null);
+  }
 
   function handleSubmit(formData: FormData) {
     setError(null);
     startTransition(async () => {
+      let finalSetorId = setorId;
+
+      if (setorNovo) {
+        const nomeSetor = String(formData.get("setor_nome_novo") ?? "").trim();
+        if (!nomeSetor) {
+          setError("Digite o nome do novo setor.");
+          return;
+        }
+        const setorResult = await createSetor(nomeSetor);
+        if (setorResult.error || !setorResult.id) {
+          setError(setorResult.error ?? "Não foi possível criar o setor.");
+          return;
+        }
+        finalSetorId = setorResult.id;
+      }
+
+      let finalCargoId = cargoId;
+
+      if (cargoNovo) {
+        const nomeCargo = String(formData.get("cargo_nome_novo") ?? "").trim();
+        if (!nomeCargo) {
+          setError("Digite o nome da nova função.");
+          return;
+        }
+        const cargoResult = await createCargo(finalSetorId, nomeCargo);
+        if (cargoResult.error || !cargoResult.id) {
+          setError(cargoResult.error ?? "Não foi possível criar a função.");
+          return;
+        }
+        finalCargoId = cargoResult.id;
+      }
+
+      formData.set("setor_id", finalSetorId);
+      formData.set("cargo_id", finalCargoId);
+
       const result = await createColaborador({ error: null }, formData);
       if (result.error) {
         setError(result.error);
         return;
       }
       setOpen(false);
-      setSetorId("");
+      reset();
     });
   }
 
@@ -76,7 +122,10 @@ export function NovoColaboradorButton({
                 name="setor_id"
                 required
                 value={setorId}
-                onChange={(e) => setSetorId(e.target.value)}
+                onChange={(e) => {
+                  setSetorId(e.target.value);
+                  setCargoId("");
+                }}
                 className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
               >
                 <option value="" disabled>
@@ -87,7 +136,17 @@ export function NovoColaboradorButton({
                     {s.nome}
                   </option>
                 ))}
+                <option value={OUTRO}>+ Outro (digitar)</option>
               </select>
+              {setorNovo && (
+                <input
+                  name="setor_nome_novo"
+                  type="text"
+                  required
+                  placeholder="Nome do novo setor"
+                  className="mt-2 w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition placeholder:text-text-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                />
+              )}
             </div>
 
             <div>
@@ -97,23 +156,46 @@ export function NovoColaboradorButton({
               >
                 Cargo
               </label>
-              <select
-                id="cargo_id"
-                name="cargo_id"
-                required
-                disabled={!setorId}
-                defaultValue=""
-                className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="" disabled>
-                  {setorId ? "Selecione…" : "Escolha um setor"}
-                </option>
-                {cargosDoSetor.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
-                ))}
-              </select>
+              {setorNovo ? (
+                <input
+                  name="cargo_nome_novo"
+                  type="text"
+                  required
+                  placeholder="Nome da função"
+                  className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition placeholder:text-text-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                />
+              ) : (
+                <>
+                  <select
+                    id="cargo_id"
+                    name="cargo_id"
+                    required
+                    disabled={!setorId}
+                    value={cargoId}
+                    onChange={(e) => setCargoId(e.target.value)}
+                    className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="" disabled>
+                      {setorId ? "Selecione…" : "Escolha um setor"}
+                    </option>
+                    {cargosDoSetor.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nome}
+                      </option>
+                    ))}
+                    {setorId && <option value={OUTRO}>+ Outro (digitar)</option>}
+                  </select>
+                  {cargoNovo && (
+                    <input
+                      name="cargo_nome_novo"
+                      type="text"
+                      required
+                      placeholder="Nome da nova função"
+                      className="mt-2 w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition placeholder:text-text-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    />
+                  )}
+                </>
+              )}
             </div>
           </div>
 
@@ -159,7 +241,10 @@ export function NovoColaboradorButton({
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                reset();
+              }}
               className="rounded-lg px-4 py-2.5 text-[13.5px] font-semibold text-text-secondary transition hover:bg-surface-muted"
             >
               Cancelar

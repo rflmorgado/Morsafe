@@ -4,6 +4,105 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/current-user";
 
+export type CreateSetorState = {
+  error: string | null;
+  id?: string;
+  nome?: string;
+};
+
+/**
+ * Cria um setor novo "no percurso" (opção "Outro" nos formulários de
+ * colaborador), para quando surge um setor que ainda não está cadastrado.
+ * setores.unidade_id é obrigatório no banco; como o app ainda não tem uma
+ * tela de gestão de unidades, usamos a unidade mais antiga da empresa como
+ * padrão — hoje a grande maioria das empresas cadastradas tem uma única
+ * unidade.
+ */
+export async function createSetor(nome: string): Promise<CreateSetorState> {
+  const nomeTrim = nome.trim();
+  if (!nomeTrim) {
+    return { error: "Digite o nome do setor." };
+  }
+
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: unidade, error: unidadeError } = await supabase
+    .from("unidades")
+    .select("id")
+    .eq("empresa_id", user.empresaId)
+    .order("criado_em", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (unidadeError || !unidade) {
+    console.error("createSetor (unidade):", unidadeError?.message);
+    return { error: "Não foi possível identificar a unidade da empresa." };
+  }
+
+  const { data, error } = await supabase
+    .from("setores")
+    .insert({ empresa_id: user.empresaId, unidade_id: unidade.id, nome: nomeTrim })
+    .select("id, nome")
+    .single();
+
+  if (error || !data) {
+    console.error("createSetor:", error?.message);
+    return { error: "Não foi possível criar o setor. Tente novamente." };
+  }
+
+  revalidatePath("/colaboradores");
+  return { error: null, id: data.id, nome: data.nome };
+}
+
+export type CreateCargoState = {
+  error: string | null;
+  id?: string;
+  nome?: string;
+};
+
+/**
+ * Cria uma função (cargo) nova "no percurso", ligada ao setor informado —
+ * mesma ideia da opção "Outro" para setor, mas para o caso de o setor já
+ * existir e só faltar a função/cargo específico.
+ */
+export async function createCargo(
+  setorId: string,
+  nome: string,
+): Promise<CreateCargoState> {
+  const nomeTrim = nome.trim();
+  if (!setorId) {
+    return { error: "Selecione um setor antes de criar a função." };
+  }
+  if (!nomeTrim) {
+    return { error: "Digite o nome da função." };
+  }
+
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("cargos")
+    .insert({ empresa_id: user.empresaId, setor_id: setorId, nome: nomeTrim })
+    .select("id, nome")
+    .single();
+
+  if (error || !data) {
+    console.error("createCargo:", error?.message);
+    return { error: "Não foi possível criar a função. Tente novamente." };
+  }
+
+  revalidatePath("/colaboradores");
+  return { error: null, id: data.id, nome: data.nome };
+}
+
 export type CreateColaboradorState = {
   error: string | null;
   success?: boolean;

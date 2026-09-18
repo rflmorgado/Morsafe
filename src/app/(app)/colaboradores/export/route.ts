@@ -1,0 +1,72 @@
+import { listColaboradoresParaExportar } from "@/lib/data/colaboradores";
+
+function formatDate(value: string | null) {
+  if (!value) return "";
+  return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
+}
+
+/**
+ * Escapa um campo para CSV: se tiver ponto e vírgula, aspas ou quebra de
+ * linha, envolve em aspas duplas (dobrando aspas internas), como manda o
+ * padrão RFC 4180.
+ */
+function csvEscape(value: string) {
+  if (/[";\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+/**
+ * Exporta a lista de colaboradores em CSV, respeitando os mesmos filtros
+ * (busca, setor, status) aplicados na tela — não só a página atual, a lista
+ * inteira que bate com o filtro. Usa ponto e vírgula como separador e BOM
+ * UTF-8 porque é o que o Excel em português abre corretamente (vírgula é
+ * separador decimal no Brasil, então o Excel BR espera ; nos CSVs).
+ */
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const q = searchParams.get("q") ?? undefined;
+  const setor = searchParams.get("setor") ?? undefined;
+  const status = searchParams.get("status") ?? undefined;
+
+  const colaboradores = await listColaboradoresParaExportar({
+    query: q,
+    setorId: setor,
+    status,
+  });
+
+  const header = [
+    "Nome",
+    "Setor",
+    "Cargo",
+    "CPF",
+    "Telefone",
+    "Status",
+    "Última entrega",
+  ];
+
+  const linhas = colaboradores.map((c) => [
+    c.nome,
+    c.setor,
+    c.cargo,
+    c.cpf ?? "",
+    c.telefone ?? "",
+    c.status === "ativo" ? "Ativo" : "Inativo",
+    formatDate(c.ultimaEntrega),
+  ]);
+
+  const csv = [header, ...linhas]
+    .map((linha) => linha.map((v) => csvEscape(String(v))).join(";"))
+    .join("\r\n");
+
+  const bom = "﻿";
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  return new Response(bom + csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="colaboradores-${hoje}.csv"`,
+    },
+  });
+}

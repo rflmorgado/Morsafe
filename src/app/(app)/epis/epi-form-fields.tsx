@@ -163,6 +163,11 @@ export function EpiFormFields({
             placeholder="0,00"
             className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition placeholder:text-text-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
           />
+          <p className="mt-1 text-[11.5px] text-text-muted">
+            Valor de referência até a 1ª compra ser lançada no Estoque —
+            depois disso, passa a ser calculado sozinho pelo histórico de
+            compras (custo médio ponderado), sem precisar editar aqui.
+          </p>
         </div>
         <div>
           <label

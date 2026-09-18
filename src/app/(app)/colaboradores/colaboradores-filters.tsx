@@ -46,14 +46,14 @@ export function ColaboradoresFilters({
   }, []);
 
   return (
-    <div className="flex flex-1 flex-col gap-2 sm:flex-row">
+    <div className="flex flex-1 flex-wrap gap-2">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           if (debounceRef.current) clearTimeout(debounceRef.current);
           updateParams({ q: q.trim() || undefined });
         }}
-        className="relative max-w-[320px] flex-1"
+        className="relative min-w-[180px] max-w-[320px] flex-1"
       >
         <input
           type="search"
@@ -72,7 +72,7 @@ export function ColaboradoresFilters({
       <select
         defaultValue={searchParams.get("setor") ?? ""}
         onChange={(e) => updateParams({ setor: e.target.value || undefined })}
-        className="max-w-[200px] rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+        className="min-w-[140px] max-w-[200px] flex-1 rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
       >
         <option value="">Todos os setores</option>
         {setores.map((s) => (
@@ -85,7 +85,7 @@ export function ColaboradoresFilters({
       <select
         defaultValue={searchParams.get("status") ?? ""}
         onChange={(e) => updateParams({ status: e.target.value || undefined })}
-        className="max-w-[160px] rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+        className="min-w-[120px] max-w-[160px] flex-1 rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
       >
         <option value="">Todos os status</option>
         <option value="ativo">Somente ativos</option>

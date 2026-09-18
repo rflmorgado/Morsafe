@@ -46,14 +46,14 @@ export function ColaboradoresFilters({
   }, []);
 
   return (
-    <div className="flex flex-1 flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           if (debounceRef.current) clearTimeout(debounceRef.current);
           updateParams({ q: q.trim() || undefined });
         }}
-        className="relative min-w-[180px] max-w-[320px] flex-1"
+        className="relative w-full min-w-[180px] max-w-[320px] flex-1 sm:w-auto"
       >
         <input
           type="search"

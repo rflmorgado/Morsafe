@@ -81,6 +81,16 @@ export function ColaboradoresFilters({
           </option>
         ))}
       </select>
+
+      <select
+        defaultValue={searchParams.get("status") ?? ""}
+        onChange={(e) => updateParams({ status: e.target.value || undefined })}
+        className="max-w-[160px] rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+      >
+        <option value="">Todos os status</option>
+        <option value="ativo">Somente ativos</option>
+        <option value="inativo">Somente inativos</option>
+      </select>
     </div>
   );
 }

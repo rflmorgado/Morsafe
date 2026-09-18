@@ -6,20 +6,34 @@ export type ListColaboradoresOptions = {
   query?: string;
   setorId?: string;
   status?: string;
+  sort?: string;
+  dir?: string;
   page?: number;
 };
 
+const SORT_COLUMNS = ["nome", "setor", "cargo", "status", "ultima_entrega"] as const;
+type SortColumn = (typeof SORT_COLUMNS)[number];
+
+function isSortColumn(value: string | undefined): value is SortColumn {
+  return !!value && (SORT_COLUMNS as readonly string[]).includes(value);
+}
+
 /**
  * Lista paginada de colaboradores (20 por página por padrão), com busca por
- * nome, filtro por setor e filtro por status (ativo/inativo) opcionais.
- * Evita renderizar centenas de linhas de uma vez — importante já que uma
- * empresa pode ter 100+ colaboradores e isso ficava enorme, principalmente
- * no celular.
+ * nome, filtro por setor/status e ordenação por coluna — inclusive por
+ * "última entrega", que não é uma coluna da tabela colaboradores, vem de uma
+ * consulta separada em `entregas`. Por causa disso, em vez de ordenar e
+ * paginar direto no banco, buscamos todos os colaboradores que batem com o
+ * filtro, ordenamos em memória e só depois fatiamos a página — tranquilo para
+ * o volume de colaboradores de uma empresa (dezenas a poucas centenas) e
+ * evita ter que replicar a ordenação por "última entrega" dentro do SQL.
  */
 export async function listColaboradores({
   query,
   setorId,
   status,
+  sort,
+  dir,
   page = 1,
 }: ListColaboradoresOptions = {}) {
   const supabase = await createClient();
@@ -28,9 +42,7 @@ export async function listColaboradores({
     .from("colaboradores")
     .select(
       "id, nome, status, setor_id, cargo_id, cpf, telefone, setores ( nome ), cargos ( nome )",
-      { count: "exact" },
-    )
-    .order("nome", { ascending: true });
+    );
 
   if (query && query.trim()) {
     request = request.ilike("nome", `%${query.trim()}%`);
@@ -42,11 +54,7 @@ export async function listColaboradores({
     request = request.eq("status", status);
   }
 
-  const currentPage = page > 0 ? page : 1;
-  const from = (currentPage - 1) * COLABORADORES_PAGE_SIZE;
-  const to = from + COLABORADORES_PAGE_SIZE - 1;
-
-  const { data, error, count } = await request.range(from, to);
+  const { data, error } = await request;
 
   if (error || !data) {
     console.error("listColaboradores:", error?.message);
@@ -69,20 +77,53 @@ export async function listColaboradores({
     }
   }
 
+  const mapeados = data.map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    status: c.status,
+    setorId: c.setor_id,
+    cargoId: c.cargo_id,
+    cpf: c.cpf,
+    telefone: c.telefone,
+    setor: (c.setores as unknown as { nome: string } | null)?.nome ?? "—",
+    cargo: (c.cargos as unknown as { nome: string } | null)?.nome ?? "—",
+    ultimaEntrega: ultimaEntrega.get(c.id) ?? null,
+  }));
+
+  const sortKey: SortColumn = isSortColumn(sort) ? sort : "nome";
+  const ascending = dir !== "desc";
+
+  mapeados.sort((a, b) => {
+    let cmp: number;
+    if (sortKey === "ultima_entrega") {
+      // Colaboradores sem nenhuma entrega registrada sempre vão para o
+      // final da lista, independente da direção — não tem "mais recente"
+      // ou "mais antigo" pra comparar quando não existe entrega nenhuma.
+      if (!a.ultimaEntrega && !b.ultimaEntrega) return 0;
+      if (!a.ultimaEntrega) return 1;
+      if (!b.ultimaEntrega) return -1;
+      cmp =
+        a.ultimaEntrega < b.ultimaEntrega
+          ? -1
+          : a.ultimaEntrega > b.ultimaEntrega
+            ? 1
+            : 0;
+    } else {
+      const va = String(a[sortKey]).toLowerCase();
+      const vb = String(b[sortKey]).toLowerCase();
+      cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    }
+    return ascending ? cmp : -cmp;
+  });
+
+  const total = mapeados.length;
+  const currentPage = page > 0 ? page : 1;
+  const from = (currentPage - 1) * COLABORADORES_PAGE_SIZE;
+  const to = from + COLABORADORES_PAGE_SIZE;
+
   return {
-    colaboradores: data.map((c) => ({
-      id: c.id,
-      nome: c.nome,
-      status: c.status,
-      setorId: c.setor_id,
-      cargoId: c.cargo_id,
-      cpf: c.cpf,
-      telefone: c.telefone,
-      setor: (c.setores as unknown as { nome: string } | null)?.nome ?? "—",
-      cargo: (c.cargos as unknown as { nome: string } | null)?.nome ?? "—",
-      ultimaEntrega: ultimaEntrega.get(c.id) ?? null,
-    })),
-    total: count ?? data.length,
+    colaboradores: mapeados.slice(from, to),
+    total,
   };
 }
 

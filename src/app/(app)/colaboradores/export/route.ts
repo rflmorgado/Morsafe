@@ -29,11 +29,15 @@ export async function GET(request: Request) {
   const q = searchParams.get("q") ?? undefined;
   const setor = searchParams.get("setor") ?? undefined;
   const status = searchParams.get("status") ?? undefined;
+  const sort = searchParams.get("sort") ?? undefined;
+  const dir = searchParams.get("dir") ?? undefined;
 
   const colaboradores = await listColaboradoresParaExportar({
     query: q,
     setorId: setor,
     status,
+    sort,
+    dir,
   });
 
   const header = [

@@ -58,11 +58,15 @@ function buildExportHref(
   q: string | undefined,
   setor: string | undefined,
   status: string | undefined,
+  sort: string | undefined,
+  dir: string | undefined,
 ) {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (setor) params.set("setor", setor);
   if (status) params.set("status", status);
+  if (sort) params.set("sort", sort);
+  if (dir) params.set("dir", dir);
   const qs = params.toString();
   return `/colaboradores/export${qs ? `?${qs}` : ""}`;
 }
@@ -128,7 +132,7 @@ export default async function ColaboradoresPage({
         <ColaboradoresFilters setores={setores} />
         <div className="flex flex-wrap justify-end gap-2">
           <a
-            href={buildExportHref(q, setor, status)}
+            href={buildExportHref(q, setor, status, sort, dir)}
             title="Exportar lista filtrada em CSV"
             className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
           >

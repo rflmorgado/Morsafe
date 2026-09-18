@@ -7,6 +7,17 @@ import { temPapelMinimo } from "@/lib/auth/permissoes";
 
 const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
+/**
+ * custo_medio_atual aqui é só o valor de referência inicial, digitado à mão
+ * (não existe compra registrada ainda). Decisão de produto (confirmada com
+ * o Rafael): quando o módulo de Estoque/Movimentações for construído, cada
+ * entrada em `entradas_estoque` (compra real, com preco_unitario e
+ * quantidade) deve recalcular esse campo sozinha, pelo método de custo
+ * médio ponderado — ex.: novoCusto = (saldoAtual * custoAtual + qtdNova *
+ * precoNovo) / (saldoAtual + qtdNova). A partir daí este formulário deixa
+ * de ser a fonte de verdade do custo médio; ele só continua editável aqui
+ * pra casos sem histórico de compra nenhum (EPI recém-cadastrado).
+ */
 function parseCustoMedio(raw: string): number {
   const n = Number(raw.replace(",", "."));
   return Number.isFinite(n) && n >= 0 ? n : 0;

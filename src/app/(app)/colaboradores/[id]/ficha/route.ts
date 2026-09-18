@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { getColaboradorDetalhe } from "@/lib/data/colaboradores";
@@ -42,6 +44,14 @@ export async function GET(
   const pdfDoc = await PDFDocument.create();
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const fontOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+
+  // Selo MorSafe (letreiro no canto superior) — o PNG é um escudo branco,
+  // por isso precisa de um fundo colorido atrás para aparecer na página.
+  const shieldBytes = await fs.readFile(
+    path.join(process.cwd(), "public/brand/shield.png"),
+  );
+  const shieldImage = await pdfDoc.embedPng(shieldBytes);
 
   const pageWidth = 595.28; // A4
   const pageHeight = 841.89;
@@ -86,6 +96,52 @@ export async function GET(
       y -= opts.lineHeight;
     }
   }
+
+  // Selo MorSafe no canto superior direito — badge redondo na cor da marca
+  // com o escudo branco por cima, marca "MorSafe" e uma frase de assinatura.
+  const badgeR = 16;
+  const badgeCenterX = pageWidth - marginX - badgeR;
+  const badgeCenterY = pageHeight - 56 - 6;
+
+  page.drawEllipse({
+    x: badgeCenterX,
+    y: badgeCenterY,
+    xScale: badgeR,
+    yScale: badgeR,
+    color: brand,
+  });
+
+  const shieldSize = badgeR * 1.15;
+  page.drawImage(shieldImage, {
+    x: badgeCenterX - shieldSize / 2,
+    y: badgeCenterY - shieldSize / 2,
+    width: shieldSize,
+    height: shieldSize,
+  });
+
+  const brandTextRightEdge = badgeCenterX - badgeR - 8;
+
+  const wordmarkText = "MorSafe";
+  const wordmarkSize = 11;
+  const wordmarkWidth = fontBold.widthOfTextAtSize(wordmarkText, wordmarkSize);
+  page.drawText(wordmarkText, {
+    x: brandTextRightEdge - wordmarkWidth,
+    y: badgeCenterY + 3,
+    size: wordmarkSize,
+    font: fontBold,
+    color: brand,
+  });
+
+  const taglineText = "Protegendo pessoas. Comprovando conformidade.";
+  const taglineSize = 7.5;
+  const taglineWidth = fontOblique.widthOfTextAtSize(taglineText, taglineSize);
+  page.drawText(taglineText, {
+    x: brandTextRightEdge - taglineWidth,
+    y: badgeCenterY - 9,
+    size: taglineSize,
+    font: fontOblique,
+    color: textMuted,
+  });
 
   // Header
   page.drawText("Ficha de Entrega de EPI", {

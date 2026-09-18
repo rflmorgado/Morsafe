@@ -33,6 +33,24 @@ function buildHref(
   return `/colaboradores${qs ? `?${qs}` : ""}`;
 }
 
+/**
+ * Exportação respeita os mesmos filtros aplicados na tela (busca, setor,
+ * status), mas nunca a paginação — o CSV sempre traz a lista inteira que
+ * bate com o filtro, não só os 20 colaboradores da página visível.
+ */
+function buildExportHref(
+  q: string | undefined,
+  setor: string | undefined,
+  status: string | undefined,
+) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (setor) params.set("setor", setor);
+  if (status) params.set("status", status);
+  const qs = params.toString();
+  return `/colaboradores/export${qs ? `?${qs}` : ""}`;
+}
+
 export default async function ColaboradoresPage({
   searchParams,
 }: {
@@ -66,6 +84,27 @@ export default async function ColaboradoresPage({
       <div className="mb-4 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <ColaboradoresFilters setores={setores} />
         <div className="flex gap-2">
+          <a
+            href={buildExportHref(q, setor, status)}
+            title="Exportar lista filtrada em CSV"
+            className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
+              <path d="M12 3v12" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
+            Exportar CSV
+          </a>
           <ImportarColaboradoresButton setores={setores} />
           <NovoColaboradorButton setores={setores} />
         </div>

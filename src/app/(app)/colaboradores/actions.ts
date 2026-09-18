@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/current-user";
+import { temPapelMinimo } from "@/lib/auth/permissoes";
+
+const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
 export type CreateSetorState = {
   error: string | null;
@@ -27,6 +30,9 @@ export async function createSetor(nome: string): Promise<CreateSetorState> {
   const user = await getCurrentUser();
   if (!user?.empresaId) {
     return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
   }
 
   const supabase = await createClient();
@@ -86,6 +92,9 @@ export async function createCargo(
   if (!user?.empresaId) {
     return { error: "Não foi possível identificar a empresa do usuário." };
   }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -125,6 +134,9 @@ export async function createColaborador(
   const user = await getCurrentUser();
   if (!user?.empresaId) {
     return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
   }
 
   const supabase = await createClient();
@@ -176,6 +188,9 @@ export async function importarColaboradores(
   const user = await getCurrentUser();
   if (!user?.empresaId) {
     return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
   }
 
   const supabase = await createClient();
@@ -231,6 +246,14 @@ export async function updateColaborador(
     return { error: "Preencha nome, setor e cargo." };
   }
 
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Sessão expirada. Faça login novamente." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("colaboradores")
@@ -269,21 +292,23 @@ export type DesligarColaboradorState = {
  *
  * A reautenticação por senha é validada no cliente (supabase.auth.
  * signInWithPassword) antes desta action ser chamada; aqui confirmamos de
- * novo que existe uma sessão válida antes de aplicar a mudança.
+ * novo que existe uma sessão válida e que o papel do usuário permite essa
+ * ação antes de aplicar a mudança. Desligar exige papel "admin" — é a ação
+ * mais sensível da tela, então fica reservada a quem tem mais confiança.
  */
 export async function desligarColaborador(
   colaboradorId: string,
 ): Promise<DesligarColaboradorState> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { error: "Sessão expirada. Faça login novamente." };
   }
+  if (!temPapelMinimo(user.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
 
+  const supabase = await createClient();
   const { error } = await supabase
     .from("colaboradores")
     .update({ status: "inativo" })
@@ -308,21 +333,23 @@ export type ReativarColaboradorState = {
  * Reativação — simétrica ao desligamento (volta o status para 'ativo').
  * Não exige reautenticação por senha nem download de ficha: reativar não
  * tem o mesmo peso de conformidade de desligar, já que não está removendo
- * ninguém do controle de EPI, só voltando a acompanhar.
+ * ninguém do controle de EPI, só voltando a acompanhar. Ainda assim exige
+ * papel "admin", mesmo nível de desligar, já que é o par inverso da mesma
+ * ação sensível.
  */
 export async function reativarColaborador(
   colaboradorId: string,
 ): Promise<ReativarColaboradorState> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { error: "Sessão expirada. Faça login novamente." };
   }
+  if (!temPapelMinimo(user.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
 
+  const supabase = await createClient();
   const { error } = await supabase
     .from("colaboradores")
     .update({ status: "ativo" })

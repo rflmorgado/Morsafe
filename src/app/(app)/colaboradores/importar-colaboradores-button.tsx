@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { Modal } from "@/components/ui/modal";
-import { importarColaboradores } from "./actions";
+import { importarColaboradores, createSetor, createCargo } from "./actions";
 import type { SetorComCargos } from "@/lib/data/setores";
 
 type RawRow = Record<string, unknown>;
@@ -57,6 +57,31 @@ type ResolvedRow = {
 };
 
 type Step = "upload" | "mapear" | "revisar";
+
+/**
+ * Texto e cor mostrados na coluna Status da revisão. Erro de verdade (nome,
+ * setor ou cargo vazio) continua vermelho e a linha é ignorada; setor/cargo
+ * que serão criados na hora aparecem em amarelo, como aviso — não impedem
+ * a importação.
+ */
+function statusLinha(r: ResolvedRow): { texto: string; className: string } {
+  if (r.erro) {
+    return { texto: r.erro, className: "text-danger-text" };
+  }
+  if (!r.setorId && !r.cargoId) {
+    return {
+      texto: "✓ vai criar setor e função novos",
+      className: "text-warning-text",
+    };
+  }
+  if (!r.setorId) {
+    return { texto: "✓ vai criar setor novo", className: "text-warning-text" };
+  }
+  if (!r.cargoId) {
+    return { texto: "✓ vai criar função nova", className: "text-warning-text" };
+  }
+  return { texto: "✓ OK", className: "text-brand-700" };
+}
 
 export function ImportarColaboradoresButton({
   setores,
@@ -153,29 +178,28 @@ export function ImportarColaboradoresButton({
       let setorId: string | null = null;
       let cargoId: string | null = null;
 
+      // Setor/cargo que não batem com nada já cadastrado não são mais erro
+      // — ficam com id nulo aqui, e são criados automaticamente na
+      // confirmação (mesma ideia da opção "Outro" do cadastro manual).
+      // Só nome, setor e cargo vazios continuam sendo erro de verdade,
+      // porque não dá pra criar um setor ou função sem nome.
       if (!nome) {
         erro = "Nome vazio";
       } else if (!setorNome) {
         erro = "Setor vazio";
+      } else if (!cargoNome) {
+        erro = "Cargo vazio";
       } else {
         const setor = setores.find(
           (s) => normalize(s.nome) === normalize(setorNome),
         );
-        if (!setor) {
-          erro = `Setor "${setorNome}" não encontrado`;
-        } else {
+        if (setor) {
           setorId = setor.id;
-          if (!cargoNome) {
-            erro = "Cargo vazio";
-          } else {
-            const cargo = setor.cargos.find(
-              (c) => normalize(c.nome) === normalize(cargoNome),
-            );
-            if (!cargo) {
-              erro = `Cargo "${cargoNome}" não encontrado no setor "${setor.nome}"`;
-            } else {
-              cargoId = cargo.id;
-            }
+          const cargo = setor.cargos.find(
+            (c) => normalize(c.nome) === normalize(cargoNome),
+          );
+          if (cargo) {
+            cargoId = cargo.id;
           }
         }
       }
@@ -196,19 +220,72 @@ export function ImportarColaboradoresButton({
 
   const validRows = resolvedRows.filter((r) => r.erro === null);
   const errorRows = resolvedRows.filter((r) => r.erro !== null);
+  const criandoRows = validRows.filter((r) => !r.setorId || !r.cargoId);
 
   function handleConfirmar() {
     setSubmitError(null);
     startTransition(async () => {
-      const result = await importarColaboradores(
-        validRows.map((r) => ({
+      // Setor/cargo que não bateram com nada já cadastrado (setorId/cargoId
+      // nulos) são criados agora, um de cada nome distinto — se 5 linhas da
+      // planilha citam o mesmo setor novo "TI", só cria um "TI" e reaproveita
+      // o id nas outras 4, em vez de criar 5 setores duplicados.
+      const novosSetores = new Map<string, string>(); // nome normalizado -> id
+
+      for (const r of validRows) {
+        if (r.setorId) continue;
+        const chave = normalize(r.setorNome);
+        if (novosSetores.has(chave)) continue;
+        const resultado = await createSetor(r.setorNome);
+        if (resultado.error || !resultado.id) {
+          setSubmitError(
+            `Não foi possível criar o setor "${r.setorNome}": ${resultado.error ?? "erro desconhecido"}`,
+          );
+          return;
+        }
+        novosSetores.set(chave, resultado.id);
+      }
+
+      const novosCargos = new Map<string, string>(); // `${setorId}::nome normalizado` -> id
+      const linhasResolvidas: {
+        nome: string;
+        setorId: string;
+        cargoId: string;
+        cpf: string | null;
+        telefone: string | null;
+      }[] = [];
+
+      for (const r of validRows) {
+        const finalSetorId = r.setorId ?? novosSetores.get(normalize(r.setorNome))!;
+        let finalCargoId = r.cargoId;
+
+        if (!finalCargoId) {
+          const chaveCargo = `${finalSetorId}::${normalize(r.cargoNome)}`;
+          const existente = novosCargos.get(chaveCargo);
+          if (existente) {
+            finalCargoId = existente;
+          } else {
+            const resultado = await createCargo(finalSetorId, r.cargoNome);
+            if (resultado.error || !resultado.id) {
+              setSubmitError(
+                `Não foi possível criar a função "${r.cargoNome}": ${resultado.error ?? "erro desconhecido"}`,
+              );
+              return;
+            }
+            finalCargoId = resultado.id;
+            novosCargos.set(chaveCargo, finalCargoId);
+          }
+        }
+
+        linhasResolvidas.push({
           nome: r.nome,
-          setorId: r.setorId as string,
-          cargoId: r.cargoId as string,
+          setorId: finalSetorId,
+          cargoId: finalCargoId,
           cpf: r.cpf || null,
           telefone: r.telefone || null,
-        })),
-      );
+        });
+      }
+
+      const result = await importarColaboradores(linhasResolvidas);
 
       if (result.error) {
         setSubmitError(result.error);
@@ -348,6 +425,11 @@ export function ImportarColaboradoresButton({
               <span className="rounded-full bg-brand-100 px-2.5 py-1 text-[12px] font-semibold text-brand-700">
                 {validRows.length} prontos para importar
               </span>
+              {criandoRows.length > 0 && (
+                <span className="rounded-full bg-warning-bg px-2.5 py-1 text-[12px] font-semibold text-warning-text">
+                  {criandoRows.length} vão criar setor/função novos
+                </span>
+              )}
               {errorRows.length > 0 && (
                 <span className="rounded-full bg-danger-bg px-2.5 py-1 text-[12px] font-semibold text-danger-text">
                   {errorRows.length} com erro (serão ignorados)
@@ -389,11 +471,10 @@ export function ImportarColaboradoresButton({
                         {r.cargoNome || "—"}
                       </td>
                       <td className="px-3 py-2">
-                        {r.erro ? (
-                          <span className="text-danger-text">{r.erro}</span>
-                        ) : (
-                          <span className="text-brand-700">✓ OK</span>
-                        )}
+                        {(() => {
+                          const { texto, className } = statusLinha(r);
+                          return <span className={className}>{texto}</span>;
+                        })()}
                       </td>
                     </tr>
                   ))}

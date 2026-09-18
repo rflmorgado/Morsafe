@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/data/current-user";
 import { NovoColaboradorButton } from "./novo-colaborador-button";
 import { ImportarColaboradoresButton } from "./importar-colaboradores-button";
 import { DesligarColaboradorButton } from "./desligar-colaborador-button";
+import { ReativarColaboradorButton } from "./reativar-colaborador-button";
 import { BaixarFichaButton } from "./baixar-ficha-button";
 import { EditarColaboradorButton } from "./editar-colaborador-button";
 import { ColaboradoresFilters } from "./colaboradores-filters";
@@ -128,11 +129,16 @@ export default async function ColaboradoresPage({
                         colaboradorId={c.id}
                         colaboradorNome={c.nome}
                       />
-                      {c.status === "ativo" && (
+                      {c.status === "ativo" ? (
                         <DesligarColaboradorButton
                           colaboradorId={c.id}
                           colaboradorNome={c.nome}
                           userEmail={user?.email ?? ""}
+                        />
+                      ) : (
+                        <ReativarColaboradorButton
+                          colaboradorId={c.id}
+                          colaboradorNome={c.nome}
                         />
                       )}
                     </div>

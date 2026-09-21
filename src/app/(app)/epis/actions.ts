@@ -318,9 +318,11 @@ export async function excluirEpiDefinitivamente(
 
   if (deleteError) {
     if (deleteError.code === "23503") {
+      // TEMPORÁRIO: mostrando o detalhe técnico do Postgres (nome da FK)
+      // pra descobrir qual tabela está bloqueando de verdade neste caso —
+      // tirar assim que confirmarmos a causa e voltar pra mensagem limpa.
       return {
-        error:
-          "Não é possível excluir: este EPI tem histórico de entrega, devolução, recusa ou compra registrada. Pra preservar o histórico de conformidade, mantenha-o desativado.",
+        error: `Não é possível excluir: este EPI tem histórico de entrega, devolução, recusa ou compra registrada. Pra preservar o histórico de conformidade, mantenha-o desativado. (Detalhe técnico: ${deleteError.message})`,
       };
     }
     console.error("excluirEpiDefinitivamente:", deleteError.message);

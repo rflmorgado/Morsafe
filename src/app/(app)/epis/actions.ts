@@ -248,6 +248,76 @@ export async function desativarEpi(epiId: string): Promise<DesativarEpiState> {
   return { error: null, success: true };
 }
 
+export type ExcluirEpiState = { error: string | null; success?: boolean };
+
+/**
+ * Exclusão DEFINITIVA (DELETE físico) — diferente de desativar, que é soft
+ * delete. Pensada pro EPI que foi substituído por outro e nunca mais vai
+ * ser usado, ou que foi cadastrado por engano, e não precisa mais ocupar o
+ * catálogo (mesmo desativado).
+ *
+ * Duas travas antes de excluir:
+ * 1) Só é permitido em cima de um EPI já desativado (ativo = false) — a
+ *    interface só oferece essa opção depois da desativação.
+ * 2) Se existir qualquer vínculo (entrega, devolução, recusa, compra em
+ *    entradas_estoque, linha de estoque ou obrigatoriedade por setor), o
+ *    próprio banco recusa a exclusão via FK RESTRICT — aqui só traduzimos
+ *    esse erro (código Postgres 23503) numa mensagem clara. Um EPI que já
+ *    foi comprado ou entregue alguma vez PRECISA continuar existindo no
+ *    banco pra manter o histórico de conformidade — só é seguro excluir de
+ *    verdade um EPI que nunca chegou a ser usado de fato.
+ *
+ * Exige papel "admin" — mais alto que desativar/reativar ("encarregado"),
+ * porque, ao contrário daqueles, esta ação não tem volta.
+ */
+export async function excluirEpiDefinitivamente(
+  epiId: string,
+): Promise<ExcluirEpiState> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Sessão expirada. Faça login novamente." };
+  }
+  if (!temPapelMinimo(user.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+
+  const { data: epi, error: epiError } = await supabase
+    .from("epis")
+    .select("ativo")
+    .eq("id", epiId)
+    .maybeSingle();
+
+  if (epiError || !epi) {
+    return { error: "EPI não encontrado." };
+  }
+  if (epi.ativo) {
+    return {
+      error: "Só é possível excluir definitivamente um EPI que já está desativado.",
+    };
+  }
+
+  const { error: deleteError } = await supabase
+    .from("epis")
+    .delete()
+    .eq("id", epiId);
+
+  if (deleteError) {
+    if (deleteError.code === "23503") {
+      return {
+        error:
+          "Não é possível excluir: este EPI tem histórico ou configuração vinculada (entrega, devolução, recusa, estoque, compra registrada ou obrigatoriedade por setor). Pra preservar o histórico de conformidade, mantenha-o desativado.",
+      };
+    }
+    console.error("excluirEpiDefinitivamente:", deleteError.message);
+    return { error: "Não foi possível excluir o EPI. Tente novamente." };
+  }
+
+  revalidatePath("/epis");
+  return { error: null, success: true };
+}
+
 export type ReativarEpiState = { error: string | null; success?: boolean };
 
 export async function reativarEpi(epiId: string): Promise<ReativarEpiState> {

@@ -259,22 +259,24 @@ export type ExcluirEpiState = { error: string | null; success?: boolean };
  * Duas travas antes de excluir:
  * 1) Só é permitido em cima de um EPI já desativado (ativo = false) — a
  *    interface só oferece essa opção depois da desativação.
- * 2) Se existir qualquer HISTÓRICO de verdade vinculado (entrega, devolução,
- *    recusa ou compra em entradas_estoque), o próprio banco recusa a
- *    exclusão via FK RESTRICT — aqui só traduzimos esse erro (código
- *    Postgres 23503) numa mensagem clara. Um EPI que já foi comprado ou
- *    entregue alguma vez PRECISA continuar existindo no banco pra manter o
- *    histórico de conformidade — só é seguro excluir de verdade um EPI que
- *    nunca chegou a ser usado de fato.
+ * 2) Se existir histórico de ENTREGA, DEVOLUÇÃO ou RECUSA vinculado, o
+ *    próprio banco recusa a exclusão via FK RESTRICT — aqui só traduzimos
+ *    esse erro (código Postgres 23503) numa mensagem clara. Essas três são
+ *    as únicas tabelas que realmente importam pra conformidade com a
+ *    NR-06, porque só elas ligam um trabalhador específico a um EPI
+ *    específico numa data específica — a prova de que o EPI foi (ou não)
+ *    entregue. Um EPI com qualquer uma dessas PRECISA continuar existindo
+ *    no banco; só é seguro excluir de verdade um EPI que nunca chegou a
+ *    ser entregue a ninguém.
  *
- * Antes dessa checagem, apaga de propósito a linha de `estoque` (saldo
- * atual) e as linhas de `setor_epi` (obrigatoriedade por setor) ligadas a
- * esse EPI — TODO EPI cadastrado ganha uma linha de estoque zerada
- * automaticamente, então isso não é histórico nenhum, é só estado atual/
- * configuração, e não faz sentido barrar a exclusão por causa disso (foi
- * exatamente esse falso positivo que o Rafael reportou num EPI duplicado
- * que nunca tinha sido usado). Sobra bloqueando só o que é realmente
- * histórico: entrega, devolução, recusa e compra registrada.
+ * Antes dessa checagem, apaga de propósito `estoque` (saldo atual),
+ * `setor_epi` (obrigatoriedade por setor) e `entradas_estoque` (compras
+ * registradas) ligados a esse EPI. Nenhuma dessas é histórico de
+ * conformidade — são só estado atual/controle de compra e estoque, sem
+ * nenhum trabalhador vinculado — então não faz sentido travar a exclusão
+ * do catálogo por causa delas (foi exatamente uma compra de teste que
+ * travou um EPI duplicado que o Rafael queria limpar, sem nunca ter sido
+ * entregue a ninguém).
  *
  * Exige papel "admin" — mais alto que desativar/reativar ("encarregado"),
  * porque, ao contrário daqueles, esta ação não tem volta.
@@ -307,9 +309,11 @@ export async function excluirEpiDefinitivamente(
     };
   }
 
-  // Estado atual/configuração, não histórico — pode sumir junto com o EPI.
+  // Estado atual/controle de compra e estoque, não histórico de
+  // conformidade — pode sumir junto com o EPI.
   await supabase.from("estoque").delete().eq("epi_id", epiId);
   await supabase.from("setor_epi").delete().eq("epi_id", epiId);
+  await supabase.from("entradas_estoque").delete().eq("epi_id", epiId);
 
   const { error: deleteError } = await supabase
     .from("epis")
@@ -320,7 +324,7 @@ export async function excluirEpiDefinitivamente(
     if (deleteError.code === "23503") {
       return {
         error:
-          "Não é possível excluir: este EPI tem histórico de entrega, devolução, recusa ou compra registrada. Pra preservar o histórico de conformidade, mantenha-o desativado.",
+          "Não é possível excluir: este EPI tem histórico de entrega, devolução ou recusa vinculado a um colaborador. Pra preservar a conformidade com a NR-06, mantenha-o desativado.",
       };
     }
     console.error("excluirEpiDefinitivamente:", deleteError.message);

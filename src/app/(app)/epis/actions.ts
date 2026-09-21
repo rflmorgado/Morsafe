@@ -167,6 +167,11 @@ export type ImportarEpisState = { error: string | null; inserted?: number };
  * texto livre, não uma tabela separada) — o componente cliente já leu e
  * validou a planilha inteira, então esta action só confere permissão e
  * insere tudo de uma vez.
+ *
+ * Exige papel "admin" (um nível acima de criar/editar um único EPI, que pede
+ * só "encarregado"): mesmo raciocínio de colaboradores — uma planilha ou um
+ * mapeamento de coluna errado bagunça em massa, então essa ação fica
+ * reservada a quem tem mais confiança na empresa.
  */
 export async function importarEpis(
   rows: ImportarEpiRow[],
@@ -179,7 +184,7 @@ export async function importarEpis(
   if (!user?.empresaId) {
     return { error: "Não foi possível identificar a empresa do usuário." };
   }
-  if (!temPapelMinimo(user.papel, "encarregado")) {
+  if (!temPapelMinimo(user.papel, "admin")) {
     return { error: SEM_PERMISSAO };
   }
 

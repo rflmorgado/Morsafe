@@ -259,13 +259,22 @@ export type ExcluirEpiState = { error: string | null; success?: boolean };
  * Duas travas antes de excluir:
  * 1) Só é permitido em cima de um EPI já desativado (ativo = false) — a
  *    interface só oferece essa opção depois da desativação.
- * 2) Se existir qualquer vínculo (entrega, devolução, recusa, compra em
- *    entradas_estoque, linha de estoque ou obrigatoriedade por setor), o
- *    próprio banco recusa a exclusão via FK RESTRICT — aqui só traduzimos
- *    esse erro (código Postgres 23503) numa mensagem clara. Um EPI que já
- *    foi comprado ou entregue alguma vez PRECISA continuar existindo no
- *    banco pra manter o histórico de conformidade — só é seguro excluir de
- *    verdade um EPI que nunca chegou a ser usado de fato.
+ * 2) Se existir qualquer HISTÓRICO de verdade vinculado (entrega, devolução,
+ *    recusa ou compra em entradas_estoque), o próprio banco recusa a
+ *    exclusão via FK RESTRICT — aqui só traduzimos esse erro (código
+ *    Postgres 23503) numa mensagem clara. Um EPI que já foi comprado ou
+ *    entregue alguma vez PRECISA continuar existindo no banco pra manter o
+ *    histórico de conformidade — só é seguro excluir de verdade um EPI que
+ *    nunca chegou a ser usado de fato.
+ *
+ * Antes dessa checagem, apaga de propósito a linha de `estoque` (saldo
+ * atual) e as linhas de `setor_epi` (obrigatoriedade por setor) ligadas a
+ * esse EPI — TODO EPI cadastrado ganha uma linha de estoque zerada
+ * automaticamente, então isso não é histórico nenhum, é só estado atual/
+ * configuração, e não faz sentido barrar a exclusão por causa disso (foi
+ * exatamente esse falso positivo que o Rafael reportou num EPI duplicado
+ * que nunca tinha sido usado). Sobra bloqueando só o que é realmente
+ * histórico: entrega, devolução, recusa e compra registrada.
  *
  * Exige papel "admin" — mais alto que desativar/reativar ("encarregado"),
  * porque, ao contrário daqueles, esta ação não tem volta.
@@ -298,6 +307,10 @@ export async function excluirEpiDefinitivamente(
     };
   }
 
+  // Estado atual/configuração, não histórico — pode sumir junto com o EPI.
+  await supabase.from("estoque").delete().eq("epi_id", epiId);
+  await supabase.from("setor_epi").delete().eq("epi_id", epiId);
+
   const { error: deleteError } = await supabase
     .from("epis")
     .delete()
@@ -307,7 +320,7 @@ export async function excluirEpiDefinitivamente(
     if (deleteError.code === "23503") {
       return {
         error:
-          "Não é possível excluir: este EPI tem histórico ou configuração vinculada (entrega, devolução, recusa, estoque, compra registrada ou obrigatoriedade por setor). Pra preservar o histórico de conformidade, mantenha-o desativado.",
+          "Não é possível excluir: este EPI tem histórico de entrega, devolução, recusa ou compra registrada. Pra preservar o histórico de conformidade, mantenha-o desativado.",
       };
     }
     console.error("excluirEpiDefinitivamente:", deleteError.message);

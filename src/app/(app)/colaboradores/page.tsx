@@ -10,6 +10,7 @@ import { NovoColaboradorButton } from "./novo-colaborador-button";
 import { ImportarColaboradoresButton } from "./importar-colaboradores-button";
 import { DesligarColaboradorButton } from "./desligar-colaborador-button";
 import { ReativarColaboradorButton } from "./reativar-colaborador-button";
+import { ExcluirColaboradorButton } from "./excluir-colaborador-button";
 import { BaixarFichaButton } from "./baixar-ficha-button";
 import { EditarColaboradorButton } from "./editar-colaborador-button";
 import { ColaboradoresFilters } from "./colaboradores-filters";
@@ -122,12 +123,15 @@ export default async function ColaboradoresPage({
 
   // Controle de acesso por papel: "leitura" só visualiza (busca, filtra,
   // ordena, vê detalhe e baixa ficha); "encarregado" também cadastra, edita
-  // e exporta; só "admin"+ desliga/reativa e importa planilha. Import fica
-  // no mesmo nível de desligar/reativar porque uma planilha ou mapeamento
-  // errado bagunça vários cadastros de uma vez — bem mais arriscado que
-  // criar/editar um colaborador por vez. As Server Actions e rotas fazem a
-  // mesma checagem de novo — esconder o botão aqui é só pra não oferecer uma
-  // ação que vai ser barrada, nunca a única barreira.
+  // e exporta; só "admin"+ desliga/reativa, importa planilha e exclui
+  // definitivamente. Import e exclusão ficam no mesmo nível de
+  // desligar/reativar porque são ações de maior risco/irreversíveis — uma
+  // planilha errada bagunça vários cadastros de uma vez, e excluir não tem
+  // volta (diferente de desligar, que tem reativar). O botão de excluir só
+  // aparece pra quem já está desligado (ver coluna de ações da tabela). As
+  // Server Actions e rotas fazem a mesma checagem de novo — esconder o
+  // botão aqui é só pra não oferecer uma ação que vai ser barrada, nunca a
+  // única barreira.
   const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
   const podeDesligarOuReativar = temPapelMinimo(user?.papel, "admin");
   const podeImportar = temPapelMinimo(user?.papel, "admin");
@@ -274,10 +278,17 @@ export default async function ColaboradoresPage({
                             userEmail={user?.email ?? ""}
                           />
                         ) : (
-                          <ReativarColaboradorButton
-                            colaboradorId={c.id}
-                            colaboradorNome={c.nome}
-                          />
+                          <>
+                            <ReativarColaboradorButton
+                              colaboradorId={c.id}
+                              colaboradorNome={c.nome}
+                            />
+                            <ExcluirColaboradorButton
+                              colaboradorId={c.id}
+                              colaboradorNome={c.nome}
+                              userEmail={user?.email ?? ""}
+                            />
+                          </>
                         ))}
                     </div>
                   </td>

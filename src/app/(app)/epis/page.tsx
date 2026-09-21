@@ -8,6 +8,7 @@ import { ImportarEpisButton } from "./importar-epis-button";
 import { EditarEpiButton } from "./editar-epi-button";
 import { DesativarEpiButton } from "./desativar-epi-button";
 import { ReativarEpiButton } from "./reativar-epi-button";
+import { ExcluirEpiButton } from "./excluir-epi-button";
 
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
@@ -154,13 +155,16 @@ export default async function EpisPage({
   // Mesma regra de colaboradores: "encarregado"+ cadastra/edita/desativa/
   // exporta — desativar um EPI do catálogo não tem peso trabalhista, então
   // não precisa do nível extra "admin" (ver comentário em actions.ts).
-  // Importar planilha é exceção: mesmo aqui, onde as outras ações ficam em
-  // "encarregado", import exige "admin" — uma planilha ou mapeamento errado
-  // bagunça o catálogo inteiro de uma vez, risco bem maior que cadastrar um
-  // EPI por vez. As Server Actions e a rota de export fazem a mesma
-  // checagem de novo; esconder o botão aqui nunca é a única barreira.
+  // Import e exclusão definitiva são exceção: mesmo aqui, onde as outras
+  // ações ficam em "encarregado", essas duas exigem "admin" — uma planilha
+  // ou mapeamento errado bagunça o catálogo inteiro de uma vez, e excluir
+  // não tem volta (diferente de desativar, que tem reativar). O botão de
+  // excluir só aparece pra EPI já desativado (ver coluna de ações da
+  // tabela). As Server Actions e a rota de export fazem a mesma checagem de
+  // novo; esconder o botão aqui nunca é a única barreira.
   const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
   const podeImportar = temPapelMinimo(user?.papel, "admin");
+  const podeExcluir = temPapelMinimo(user?.papel, "admin");
 
   return (
     <div className="space-y-1">
@@ -300,6 +304,9 @@ export default async function EpisPage({
                           ) : (
                             <ReativarEpiButton epiId={e.id} epiNome={e.nome} />
                           ))}
+                        {podeExcluir && !e.ativo && (
+                          <ExcluirEpiButton epiId={e.id} epiNome={e.nome} />
+                        )}
                       </div>
                     </td>
                   </tr>

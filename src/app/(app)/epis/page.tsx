@@ -51,19 +51,79 @@ function statusCa(caValidade: string | null) {
   };
 }
 
+type SortKey = "nome" | "tipo" | "custo_medio" | "status";
+
+const COLUNAS: { label: string; sortKey: SortKey | null }[] = [
+  { label: "EPI", sortKey: "nome" },
+  { label: "Tipo", sortKey: "tipo" },
+  { label: "C.A.", sortKey: null },
+  { label: "Custo médio", sortKey: "custo_medio" },
+  { label: "Status", sortKey: "status" },
+  { label: "", sortKey: null },
+];
+
 function buildHref(
   q: string | undefined,
   tipo: string | undefined,
   status: string | undefined,
+  sort: string | undefined,
+  dir: string | undefined,
   page: number,
 ) {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (tipo) params.set("tipo", tipo);
   if (status) params.set("status", status);
+  if (sort) params.set("sort", sort);
+  if (dir) params.set("dir", dir);
   if (page > 1) params.set("page", String(page));
   const qs = params.toString();
   return `/epis${qs ? `?${qs}` : ""}`;
+}
+
+/**
+ * Exportação respeita os mesmos filtros e a mesma ordenação aplicados na
+ * tela (busca, tipo, status, coluna), mas nunca a paginação — o CSV sempre
+ * traz o catálogo inteiro que bate com o filtro, não só os 20 EPIs da
+ * página visível.
+ */
+function buildExportHref(
+  q: string | undefined,
+  tipo: string | undefined,
+  status: string | undefined,
+  sort: string | undefined,
+  dir: string | undefined,
+) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (tipo) params.set("tipo", tipo);
+  if (status) params.set("status", status);
+  if (sort) params.set("sort", sort);
+  if (dir) params.set("dir", dir);
+  const qs = params.toString();
+  return `/epis/export${qs ? `?${qs}` : ""}`;
+}
+
+/**
+ * Clicar num cabeçalho de coluna ordena por ela; clicar de novo inverte a
+ * direção. Trocar a ordenação sempre volta pra página 1.
+ */
+function buildSortHref(
+  q: string | undefined,
+  tipo: string | undefined,
+  status: string | undefined,
+  sortAtual: string,
+  dirAtual: string,
+  coluna: SortKey,
+) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (tipo) params.set("tipo", tipo);
+  if (status) params.set("status", status);
+  const proximaDir = sortAtual === coluna && dirAtual !== "desc" ? "desc" : "asc";
+  params.set("sort", coluna);
+  params.set("dir", proximaDir);
+  return `/epis?${params.toString()}`;
 }
 
 export default async function EpisPage({
@@ -73,24 +133,29 @@ export default async function EpisPage({
     q?: string;
     tipo?: string;
     status?: string;
+    sort?: string;
+    dir?: string;
     page?: string;
   }>;
 }) {
-  const { q, tipo, status, page: pageParam } = await searchParams;
+  const { q, tipo, status, sort, dir, page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
+  const sortAtual = sort ?? "nome";
+  const dirAtual = dir ?? "asc";
 
   const [{ epis, total }, user] = await Promise.all([
-    listEpis({ query: q, tipo, status, page }),
+    listEpis({ query: q, tipo, status, sort, dir, page }),
     getCurrentUser(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / EPIS_PAGE_SIZE));
 
-  // Mesma regra de colaboradores: "encarregado"+ cadastra/edita/desativa;
-  // aqui não existe um nível extra tipo "admin" para a ação mais sensível,
-  // porque desativar um EPI do catálogo não tem peso trabalhista — ver
-  // comentário em actions.ts. As Server Actions fazem a mesma checagem de
-  // novo; esconder o botão aqui nunca é a única barreira.
+  // Mesma regra de colaboradores: "encarregado"+ cadastra/edita/desativa/
+  // exporta; aqui não existe um nível extra tipo "admin" para a ação mais
+  // sensível, porque desativar um EPI do catálogo não tem peso trabalhista
+  // — ver comentário em actions.ts. As Server Actions e a rota de export
+  // fazem a mesma checagem de novo; esconder o botão aqui nunca é a única
+  // barreira.
   const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
 
   return (
@@ -106,6 +171,27 @@ export default async function EpisPage({
         <EpisFilters />
         {podeGerenciar && (
           <div className="flex flex-wrap justify-end gap-2">
+            <a
+              href={buildExportHref(q, tipo, status, sort, dir)}
+              title="Exportar catálogo filtrado em CSV"
+              className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <path d="M12 3v12" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M5 21h14" />
+              </svg>
+              Exportar CSV
+            </a>
             <NovoEpiButton />
           </div>
         )}
@@ -115,16 +201,37 @@ export default async function EpisPage({
         <table className="w-full min-w-[680px] border-collapse bg-surface text-left">
           <thead>
             <tr>
-              {["EPI", "Tipo", "C.A.", "Custo médio", "Status", ""].map(
-                (label) => (
-                  <th
-                    key={label || "acoes"}
-                    className="border-b border-border-subtle bg-brand-50 px-4 py-3 text-[11.5px] font-semibold uppercase tracking-wide text-text-secondary"
-                  >
-                    {label}
-                  </th>
-                ),
-              )}
+              {COLUNAS.map((coluna) => (
+                <th
+                  key={coluna.label || "acoes"}
+                  className="border-b border-border-subtle bg-brand-50 px-4 py-3 text-[11.5px] font-semibold uppercase tracking-wide text-text-secondary"
+                >
+                  {coluna.sortKey ? (
+                    <Link
+                      href={buildSortHref(
+                        q,
+                        tipo,
+                        status,
+                        sortAtual,
+                        dirAtual,
+                        coluna.sortKey,
+                      )}
+                      className="inline-flex items-center gap-1 transition hover:text-brand-700"
+                    >
+                      {coluna.label}
+                      <span className="text-[9px]">
+                        {sortAtual === coluna.sortKey
+                          ? dirAtual === "desc"
+                            ? "▼"
+                            : "▲"
+                          : ""}
+                      </span>
+                    </Link>
+                  ) : (
+                    coluna.label
+                  )}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -206,7 +313,7 @@ export default async function EpisPage({
           </span>
           <div className="flex gap-2">
             <Link
-              href={buildHref(q, tipo, status, page - 1)}
+              href={buildHref(q, tipo, status, sort, dir, page - 1)}
               aria-disabled={page <= 1}
               tabIndex={page <= 1 ? -1 : undefined}
               className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
@@ -218,7 +325,7 @@ export default async function EpisPage({
               ← Anterior
             </Link>
             <Link
-              href={buildHref(q, tipo, status, page + 1)}
+              href={buildHref(q, tipo, status, sort, dir, page + 1)}
               aria-disabled={page >= totalPages}
               tabIndex={page >= totalPages ? -1 : undefined}
               className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${

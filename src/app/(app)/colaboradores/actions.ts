@@ -177,6 +177,12 @@ export type ImportarColaboradoresState = {
  * de nome/setor/cargo acontece no componente cliente antes de chegar aqui;
  * esta action confia nos ids recebidos e deixa a FK do banco barrar
  * qualquer id inválido.
+ *
+ * Exige papel "admin" (um nível acima de criar/editar um único colaborador,
+ * que pede só "encarregado"): uma importação erra em massa se a planilha ou
+ * o mapeamento de colunas estiver errado, então essa ação fica reservada a
+ * quem tem mais confiança na empresa — mesmo raciocínio de desligar/reativar.
+ * Vale como padrão pra qualquer importação em massa futura no app.
  */
 export async function importarColaboradores(
   rows: ImportarColaboradorRow[],
@@ -189,7 +195,7 @@ export async function importarColaboradores(
   if (!user?.empresaId) {
     return { error: "Não foi possível identificar a empresa do usuário." };
   }
-  if (!temPapelMinimo(user.papel, "encarregado")) {
+  if (!temPapelMinimo(user.papel, "admin")) {
     return { error: SEM_PERMISSAO };
   }
 

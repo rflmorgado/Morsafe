@@ -152,12 +152,15 @@ export default async function EpisPage({
   const totalPages = Math.max(1, Math.ceil(total / EPIS_PAGE_SIZE));
 
   // Mesma regra de colaboradores: "encarregado"+ cadastra/edita/desativa/
-  // exporta; aqui não existe um nível extra tipo "admin" para a ação mais
-  // sensível, porque desativar um EPI do catálogo não tem peso trabalhista
-  // — ver comentário em actions.ts. As Server Actions e a rota de export
-  // fazem a mesma checagem de novo; esconder o botão aqui nunca é a única
-  // barreira.
+  // exporta — desativar um EPI do catálogo não tem peso trabalhista, então
+  // não precisa do nível extra "admin" (ver comentário em actions.ts).
+  // Importar planilha é exceção: mesmo aqui, onde as outras ações ficam em
+  // "encarregado", import exige "admin" — uma planilha ou mapeamento errado
+  // bagunça o catálogo inteiro de uma vez, risco bem maior que cadastrar um
+  // EPI por vez. As Server Actions e a rota de export fazem a mesma
+  // checagem de novo; esconder o botão aqui nunca é a única barreira.
   const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
+  const podeImportar = temPapelMinimo(user?.papel, "admin");
 
   return (
     <div className="space-y-1">
@@ -193,7 +196,7 @@ export default async function EpisPage({
               </svg>
               Exportar CSV
             </a>
-            <ImportarEpisButton />
+            {podeImportar && <ImportarEpisButton />}
             <NovoEpiButton />
           </div>
         )}

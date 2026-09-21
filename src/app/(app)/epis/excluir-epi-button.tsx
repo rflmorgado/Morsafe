@@ -85,9 +85,8 @@ export function ExcluirEpiButton({
             Isso vai apagar <span className="font-semibold">{epiNome}</span>{" "}
             permanentemente do catálogo. Não é o mesmo que desativar — não tem
             como desfazer. Se esse EPI tiver qualquer histórico de entrega,
-            devolução, compra ou obrigatoriedade por setor, a exclusão será
-            bloqueada automaticamente para preservar o histórico de
-            conformidade.
+            devolução ou compra registrada, a exclusão será bloqueada
+            automaticamente para preservar o histórico de conformidade.
           </p>
 
           <div>

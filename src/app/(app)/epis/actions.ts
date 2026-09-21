@@ -148,6 +148,67 @@ export async function updateEpi(
   return { error: null, success: true };
 }
 
+export type ImportarEpiRow = {
+  nome: string;
+  tipo: string | null;
+  exigeCa: boolean;
+  ca: string | null;
+  caValidade: string | null;
+  custoMedioAtual: number;
+  fornecedor: string | null;
+  vidaUtilDias: number | null;
+};
+
+export type ImportarEpisState = { error: string | null; inserted?: number };
+
+/**
+ * Importação em massa do catálogo de EPI. Diferente de colaboradores, não
+ * existe FK pra resolver ou criar no meio do caminho (tipo é uma coluna de
+ * texto livre, não uma tabela separada) — o componente cliente já leu e
+ * validou a planilha inteira, então esta action só confere permissão e
+ * insere tudo de uma vez.
+ */
+export async function importarEpis(
+  rows: ImportarEpiRow[],
+): Promise<ImportarEpisState> {
+  if (!rows.length) {
+    return { error: "Nenhuma linha válida para importar." };
+  }
+
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+  const payload = rows.map((r) => ({
+    empresa_id: user.empresaId as string,
+    nome: r.nome,
+    tipo: r.tipo,
+    exige_ca: r.exigeCa,
+    ca: r.ca,
+    ca_validade: r.caValidade,
+    custo_medio_atual: r.custoMedioAtual,
+    fornecedor: r.fornecedor,
+    vida_util_dias: r.vidaUtilDias,
+  }));
+
+  const { error, count } = await supabase
+    .from("epis")
+    .insert(payload, { count: "exact" });
+
+  if (error) {
+    console.error("importarEpis:", error.message);
+    return { error: "Não foi possível importar os EPIs. Tente novamente." };
+  }
+
+  revalidatePath("/epis");
+  return { error: null, inserted: count ?? payload.length };
+}
+
 export type DesativarEpiState = { error: string | null; success?: boolean };
 
 /**

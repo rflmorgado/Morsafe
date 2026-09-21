@@ -330,6 +330,83 @@ export async function desligarColaborador(
   return { error: null, success: true };
 }
 
+export type ExcluirColaboradorState = {
+  error: string | null;
+  success?: boolean;
+};
+
+/**
+ * Exclusão DEFINITIVA (DELETE físico) — diferente de desligar, que é soft
+ * delete. Pensada pro colaborador que não vai voltar e cujo cadastro não
+ * precisa mais ocupar a lista de desligados (ex.: cadastro duplicado, erro
+ * de digitação, ou a empresa simplesmente quer limpar a lista periodicamente).
+ *
+ * Duas travas antes de excluir:
+ * 1) Só é permitido em cima de um colaborador já desligado (status
+ *    'inativo') — a interface só oferece essa opção depois do desligamento.
+ * 2) Se existir qualquer histórico vinculado (entrega, devolução ou recusa
+ *    de EPI), o próprio banco recusa a exclusão via FK RESTRICT — aqui só
+ *    traduzimos esse erro (código Postgres 23503) numa mensagem clara, em
+ *    vez de deixar vazar o erro técnico. Esse é o comportamento correto:
+ *    um colaborador com qualquer histórico de EPI PRECISA continuar
+ *    existindo no banco (mesmo que só desligado) pra manter a rastreabilidade
+ *    exigida pela NR-06 — só é seguro excluir de verdade quem nunca chegou
+ *    a ter nenhum registro.
+ *
+ * Exige papel "admin" (mesmo nível de desligar/reativar) e não tem volta —
+ * ao contrário do desligamento, não existe "reativar" depois disso.
+ */
+export async function excluirColaboradorDefinitivamente(
+  colaboradorId: string,
+): Promise<ExcluirColaboradorState> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Sessão expirada. Faça login novamente." };
+  }
+  if (!temPapelMinimo(user.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+
+  const { data: colaborador, error: colaboradorError } = await supabase
+    .from("colaboradores")
+    .select("status")
+    .eq("id", colaboradorId)
+    .maybeSingle();
+
+  if (colaboradorError || !colaborador) {
+    return { error: "Colaborador não encontrado." };
+  }
+  if (colaborador.status !== "inativo") {
+    return {
+      error:
+        "Só é possível excluir definitivamente um colaborador que já está desligado.",
+    };
+  }
+
+  const { error: deleteError } = await supabase
+    .from("colaboradores")
+    .delete()
+    .eq("id", colaboradorId);
+
+  if (deleteError) {
+    if (deleteError.code === "23503") {
+      return {
+        error:
+          "Não é possível excluir: este colaborador tem histórico de entrega, devolução ou recusa de EPI vinculado a ele. Pra preservar a conformidade com a NR-06, ele precisa continuar existindo no sistema — mantenha-o desligado.",
+      };
+    }
+    console.error("excluirColaboradorDefinitivamente:", deleteError.message);
+    return {
+      error: "Não foi possível excluir o colaborador. Tente novamente.",
+    };
+  }
+
+  revalidatePath("/colaboradores");
+  return { error: null, success: true };
+}
+
 export type ReativarColaboradorState = {
   error: string | null;
   success?: boolean;

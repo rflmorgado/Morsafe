@@ -121,12 +121,16 @@ export default async function ColaboradoresPage({
   const totalPages = Math.max(1, Math.ceil(total / COLABORADORES_PAGE_SIZE));
 
   // Controle de acesso por papel: "leitura" só visualiza (busca, filtra,
-  // ordena, vê detalhe e baixa ficha); "encarregado" também cadastra, edita,
-  // importa e exporta; só "admin"+ desliga/reativa. As Server Actions e
-  // rotas fazem a mesma checagem de novo — esconder o botão aqui é só pra
-  // não oferecer uma ação que vai ser barrada, nunca a única barreira.
+  // ordena, vê detalhe e baixa ficha); "encarregado" também cadastra, edita
+  // e exporta; só "admin"+ desliga/reativa e importa planilha. Import fica
+  // no mesmo nível de desligar/reativar porque uma planilha ou mapeamento
+  // errado bagunça vários cadastros de uma vez — bem mais arriscado que
+  // criar/editar um colaborador por vez. As Server Actions e rotas fazem a
+  // mesma checagem de novo — esconder o botão aqui é só pra não oferecer uma
+  // ação que vai ser barrada, nunca a única barreira.
   const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
   const podeDesligarOuReativar = temPapelMinimo(user?.papel, "admin");
+  const podeImportar = temPapelMinimo(user?.papel, "admin");
 
   return (
     <div className="space-y-1">
@@ -162,7 +166,9 @@ export default async function ColaboradoresPage({
               </svg>
               Exportar CSV
             </a>
-            <ImportarColaboradoresButton setores={setores} />
+            {podeImportar && (
+              <ImportarColaboradoresButton setores={setores} />
+            )}
             <NovoColaboradorButton setores={setores} />
           </div>
         )}

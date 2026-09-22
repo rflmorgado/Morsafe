@@ -31,7 +31,33 @@ export default async function UsuariosPage() {
     );
   }
 
-  const usuarios = await listUsuariosDaEmpresa(user.empresaId);
+  // listUsuariosDaEmpresa usa o cliente admin (service role) — se a
+  // variável SUPABASE_SERVICE_ROLE_KEY não estiver configurada no Vercel,
+  // ele lança um erro aqui. Sem este try/catch, isso derrubava a página
+  // inteira com a tela genérica "This page couldn't load" do Next.js.
+  let usuarios: Awaited<ReturnType<typeof listUsuariosDaEmpresa>> = [];
+  let erroConfiguracao = false;
+  try {
+    usuarios = await listUsuariosDaEmpresa(user.empresaId);
+  } catch (e) {
+    console.error("UsuariosPage:", e);
+    erroConfiguracao = true;
+  }
+
+  if (erroConfiguracao) {
+    return (
+      <div className="space-y-1">
+        <h2 className="text-xl font-bold tracking-tight text-foreground">
+          Usuários
+        </h2>
+        <p className="mt-4 max-w-md rounded-lg bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-text">
+          Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY
+          ausente no Vercel). Adicione essa variável de ambiente em
+          Settings &gt; Environment Variables e faça um novo deploy.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1">

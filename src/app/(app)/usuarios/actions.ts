@@ -238,3 +238,96 @@ export async function reativarUsuario(
   revalidatePath("/usuarios");
   return { error: null, success: true };
 }
+
+export type ExcluirUsuarioState = { error: string | null; success?: boolean };
+
+/**
+ * Exclusão DEFINITIVA de um usuário (login) — diferente de desativar, que é
+ * soft delete. Não é o caminho pra desligamento normal (esse é o
+ * "Desativar", que já bloqueia o login na hora sem apagar nada); serve mais
+ * pra limpar uma conta criada por engano ou de teste.
+ *
+ * Duas travas antes de excluir:
+ * 1) Só permitida em cima de um usuário já desativado (a interface só
+ *    oferece essa opção depois da desativação, mesmo padrão do
+ *    colaborador/EPI).
+ * 2) entregas, devoluções, recusas e entradas de estoque guardam
+ *    `criado_por` apontando pro usuário que registrou cada uma — apagar um
+ *    usuário com qualquer histórico assim quebraria esse rastro. O próprio
+ *    banco recusa via FK RESTRICT (código Postgres 23503); aqui só
+ *    traduzimos isso numa mensagem clara. Na prática, qualquer usuário que
+ *    já usou o sistema fica bloqueado — essa ação serve mesmo é pra quem
+ *    nunca chegou a registrar nada.
+ *
+ * Se a linha em `usuarios` sai sem problema, o login de autenticação
+ * também é removido (auth.admin.deleteUser) — sem isso a pessoa continuaria
+ * existindo no Supabase Auth, só sem vínculo com a empresa.
+ */
+export async function excluirUsuarioDefinitivamente(
+  usuarioId: string,
+): Promise<ExcluirUsuarioState> {
+  const requester = await getCurrentUser();
+  if (!requester?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(requester.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  if (usuarioId === requester.id) {
+    return { error: "Você não pode excluir o próprio acesso por aqui." };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: usuario, error: usuarioError } = await admin
+    .from("usuarios")
+    .select("empresa_id, ativo")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  if (
+    usuarioError ||
+    !usuario ||
+    usuario.empresa_id !== requester.empresaId
+  ) {
+    return { error: "Usuário não encontrado." };
+  }
+  if (usuario.ativo) {
+    return {
+      error:
+        "Só é possível excluir definitivamente um usuário que já está desativado.",
+    };
+  }
+
+  const { error: deleteError } = await admin
+    .from("usuarios")
+    .delete()
+    .eq("id", usuarioId);
+
+  if (deleteError) {
+    if (deleteError.code === "23503") {
+      return {
+        error:
+          "Não é possível excluir: este usuário já tem entregas, devoluções, recusas ou entradas de estoque registradas em nome dele. Pra preservar o histórico, mantenha-o desativado.",
+      };
+    }
+    console.error("excluirUsuarioDefinitivamente:", deleteError.message);
+    return { error: "Não foi possível excluir o usuário. Tente novamente." };
+  }
+
+  const { error: authDeleteError } =
+    await admin.auth.admin.deleteUser(usuarioId);
+  if (authDeleteError) {
+    // O cadastro em `usuarios` já foi removido (é o que importa pra sair
+    // da lista e das permissões); loga só pra investigar depois se sobrou
+    // um login órfão no Supabase Auth.
+    console.error(
+      "excluirUsuarioDefinitivamente (auth):",
+      authDeleteError.message,
+    );
+  }
+
+  revalidatePath("/usuarios");
+  return { error: null, success: true };
+}

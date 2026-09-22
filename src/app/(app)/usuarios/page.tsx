@@ -4,6 +4,7 @@ import { NovoUsuarioButton } from "./novo-usuario-button";
 import { EditarPapelUsuarioButton } from "./editar-papel-usuario-button";
 import { DesativarUsuarioButton } from "./desativar-usuario-button";
 import { ReativarUsuarioButton } from "./reativar-usuario-button";
+import { ExcluirUsuarioButton } from "./excluir-usuario-button";
 
 const PAPEL_LABEL: Record<string, string> = {
   admin: "Admin",
@@ -140,10 +141,16 @@ export default async function UsuariosPage() {
                               usuarioNome={u.nome}
                             />
                           ) : (
-                            <ReativarUsuarioButton
-                              usuarioId={u.id}
-                              usuarioNome={u.nome}
-                            />
+                            <>
+                              <ReativarUsuarioButton
+                                usuarioId={u.id}
+                                usuarioNome={u.nome}
+                              />
+                              <ExcluirUsuarioButton
+                                usuarioId={u.id}
+                                usuarioNome={u.nome}
+                              />
+                            </>
                           )}
                         </div>
                       )}

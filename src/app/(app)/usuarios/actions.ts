@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
 const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
@@ -99,30 +100,27 @@ export async function criarUsuario(
     };
   }
 
+  await registrarLogAuditoria({
+    supabase: admin,
+    empresaId: requester.empresaId,
+    tabela: "usuarios",
+    registroId: created.user.id,
+    acao: "criado",
+    usuarioId: requester.id,
+    detalhes: { nome, papel },
+  });
+
   revalidatePath("/usuarios");
   return { error: null, success: true };
 }
 
 export type AtualizarPapelUsuarioState = { error: string | null; success?: boolean };
 
-/**
- * Confere que o usuário-alvo pertence à MESMA empresa de quem está
- * editando antes de aplicar qualquer mudança — trava real, já que o
- * cliente admin ignora RLS por completo.
- */
-async function usuarioPertenceAEmpresa(
-  admin: ReturnType<typeof createAdminClient>,
-  usuarioId: string,
-  empresaId: string,
-): Promise<boolean> {
-  const { data, error } = await admin
-    .from("usuarios")
-    .select("empresa_id")
-    .eq("id", usuarioId)
-    .maybeSingle();
-
-  return !error && !!data && data.empresa_id === empresaId;
-}
+// Cada action abaixo confere, com uma consulta própria, que o usuário-alvo
+// pertence à MESMA empresa de quem está editando antes de aplicar qualquer
+// mudança — trava real, já que o cliente admin ignora RLS por completo. A
+// mesma consulta já aproveita pra trazer nome (e, quando relevante, o papel
+// atual) usados no registro do histórico de ações.
 
 export async function atualizarPapelUsuario(
   usuarioId: string,
@@ -145,7 +143,13 @@ export async function atualizarPapelUsuario(
 
   const admin = createAdminClient();
 
-  if (!(await usuarioPertenceAEmpresa(admin, usuarioId, requester.empresaId))) {
+  const { data: alvo } = await admin
+    .from("usuarios")
+    .select("empresa_id, nome, papel")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  if (!alvo || alvo.empresa_id !== requester.empresaId) {
     return { error: "Usuário não encontrado." };
   }
 
@@ -158,6 +162,16 @@ export async function atualizarPapelUsuario(
     console.error("atualizarPapelUsuario:", error.message);
     return { error: "Não foi possível atualizar o papel. Tente novamente." };
   }
+
+  await registrarLogAuditoria({
+    supabase: admin,
+    empresaId: requester.empresaId,
+    tabela: "usuarios",
+    registroId: usuarioId,
+    acao: "papel_alterado",
+    usuarioId: requester.id,
+    detalhes: { nome: alvo.nome, de: alvo.papel, para: novoPapel },
+  });
 
   revalidatePath("/usuarios");
   return { error: null, success: true };
@@ -188,7 +202,13 @@ export async function desativarUsuario(
 
   const admin = createAdminClient();
 
-  if (!(await usuarioPertenceAEmpresa(admin, usuarioId, requester.empresaId))) {
+  const { data: alvo } = await admin
+    .from("usuarios")
+    .select("empresa_id, nome")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  if (!alvo || alvo.empresa_id !== requester.empresaId) {
     return { error: "Usuário não encontrado." };
   }
 
@@ -201,6 +221,16 @@ export async function desativarUsuario(
     console.error("desativarUsuario:", error.message);
     return { error: "Não foi possível desativar o usuário. Tente novamente." };
   }
+
+  await registrarLogAuditoria({
+    supabase: admin,
+    empresaId: requester.empresaId,
+    tabela: "usuarios",
+    registroId: usuarioId,
+    acao: "desativado",
+    usuarioId: requester.id,
+    detalhes: { nome: alvo.nome },
+  });
 
   revalidatePath("/usuarios");
   return { error: null, success: true };
@@ -221,7 +251,13 @@ export async function reativarUsuario(
 
   const admin = createAdminClient();
 
-  if (!(await usuarioPertenceAEmpresa(admin, usuarioId, requester.empresaId))) {
+  const { data: alvo } = await admin
+    .from("usuarios")
+    .select("empresa_id, nome")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  if (!alvo || alvo.empresa_id !== requester.empresaId) {
     return { error: "Usuário não encontrado." };
   }
 
@@ -234,6 +270,16 @@ export async function reativarUsuario(
     console.error("reativarUsuario:", error.message);
     return { error: "Não foi possível reativar o usuário. Tente novamente." };
   }
+
+  await registrarLogAuditoria({
+    supabase: admin,
+    empresaId: requester.empresaId,
+    tabela: "usuarios",
+    registroId: usuarioId,
+    acao: "reativado",
+    usuarioId: requester.id,
+    detalhes: { nome: alvo.nome },
+  });
 
   revalidatePath("/usuarios");
   return { error: null, success: true };
@@ -282,7 +328,7 @@ export async function excluirUsuarioDefinitivamente(
 
   const { data: usuario, error: usuarioError } = await admin
     .from("usuarios")
-    .select("empresa_id, ativo")
+    .select("empresa_id, ativo, nome")
     .eq("id", usuarioId)
     .maybeSingle();
 
@@ -309,7 +355,7 @@ export async function excluirUsuarioDefinitivamente(
     if (deleteError.code === "23503") {
       return {
         error:
-          "Não é possível excluir: este usuário já tem entregas, devoluções, recusas ou entradas de estoque registradas em nome dele. Pra preservar o histórico, mantenha-o desativado.",
+          "Não é possível excluir: este usuário já tem entregas, devoluções, recusas, entradas de estoque ou ações registradas no histórico em nome dele. Pra preservar o histórico, mantenha-o desativado.",
       };
     }
     console.error("excluirUsuarioDefinitivamente:", deleteError.message);
@@ -327,6 +373,19 @@ export async function excluirUsuarioDefinitivamente(
       authDeleteError.message,
     );
   }
+
+  // usuarioId aqui é quem foi EXCLUÍDO, não o autor — a linha em `usuarios`
+  // já não existe mais, e log_auditoria.usuario tem FK pra usuarios(id), então
+  // o autor (requester, que continua existindo) é quem entra nessa coluna.
+  await registrarLogAuditoria({
+    supabase: admin,
+    empresaId: requester.empresaId,
+    tabela: "usuarios",
+    registroId: usuarioId,
+    acao: "excluido",
+    usuarioId: requester.id,
+    detalhes: { nome: usuario.nome },
+  });
 
   revalidatePath("/usuarios");
   return { error: null, success: true };

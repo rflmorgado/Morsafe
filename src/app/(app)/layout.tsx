@@ -13,6 +13,7 @@ export default async function AppLayout({
       userNome={user?.nome ?? ""}
       empresaNome={user?.empresaNome ?? null}
       isSuperAdmin={user?.papel === "super_admin"}
+      isAdmin={user?.papel === "admin"}
     >
       {children}
     </AppShell>

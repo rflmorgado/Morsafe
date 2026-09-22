@@ -98,6 +98,10 @@ export interface Database {
           nome: string;
           papel: PapelUsuario;
           ativo: boolean;
+          // Última vez que o usuário fez qualquer request autenticado
+          // (atualizado no middleware, com throttle de 1 min) — base da
+          // bolinha de presença (verde/laranja/vermelho) em /usuarios.
+          ultima_atividade: string | null;
           criado_em: string;
         },
         "id" | "nome",

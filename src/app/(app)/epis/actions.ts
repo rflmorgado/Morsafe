@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
+import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
 const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
@@ -88,15 +89,29 @@ export async function createEpi(
   void _exigeCaSemNumero;
 
   const supabase = await createClient();
-  const { error } = await supabase.from("epis").insert({
-    empresa_id: user.empresaId,
-    ...dados,
-  });
+  const { data: novo, error } = await supabase
+    .from("epis")
+    .insert({
+      empresa_id: user.empresaId,
+      ...dados,
+    })
+    .select("id")
+    .single();
 
-  if (error) {
-    console.error("createEpi:", error.message);
+  if (error || !novo) {
+    console.error("createEpi:", error?.message);
     return { error: "Não foi possível salvar o EPI. Tente novamente." };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "epis",
+    registroId: novo.id,
+    acao: "criado",
+    usuarioId: user.id,
+    detalhes: { nome: dados.nome },
+  });
 
   revalidatePath("/epis");
   return { error: null, success: true };
@@ -142,6 +157,18 @@ export async function updateEpi(
     return {
       error: "Não foi possível salvar as alterações. Tente novamente.",
     };
+  }
+
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "epis",
+      registroId: id,
+      acao: "atualizado",
+      usuarioId: user.id,
+      detalhes: { nome: dados.nome },
+    });
   }
 
   revalidatePath("/epis");
@@ -210,8 +237,19 @@ export async function importarEpis(
     return { error: "Não foi possível importar os EPIs. Tente novamente." };
   }
 
+  const inserted = count ?? payload.length;
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "epis",
+    registroId: user.empresaId,
+    acao: "importado",
+    usuarioId: user.id,
+    detalhes: { quantidade: inserted },
+  });
+
   revalidatePath("/epis");
-  return { error: null, inserted: count ?? payload.length };
+  return { error: null, inserted };
 }
 
 export type DesativarEpiState = { error: string | null; success?: boolean };
@@ -234,6 +272,12 @@ export async function desativarEpi(epiId: string): Promise<DesativarEpiState> {
   }
 
   const supabase = await createClient();
+  const { data: epi } = await supabase
+    .from("epis")
+    .select("nome")
+    .eq("id", epiId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("epis")
     .update({ ativo: false })
@@ -242,6 +286,18 @@ export async function desativarEpi(epiId: string): Promise<DesativarEpiState> {
   if (error) {
     console.error("desativarEpi:", error.message);
     return { error: "Não foi possível desativar o EPI. Tente novamente." };
+  }
+
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "epis",
+      registroId: epiId,
+      acao: "desativado",
+      usuarioId: user.id,
+      detalhes: epi ? { nome: epi.nome } : null,
+    });
   }
 
   revalidatePath("/epis");
@@ -296,7 +352,7 @@ export async function excluirEpiDefinitivamente(
 
   const { data: epi, error: epiError } = await supabase
     .from("epis")
-    .select("ativo")
+    .select("ativo, nome")
     .eq("id", epiId)
     .maybeSingle();
 
@@ -331,6 +387,18 @@ export async function excluirEpiDefinitivamente(
     return { error: "Não foi possível excluir o EPI. Tente novamente." };
   }
 
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "epis",
+      registroId: epiId,
+      acao: "excluido",
+      usuarioId: user.id,
+      detalhes: { nome: epi.nome },
+    });
+  }
+
   revalidatePath("/epis");
   return { error: null, success: true };
 }
@@ -347,6 +415,12 @@ export async function reativarEpi(epiId: string): Promise<ReativarEpiState> {
   }
 
   const supabase = await createClient();
+  const { data: epi } = await supabase
+    .from("epis")
+    .select("nome")
+    .eq("id", epiId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("epis")
     .update({ ativo: true })
@@ -355,6 +429,18 @@ export async function reativarEpi(epiId: string): Promise<ReativarEpiState> {
   if (error) {
     console.error("reativarEpi:", error.message);
     return { error: "Não foi possível reativar o EPI. Tente novamente." };
+  }
+
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "epis",
+      registroId: epiId,
+      acao: "reativado",
+      usuarioId: user.id,
+      detalhes: epi ? { nome: epi.nome } : null,
+    });
   }
 
   revalidatePath("/epis");

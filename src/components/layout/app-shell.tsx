@@ -10,12 +10,17 @@ import { logout } from "@/app/(app)/actions";
 function NavLinks({
   onNavigate,
   isSuperAdmin,
+  isAdmin,
 }: {
   onNavigate?: () => void;
   isSuperAdmin: boolean;
+  isAdmin: boolean;
 }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin);
+  const items = NAV_ITEMS.filter(
+    (item) =>
+      (!item.superAdminOnly || isSuperAdmin) && (!item.adminOnly || isAdmin),
+  );
 
   return (
     <>
@@ -68,11 +73,13 @@ export function AppShell({
   userNome,
   empresaNome,
   isSuperAdmin = false,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
   userNome: string;
   empresaNome: string | null;
   isSuperAdmin?: boolean;
+  isAdmin?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -105,6 +112,7 @@ export function AppShell({
               <NavLinks
                 onNavigate={() => setMenuOpen(false)}
                 isSuperAdmin={isSuperAdmin}
+                isAdmin={isAdmin}
               />
             </div>
           )}
@@ -132,7 +140,7 @@ export function AppShell({
             </div>
           </div>
 
-          <NavLinks isSuperAdmin={isSuperAdmin} />
+          <NavLinks isSuperAdmin={isSuperAdmin} isAdmin={isAdmin} />
 
           <div className="mt-auto space-y-2 border-t border-white/10 pt-4">
             <div className="px-2.5">

@@ -1,0 +1,240 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { getCurrentUser } from "@/lib/data/current-user";
+import { temPapelMinimo } from "@/lib/auth/permissoes";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
+
+// Papéis que um admin de empresa pode atribuir a um colega. "super_admin"
+// fica de fora de propósito — esse continua exclusivo do cadastro de
+// empresa nova em /setup-empresa, nunca atribuível por aqui.
+const PAPEIS_CRIAVEIS = ["admin", "encarregado", "leitura"] as const;
+type PapelCriavel = (typeof PAPEIS_CRIAVEIS)[number];
+
+function isPapelCriavel(value: string): value is PapelCriavel {
+  return (PAPEIS_CRIAVEIS as readonly string[]).includes(value);
+}
+
+export type CriarUsuarioState = { error: string | null; success?: boolean };
+
+/**
+ * Cria um novo login pra um colega da MESMA empresa de quem está criando.
+ * Usa o cliente com service role (auth.admin.createUser) em vez do signUp
+ * comum usado em /setup-empresa — assim cria o login sem derrubar a sessão
+ * de quem está criando. Em /setup-empresa isso é aceitável (ação rara, só
+ * do super_admin), mas aqui seria toda vez que um admin cadastra um colega,
+ * o que aconteceria com frequência — por isso vale a pena evitar.
+ */
+export async function criarUsuario(
+  _prevState: CriarUsuarioState,
+  formData: FormData,
+): Promise<CriarUsuarioState> {
+  const requester = await getCurrentUser();
+  if (!requester?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(requester.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const nome = String(formData.get("nome") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const senha = String(formData.get("senha") ?? "");
+  const papel = String(formData.get("papel") ?? "");
+
+  if (!nome || !email || !senha || !papel) {
+    return { error: "Preencha nome, e-mail, senha e papel." };
+  }
+  if (senha.length < 6) {
+    return { error: "A senha deve ter ao menos 6 caracteres." };
+  }
+  if (!isPapelCriavel(papel)) {
+    return { error: "Papel inválido." };
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error("criarUsuario (admin client):", e);
+    return {
+      error:
+        "Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY ausente). Avise o suporte do MorSafe.",
+    };
+  }
+
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password: senha,
+    email_confirm: true,
+  });
+
+  if (createError || !created.user) {
+    const jaExiste =
+      createError?.code === "email_exists" ||
+      /already.*registered/i.test(createError?.message ?? "");
+    return {
+      error: jaExiste
+        ? "Já existe um usuário com esse e-mail."
+        : `Não foi possível criar o usuário. Detalhe: ${createError?.message ?? "erro desconhecido"}`,
+    };
+  }
+
+  const { error: usuarioError } = await admin.from("usuarios").insert({
+    id: created.user.id,
+    empresa_id: requester.empresaId,
+    nome,
+    papel,
+  });
+
+  if (usuarioError) {
+    // Login de autenticação ficou órfão (sem vínculo com empresa) —
+    // remove pra não deixar lixo, já que a criação como um todo falhou.
+    await admin.auth.admin.deleteUser(created.user.id);
+    console.error("criarUsuario (insert usuario):", usuarioError.message);
+    return {
+      error: "Não foi possível vincular o usuário à empresa. Tente novamente.",
+    };
+  }
+
+  revalidatePath("/usuarios");
+  return { error: null, success: true };
+}
+
+export type AtualizarPapelUsuarioState = { error: string | null; success?: boolean };
+
+/**
+ * Confere que o usuário-alvo pertence à MESMA empresa de quem está
+ * editando antes de aplicar qualquer mudança — trava real, já que o
+ * cliente admin ignora RLS por completo.
+ */
+async function usuarioPertenceAEmpresa(
+  admin: ReturnType<typeof createAdminClient>,
+  usuarioId: string,
+  empresaId: string,
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("usuarios")
+    .select("empresa_id")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  return !error && !!data && data.empresa_id === empresaId;
+}
+
+export async function atualizarPapelUsuario(
+  usuarioId: string,
+  novoPapel: string,
+): Promise<AtualizarPapelUsuarioState> {
+  const requester = await getCurrentUser();
+  if (!requester?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(requester.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  if (usuarioId === requester.id) {
+    return { error: "Você não pode alterar o próprio papel por aqui." };
+  }
+  if (!isPapelCriavel(novoPapel)) {
+    return { error: "Papel inválido." };
+  }
+
+  const admin = createAdminClient();
+
+  if (!(await usuarioPertenceAEmpresa(admin, usuarioId, requester.empresaId))) {
+    return { error: "Usuário não encontrado." };
+  }
+
+  const { error } = await admin
+    .from("usuarios")
+    .update({ papel: novoPapel })
+    .eq("id", usuarioId);
+
+  if (error) {
+    console.error("atualizarPapelUsuario:", error.message);
+    return { error: "Não foi possível atualizar o papel. Tente novamente." };
+  }
+
+  revalidatePath("/usuarios");
+  return { error: null, success: true };
+}
+
+export type DesativarUsuarioState = { error: string | null; success?: boolean };
+
+/**
+ * Desativação = soft delete (ativo -> false): bloqueia o login dessa
+ * pessoa (checado no middleware) sem apagar nada do histórico do que ela
+ * já registrou no sistema. Não pode ser usada na própria conta — evita se
+ * trancar fora sem querer.
+ */
+export async function desativarUsuario(
+  usuarioId: string,
+): Promise<DesativarUsuarioState> {
+  const requester = await getCurrentUser();
+  if (!requester?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(requester.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  if (usuarioId === requester.id) {
+    return { error: "Você não pode desativar o próprio acesso por aqui." };
+  }
+
+  const admin = createAdminClient();
+
+  if (!(await usuarioPertenceAEmpresa(admin, usuarioId, requester.empresaId))) {
+    return { error: "Usuário não encontrado." };
+  }
+
+  const { error } = await admin
+    .from("usuarios")
+    .update({ ativo: false })
+    .eq("id", usuarioId);
+
+  if (error) {
+    console.error("desativarUsuario:", error.message);
+    return { error: "Não foi possível desativar o usuário. Tente novamente." };
+  }
+
+  revalidatePath("/usuarios");
+  return { error: null, success: true };
+}
+
+export type ReativarUsuarioState = { error: string | null; success?: boolean };
+
+export async function reativarUsuario(
+  usuarioId: string,
+): Promise<ReativarUsuarioState> {
+  const requester = await getCurrentUser();
+  if (!requester?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(requester.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const admin = createAdminClient();
+
+  if (!(await usuarioPertenceAEmpresa(admin, usuarioId, requester.empresaId))) {
+    return { error: "Usuário não encontrado." };
+  }
+
+  const { error } = await admin
+    .from("usuarios")
+    .update({ ativo: true })
+    .eq("id", usuarioId);
+
+  if (error) {
+    console.error("reativarUsuario:", error.message);
+    return { error: "Não foi possível reativar o usuário. Tente novamente." };
+  }
+
+  revalidatePath("/usuarios");
+  return { error: null, success: true };
+}

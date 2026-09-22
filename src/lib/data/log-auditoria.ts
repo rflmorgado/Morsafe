@@ -15,6 +15,8 @@ export const ACAO_LABEL: Record<string, string> = {
   excluido: "Excluído definitivamente",
   papel_alterado: "Papel de acesso alterado",
   importado: "Importação em massa",
+  exportado: "Exportação em CSV",
+  baixou_ficha: "Ficha de EPI baixada",
 };
 
 export const TABELA_LABEL: Record<string, string> = {
@@ -119,6 +121,12 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
       const qtd = item.detalhes?.quantidade as number | undefined;
       return `Importou ${qtd ?? "vários"} registro${qtd === 1 ? "" : "s"} em ${tabelaLabel}`;
     }
+    case "exportado": {
+      const qtd = item.detalhes?.quantidade as number | undefined;
+      return `Exportou ${qtd ?? "vários"} registro${qtd === 1 ? "" : "s"} de ${tabelaLabel} em CSV`;
+    }
+    case "baixou_ficha":
+      return nome ? `Baixou a ficha de EPI de "${nome}"` : "Baixou a ficha de EPI de um colaborador";
     default:
       return ACAO_LABEL[item.acao] ?? item.acao;
   }

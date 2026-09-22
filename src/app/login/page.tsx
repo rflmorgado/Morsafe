@@ -1,7 +1,13 @@
 import { ShieldIcon } from "@/components/brand/shield-icon";
 import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ motivo?: string }>;
+}) {
+  const { motivo } = await searchParams;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-muted p-4">
       <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-[0_1px_2px_rgba(18,53,36,0.06),0_4px_16px_rgba(18,53,36,0.06)] md:grid-cols-2">
@@ -41,6 +47,13 @@ export default function LoginPage() {
           <p className="mb-7 mt-1 text-[13.5px] text-text-secondary">
             Acesse o painel de controle de EPI da sua empresa.
           </p>
+
+          {motivo === "acesso_desativado" && (
+            <p className="mb-5 rounded-lg bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-text">
+              Seu acesso foi desativado pelo administrador da sua empresa.
+              Fale com ele se isso não deveria ter acontecido.
+            </p>
+          )}
 
           <LoginForm />
 

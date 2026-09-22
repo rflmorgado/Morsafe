@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
+import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
 const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
@@ -140,19 +141,33 @@ export async function createColaborador(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("colaboradores").insert({
-    empresa_id: user.empresaId,
-    nome,
-    setor_id: setorId,
-    cargo_id: cargoId,
-    cpf: cpf || null,
-    telefone: telefone || null,
-  });
+  const { data: novo, error } = await supabase
+    .from("colaboradores")
+    .insert({
+      empresa_id: user.empresaId,
+      nome,
+      setor_id: setorId,
+      cargo_id: cargoId,
+      cpf: cpf || null,
+      telefone: telefone || null,
+    })
+    .select("id")
+    .single();
 
-  if (error) {
-    console.error("createColaborador:", error.message);
+  if (error || !novo) {
+    console.error("createColaborador:", error?.message);
     return { error: "Não foi possível salvar o colaborador. Tente novamente." };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "colaboradores",
+    registroId: novo.id,
+    acao: "criado",
+    usuarioId: user.id,
+    detalhes: { nome },
+  });
 
   revalidatePath("/colaboradores");
   return { error: null, success: true };
@@ -220,8 +235,22 @@ export async function importarColaboradores(
     };
   }
 
+  const inserted = count ?? payload.length;
+  // Um único registro de log pra importação inteira (não um por linha) —
+  // o volume seria alto e o que importa pra auditoria é "quem importou
+  // quantos, quando", não cada linha individual.
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "colaboradores",
+    registroId: user.empresaId,
+    acao: "importado",
+    usuarioId: user.id,
+    detalhes: { quantidade: inserted },
+  });
+
   revalidatePath("/colaboradores");
-  return { error: null, inserted: count ?? payload.length };
+  return { error: null, inserted };
 }
 
 export type UpdateColaboradorState = {
@@ -279,6 +308,18 @@ export async function updateColaborador(
     };
   }
 
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "colaboradores",
+      registroId: id,
+      acao: "atualizado",
+      usuarioId: user.id,
+      detalhes: { nome },
+    });
+  }
+
   revalidatePath("/colaboradores");
   revalidatePath(`/colaboradores/${id}`);
   return { error: null, success: true };
@@ -315,6 +356,12 @@ export async function desligarColaborador(
   }
 
   const supabase = await createClient();
+  const { data: colaborador } = await supabase
+    .from("colaboradores")
+    .select("nome")
+    .eq("id", colaboradorId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("colaboradores")
     .update({ status: "inativo" })
@@ -323,6 +370,18 @@ export async function desligarColaborador(
   if (error) {
     console.error("desligarColaborador:", error.message);
     return { error: "Não foi possível desligar o colaborador. Tente novamente." };
+  }
+
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "colaboradores",
+      registroId: colaboradorId,
+      acao: "desligado",
+      usuarioId: user.id,
+      detalhes: colaborador ? { nome: colaborador.nome } : null,
+    });
   }
 
   revalidatePath("/colaboradores");
@@ -371,7 +430,7 @@ export async function excluirColaboradorDefinitivamente(
 
   const { data: colaborador, error: colaboradorError } = await supabase
     .from("colaboradores")
-    .select("status")
+    .select("status, nome")
     .eq("id", colaboradorId)
     .maybeSingle();
 
@@ -401,6 +460,18 @@ export async function excluirColaboradorDefinitivamente(
     return {
       error: "Não foi possível excluir o colaborador. Tente novamente.",
     };
+  }
+
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "colaboradores",
+      registroId: colaboradorId,
+      acao: "excluido",
+      usuarioId: user.id,
+      detalhes: { nome: colaborador.nome },
+    });
   }
 
   revalidatePath("/colaboradores");
@@ -433,6 +504,12 @@ export async function reativarColaborador(
   }
 
   const supabase = await createClient();
+  const { data: colaborador } = await supabase
+    .from("colaboradores")
+    .select("nome")
+    .eq("id", colaboradorId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("colaboradores")
     .update({ status: "ativo" })
@@ -443,6 +520,18 @@ export async function reativarColaborador(
     return {
       error: "Não foi possível reativar o colaborador. Tente novamente.",
     };
+  }
+
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "colaboradores",
+      registroId: colaboradorId,
+      acao: "reativado",
+      usuarioId: user.id,
+      detalhes: colaborador ? { nome: colaborador.nome } : null,
+    });
   }
 
   revalidatePath("/colaboradores");

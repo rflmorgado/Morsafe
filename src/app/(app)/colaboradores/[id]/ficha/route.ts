@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { getColaboradorDetalhe } from "@/lib/data/colaboradores";
 import { getCurrentUser } from "@/lib/data/current-user";
+import { createClient } from "@/lib/supabase/server";
+import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
 const TIPO_LABEL: Record<string, string> = {
   entrega: "Entrega",
@@ -51,6 +53,21 @@ export async function GET(
       { error: "Colaborador não encontrado." },
       { status: 404 },
     );
+  }
+
+  // Baixar a ficha dá acesso ao histórico de EPI do colaborador (dado
+  // sensível), então entra no histórico de ações igual às demais mutações —
+  // registra quem baixou a ficha de quem, e quando.
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase: await createClient(),
+      empresaId: user.empresaId,
+      tabela: "colaboradores",
+      registroId: id,
+      acao: "baixou_ficha",
+      usuarioId: user.id,
+      detalhes: { nome: colaborador.nome },
+    });
   }
 
   const pdfDoc = await PDFDocument.create();

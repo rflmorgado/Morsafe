@@ -45,6 +45,27 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Usuário desativado (ver src/app/(app)/usuarios) não pode continuar
+  // usando o app mesmo com uma sessão do Supabase Auth ainda válida — sem
+  // essa checagem, "ativo" na tabela `usuarios` não bloqueava nada de
+  // verdade. Isso cobre o uso normal do app; não é o mesmo que revogar
+  // acesso direto via API/RLS (fora do escopo desta checagem).
+  if (user && !isPublicPath) {
+    const { data: perfil } = await supabase
+      .from("usuarios")
+      .select("ativo")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (perfil && perfil.ativo === false) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("motivo", "acesso_desativado");
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (user && request.nextUrl.pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";

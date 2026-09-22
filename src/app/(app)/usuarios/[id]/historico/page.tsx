@@ -24,6 +24,8 @@ const DOT_CLASS: Record<string, string> = {
   excluido: "bg-danger-text",
   papel_alterado: "bg-warning-text",
   importado: "bg-text-muted",
+  exportado: "bg-text-muted",
+  baixou_ficha: "bg-text-muted",
 };
 
 function formatDateTime(value: string) {

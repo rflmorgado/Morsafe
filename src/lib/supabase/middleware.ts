@@ -53,7 +53,7 @@ export async function updateSession(request: NextRequest) {
   if (user && !isPublicPath) {
     const { data: perfil } = await supabase
       .from("usuarios")
-      .select("ativo")
+      .select("ativo, ultima_atividade")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -63,6 +63,20 @@ export async function updateSession(request: NextRequest) {
       url.pathname = "/login";
       url.searchParams.set("motivo", "acesso_desativado");
       return NextResponse.redirect(url);
+    }
+
+    // Marca "última atividade" pra bolinha de presença em /usuarios
+    // (verde/laranja/vermelho). Throttle de 1 minuto — só grava de novo se
+    // a marcação anterior já tiver essa idade, pra não fazer um UPDATE a
+    // cada request nas telas do app.
+    const ultimaAtividadeMs = perfil?.ultima_atividade
+      ? new Date(perfil.ultima_atividade).getTime()
+      : 0;
+    if (Date.now() - ultimaAtividadeMs > 60_000) {
+      await supabase
+        .from("usuarios")
+        .update({ ultima_atividade: new Date().toISOString() })
+        .eq("id", user.id);
     }
   }
 

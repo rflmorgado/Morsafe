@@ -1,6 +1,8 @@
 import { listColaboradoresParaExportar } from "@/lib/data/colaboradores";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
+import { createClient } from "@/lib/supabase/server";
+import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -84,6 +86,18 @@ export async function GET(request: Request) {
 
   const bom = "﻿";
   const hoje = new Date().toISOString().slice(0, 10);
+
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase: await createClient(),
+      empresaId: user.empresaId,
+      tabela: "colaboradores",
+      registroId: user.empresaId,
+      acao: "exportado",
+      usuarioId: user.id,
+      detalhes: { quantidade: colaboradores.length },
+    });
+  }
 
   return new Response(bom + csv, {
     headers: {

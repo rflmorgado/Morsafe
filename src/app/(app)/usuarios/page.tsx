@@ -1,15 +1,32 @@
 import { getCurrentUser } from "@/lib/data/current-user";
-import { listUsuariosDaEmpresa } from "@/lib/data/usuarios";
+import { listUsuariosDaEmpresa, statusPresenca } from "@/lib/data/usuarios";
 import { NovoUsuarioButton } from "./novo-usuario-button";
 import { EditarPapelUsuarioButton } from "./editar-papel-usuario-button";
 import { DesativarUsuarioButton } from "./desativar-usuario-button";
 import { ReativarUsuarioButton } from "./reativar-usuario-button";
 import { ExcluirUsuarioButton } from "./excluir-usuario-button";
+import { HistoricoUsuarioButton } from "./historico-usuario-button";
+import { AutoRefresh } from "./auto-refresh";
 
 const PAPEL_LABEL: Record<string, string> = {
   admin: "Admin",
   encarregado: "Encarregado",
   leitura: "Leitura",
+};
+
+// Bolinha de presença ao lado do nome — verde (usando o sistema agora),
+// laranja (logado, mas parado há um tempo) ou vermelho (offline/nunca
+// esteve ativo). Ver limiares e regra completa em statusPresenca().
+const PRESENCA_DOT: Record<ReturnType<typeof statusPresenca>, string> = {
+  online: "bg-brand-500",
+  ausente: "bg-warning-text",
+  offline: "bg-danger-text",
+};
+
+const PRESENCA_LABEL: Record<ReturnType<typeof statusPresenca>, string> = {
+  online: "Usando o sistema agora",
+  ausente: "Ausente (logado, sem atividade recente)",
+  offline: "Offline",
 };
 
 // Só admin da própria empresa acessa esta tela (nunca super_admin, que não
@@ -62,6 +79,7 @@ export default async function UsuariosPage() {
 
   return (
     <div className="space-y-1">
+      <AutoRefresh />
       <h2 className="text-xl font-bold tracking-tight text-foreground">
         Usuários
       </h2>
@@ -97,13 +115,20 @@ export default async function UsuariosPage() {
             ) : (
               usuarios.map((u) => {
                 const vocêMesmo = u.id === user.id;
+                const presenca = statusPresenca(u.ativo, u.ultimaAtividade);
                 return (
                   <tr
                     key={u.id}
                     className="border-b border-border-subtle last:border-b-0"
                   >
                     <td className="px-4 py-3.5 text-[13.5px] font-medium text-foreground">
-                      {u.nome}
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          title={PRESENCA_LABEL[presenca]}
+                          className={`h-2 w-2 shrink-0 rounded-full ${PRESENCA_DOT[presenca]}`}
+                        />
+                        {u.nome}
+                      </span>
                       {vocêMesmo && (
                         <span className="ml-1.5 text-[11.5px] font-normal text-text-muted">
                           (você)
@@ -128,32 +153,38 @@ export default async function UsuariosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-right">
-                      {!vocêMesmo && (
-                        <div className="flex items-center justify-end gap-1">
-                          <EditarPapelUsuarioButton
-                            usuarioId={u.id}
-                            usuarioNome={u.nome}
-                            papelAtual={u.papel}
-                          />
-                          {u.ativo ? (
-                            <DesativarUsuarioButton
+                      <div className="flex items-center justify-end gap-1">
+                        <HistoricoUsuarioButton
+                          usuarioId={u.id}
+                          usuarioNome={u.nome}
+                        />
+                        {!vocêMesmo && (
+                          <>
+                            <EditarPapelUsuarioButton
                               usuarioId={u.id}
                               usuarioNome={u.nome}
+                              papelAtual={u.papel}
                             />
-                          ) : (
-                            <>
-                              <ReativarUsuarioButton
+                            {u.ativo ? (
+                              <DesativarUsuarioButton
                                 usuarioId={u.id}
                                 usuarioNome={u.nome}
                               />
-                              <ExcluirUsuarioButton
-                                usuarioId={u.id}
-                                usuarioNome={u.nome}
-                              />
-                            </>
-                          )}
-                        </div>
-                      )}
+                            ) : (
+                              <>
+                                <ReativarUsuarioButton
+                                  usuarioId={u.id}
+                                  usuarioNome={u.nome}
+                                />
+                                <ExcluirUsuarioButton
+                                  usuarioId={u.id}
+                                  usuarioNome={u.nome}
+                                />
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

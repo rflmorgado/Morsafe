@@ -320,11 +320,12 @@ export async function getColaboradorDetalhe(id: string) {
     setor: (colaborador.setores as unknown as { nome: string } | null)?.nome ?? "—",
     cargo: (colaborador.cargos as unknown as { nome: string } | null)?.nome ?? "—",
     criadoEm: colaborador.criado_em,
-    // Data da Integração de Segurança do colaborador — treinamento de
-    // admissão que cobre, entre outras coisas, o uso correto de EPI. Exibida
-    // na ficha em PDF (ver ficha/route.ts) porque reforça a defesa da
-    // empresa numa eventual ação trabalhista: mostra que não houve só a
-    // entrega do equipamento, mas também orientação sobre o uso dele.
+    // Data da Integração de Segurança (admissão) ou da última
+    // reciclagem/treinamento anual de NR-06, conforme a prática da empresa —
+    // mesmo campo nos dois casos. Exibida na ficha em PDF (ver
+    // ficha/route.ts) porque reforça a defesa da empresa numa eventual ação
+    // trabalhista: mostra que não houve só a entrega do equipamento, mas
+    // também orientação (e reciclagem) sobre o uso dele.
     dataIntegracaoSeguranca: colaborador.data_integracao_seguranca,
     eventos,
   };

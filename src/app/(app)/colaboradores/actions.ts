@@ -203,6 +203,7 @@ export type ImportarColaboradorRow = {
   cargoId: string;
   cpf?: string | null;
   telefone?: string | null;
+  dataIntegracaoSeguranca?: string | null;
 };
 
 export type ImportarColaboradoresState = {
@@ -246,6 +247,7 @@ export async function importarColaboradores(
     cargo_id: r.cargoId,
     cpf: r.cpf || null,
     telefone: r.telefone || null,
+    data_integracao_seguranca: r.dataIntegracaoSeguranca || null,
   }));
 
   const { error, count } = await supabase

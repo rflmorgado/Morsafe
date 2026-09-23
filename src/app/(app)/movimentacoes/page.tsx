@@ -201,6 +201,7 @@ export default async function MovimentacoesPage({
                   <span className="text-[13.5px] font-semibold text-foreground">
                     {TIPO_LABEL[evento.tipo]} — {evento.epiNome}
                     {evento.epiCa ? ` (C.A. ${evento.epiCa})` : ""}
+                    {evento.quantidade ? ` · Qtd: ${evento.quantidade}` : ""}
                   </span>
                   <Link
                     href={`/colaboradores/${evento.colaboradorId}`}

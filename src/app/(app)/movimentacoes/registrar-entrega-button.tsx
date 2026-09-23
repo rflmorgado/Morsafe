@@ -109,29 +109,49 @@ export function RegistrarEntregaButton({
             </select>
           </div>
 
-          <div>
-            <label
-              htmlFor="entrega-motivo"
-              className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary"
-            >
-              Motivo
-            </label>
-            <select
-              id="entrega-motivo"
-              name="motivo"
-              required
-              defaultValue=""
-              className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            >
-              <option value="" disabled>
-                Selecione…
-              </option>
-              {MOTIVOS.map(([valor, label]) => (
-                <option key={valor} value={valor}>
-                  {label}
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div>
+              <label
+                htmlFor="entrega-motivo"
+                className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary"
+              >
+                Motivo
+              </label>
+              <select
+                id="entrega-motivo"
+                name="motivo"
+                required
+                defaultValue=""
+                className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              >
+                <option value="" disabled>
+                  Selecione…
                 </option>
-              ))}
-            </select>
+                {MOTIVOS.map(([valor, label]) => (
+                  <option key={valor} value={valor}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="entrega-quantidade"
+                className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary"
+              >
+                Quantidade
+              </label>
+              <input
+                id="entrega-quantidade"
+                name="quantidade"
+                type="number"
+                min={1}
+                step={1}
+                required
+                defaultValue={1}
+                className="w-20 rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

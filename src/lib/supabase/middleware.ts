@@ -1,7 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/redefinir-senha"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/redefinir-senha",
+  "/politica-de-privacidade",
+  "/seguranca-da-informacao",
+];
 
 /**
  * Atualiza a sessão do Supabase Auth a cada request e redireciona para

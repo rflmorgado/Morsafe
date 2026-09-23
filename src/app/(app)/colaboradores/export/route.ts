@@ -68,7 +68,7 @@ export async function GET(request: Request) {
     "Telefone",
     "Status",
     "Última entrega",
-    "Integração de Segurança",
+    "Integração de Segurança / Treinamento NR-06",
   ];
 
   const linhas = colaboradores.map((c) => [

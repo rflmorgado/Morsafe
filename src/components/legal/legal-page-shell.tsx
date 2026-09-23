@@ -26,7 +26,7 @@ export function LegalPageShell({
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/" className="flex items-center gap-2">
             <ShieldIcon className="h-7 w-7" />
-            <span className="text-[15px] font-bold tracking-tight text-brand-900">
+            <span className="text-[15px] font-bold tracking-tight text-foreground">
               MorSafe
             </span>
           </Link>
@@ -79,7 +79,7 @@ export function LegalSection({
 }) {
   return (
     <section className="mt-9 first:mt-0">
-      <h2 className="text-[16px] font-bold tracking-tight text-brand-900">
+      <h2 className="text-[16px] font-bold tracking-tight text-foreground">
         {n}. {title}
       </h2>
       <div className="mt-1.5 border-t border-brand-200" />

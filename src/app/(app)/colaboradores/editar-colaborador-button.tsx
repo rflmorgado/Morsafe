@@ -36,6 +36,7 @@ export function EditarColaboradorButton({
     cargoId: string | null;
     cpf: string | null;
     telefone: string | null;
+    dataIntegracaoSeguranca: string | null;
   };
   setores: SetorComCargos[];
 }) {
@@ -262,6 +263,27 @@ export function EditarColaboradorButton({
                 className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition placeholder:text-text-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
               />
             </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="edit-data_integracao_seguranca"
+              className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary"
+            >
+              Integração de Segurança{" "}
+              <span className="font-normal text-text-muted">(opcional)</span>
+            </label>
+            <input
+              id="edit-data_integracao_seguranca"
+              name="data_integracao_seguranca"
+              type="date"
+              defaultValue={colaborador.dataIntegracaoSeguranca ?? ""}
+              className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            />
+            <p className="mt-1 text-[11.5px] text-text-muted">
+              Data em que o colaborador passou pela Integração de Segurança
+              (treinamento de admissão, cobre uso correto de EPI).
+            </p>
           </div>
 
           {error && (

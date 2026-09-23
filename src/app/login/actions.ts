@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/data/current-user";
+import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
 export type LoginState = {
   error: string | null;
@@ -71,6 +73,21 @@ export async function login(
 
   if (error) {
     return { error: "E-mail ou senha inválidos." };
+  }
+
+  // super_admin não tem empresa vinculada (empresa_id null) — log_auditoria
+  // exige empresa_id, então login de super_admin não gera histórico (fora
+  // do escopo desta auditoria, que é por empresa cliente).
+  const loggedUser = await getCurrentUser();
+  if (loggedUser?.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: loggedUser.empresaId,
+      tabela: "usuarios",
+      registroId: loggedUser.id,
+      acao: "login",
+      usuarioId: loggedUser.id,
+    });
   }
 
   redirect("/dashboard");

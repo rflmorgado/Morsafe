@@ -255,8 +255,8 @@ export async function GET(
   // conservação, não só a entrega em si).
   page.drawText(
     colaborador.dataIntegracaoSeguranca
-      ? `Integração de Segurança: ${formatDate(colaborador.dataIntegracaoSeguranca)}`
-      : "Integração de Segurança: não registrada",
+      ? `Integração de Segurança / Treinamento NR-06: ${formatDate(colaborador.dataIntegracaoSeguranca)}`
+      : "Integração de Segurança / Treinamento NR-06: não registrada",
     { x: marginX, y, size: 10.5, font: fontRegular, color: textMuted },
   );
   y -= 15;

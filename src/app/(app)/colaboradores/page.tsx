@@ -11,7 +11,7 @@ import { ImportarColaboradoresButton } from "./importar-colaboradores-button";
 import { DesligarColaboradorButton } from "./desligar-colaborador-button";
 import { ReativarColaboradorButton } from "./reativar-colaborador-button";
 import { ExcluirColaboradorButton } from "./excluir-colaborador-button";
-import { BaixarFichaButton } from "./baixar-ficha-button";
+import { VisualizarFichaButton } from "./visualizar-ficha-button";
 import { EditarColaboradorButton } from "./editar-colaborador-button";
 import { ColaboradoresFilters } from "./colaboradores-filters";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
@@ -122,7 +122,7 @@ export default async function ColaboradoresPage({
   const totalPages = Math.max(1, Math.ceil(total / COLABORADORES_PAGE_SIZE));
 
   // Controle de acesso por papel: "leitura" só visualiza (busca, filtra,
-  // ordena, vê detalhe e baixa ficha); "encarregado" também cadastra, edita
+  // ordena, vê detalhe e a ficha); "encarregado" também cadastra, edita
   // e exporta; só "admin"+ desliga/reativa, importa planilha e exclui
   // definitivamente. Import e exclusão ficam no mesmo nível de
   // desligar/reativar porque são ações de maior risco/irreversíveis — uma
@@ -266,7 +266,7 @@ export default async function ColaboradoresPage({
                           setores={setores}
                         />
                       )}
-                      <BaixarFichaButton
+                      <VisualizarFichaButton
                         colaboradorId={c.id}
                         colaboradorNome={c.nome}
                       />

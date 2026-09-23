@@ -147,6 +147,9 @@ export async function createColaborador(
   const cargoId = String(formData.get("cargo_id") ?? "").trim();
   const cpf = String(formData.get("cpf") ?? "").trim();
   const telefone = String(formData.get("telefone") ?? "").trim();
+  const dataIntegracaoSeguranca = String(
+    formData.get("data_integracao_seguranca") ?? "",
+  ).trim();
 
   if (!nome || !setorId || !cargoId) {
     return { error: "Preencha nome, setor e cargo." };
@@ -170,6 +173,7 @@ export async function createColaborador(
       cargo_id: cargoId,
       cpf: cpf || null,
       telefone: telefone || null,
+      data_integracao_seguranca: dataIntegracaoSeguranca || null,
     })
     .select("id")
     .single();
@@ -293,6 +297,9 @@ export async function updateColaborador(
   const cargoId = String(formData.get("cargo_id") ?? "").trim();
   const cpf = String(formData.get("cpf") ?? "").trim();
   const telefone = String(formData.get("telefone") ?? "").trim();
+  const dataIntegracaoSeguranca = String(
+    formData.get("data_integracao_seguranca") ?? "",
+  ).trim();
 
   if (!id) {
     return { error: "Colaborador inválido." };
@@ -318,6 +325,7 @@ export async function updateColaborador(
       cargo_id: cargoId,
       cpf: cpf || null,
       telefone: telefone || null,
+      data_integracao_seguranca: dataIntegracaoSeguranca || null,
     })
     .eq("id", id);
 

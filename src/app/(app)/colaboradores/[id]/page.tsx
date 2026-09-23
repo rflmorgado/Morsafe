@@ -78,6 +78,21 @@ export default async function ColaboradorDetalhePage({
           </span>
         </div>
 
+        <div className="flex items-center gap-2 border-b border-border-subtle px-6 py-3">
+          <span className="text-[12.5px] font-semibold text-text-secondary">
+            Integração de Segurança:
+          </span>
+          {colaborador.dataIntegracaoSeguranca ? (
+            <span className="text-[12.5px] text-foreground">
+              {formatDate(colaborador.dataIntegracaoSeguranca)}
+            </span>
+          ) : (
+            <span className="rounded-full bg-warning-bg px-2 py-0.5 text-[11px] font-semibold text-warning-text">
+              Não registrada
+            </span>
+          )}
+        </div>
+
         <div className="px-6 py-5">
           {colaborador.eventos.length === 0 ? (
             <p className="text-sm text-text-muted">
@@ -95,6 +110,7 @@ export default async function ColaboradorDetalhePage({
                 <div>
                   <div className="text-[13.5px] font-semibold text-foreground">
                     {TIPO_LABEL[evento.tipo]} — {evento.epi}
+                    {evento.quantidade ? ` · Qtd: ${evento.quantidade}` : ""}
                   </div>
                   <div className="mt-0.5 text-xs text-text-secondary">
                     {formatDate(evento.data)} · {evento.detalhe}

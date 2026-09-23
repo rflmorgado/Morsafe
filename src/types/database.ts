@@ -175,11 +175,12 @@ export interface Database {
           setor_id: string;
           cargo_id: string;
           status: StatusColaborador;
-          // Data em que o colaborador realizou a Integração de Segurança —
-          // treinamento de admissão que cobre, entre outras coisas, o uso
-          // correto de EPI (a NR-06 exige orientação sobre uso, guarda e
-          // conservação, não só a entrega). Fica na maioria das empresas
-          // vinculado à integração geral, não a cada entrega individual.
+          // Data da Integração de Segurança (treinamento de admissão) ou,
+          // para empresas que reciclam a NR-06 anualmente, da última
+          // reciclagem/treinamento — é o mesmo campo nos dois casos, só
+          // atualizado a cada reciclagem por quem faz isso todo ano. Cobre a
+          // exigência da NR-06 de orientação sobre uso, guarda e conservação
+          // de EPI, que vai além da simples entrega do equipamento.
           data_integracao_seguranca: string | null;
           criado_em: string;
           atualizado_em: string;

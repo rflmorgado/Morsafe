@@ -68,6 +68,7 @@ export async function GET(request: Request) {
     "Telefone",
     "Status",
     "Última entrega",
+    "Integração de Segurança",
   ];
 
   const linhas = colaboradores.map((c) => [
@@ -78,6 +79,7 @@ export async function GET(request: Request) {
     c.telefone ?? "",
     c.status === "ativo" ? "Ativo" : "Inativo",
     formatDate(c.ultimaEntrega),
+    formatDate(c.dataIntegracaoSeguranca),
   ]);
 
   const csv = [header, ...linhas]

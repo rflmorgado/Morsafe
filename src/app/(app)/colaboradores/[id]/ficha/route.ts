@@ -249,6 +249,17 @@ export async function GET(
     { x: marginX, y, size: 10.5, font: fontRegular, color: textMuted },
   );
   y -= 15;
+  // Reforça, no próprio documento, que a orientação sobre uso de EPI não
+  // ficou só na entrega — importante para a defesa da empresa numa eventual
+  // ação trabalhista (a NR-06 exige orientação sobre uso, guarda e
+  // conservação, não só a entrega em si).
+  page.drawText(
+    colaborador.dataIntegracaoSeguranca
+      ? `Integração de Segurança: ${formatDate(colaborador.dataIntegracaoSeguranca)}`
+      : "Integração de Segurança: não registrada",
+    { x: marginX, y, size: 10.5, font: fontRegular, color: textMuted },
+  );
+  y -= 15;
   page.drawText(`Documento gerado em: ${formatDate(new Date().toISOString().slice(0, 10))}`, {
     x: marginX,
     y,
@@ -339,8 +350,13 @@ export async function GET(
         : pageWidth - marginX * 2;
 
       const caLabel = evento.ca ? ` (CA ${evento.ca})` : "";
+      // Sempre exibe a quantidade, mesmo quando é 1 — melhor deixar
+      // explícito no documento do que dar margem a dúvida sobre quantas
+      // unidades foram entregues numa eventual contestação.
+      const qtdLabel =
+        typeof evento.quantidade === "number" ? ` · Qtd: ${evento.quantidade}` : "";
       const tituloTexto = fitSingleLine(
-        `${TIPO_LABEL[evento.tipo]} — ${evento.epi}${caLabel}`,
+        `${TIPO_LABEL[evento.tipo]} — ${evento.epi}${caLabel}${qtdLabel}`,
         fontBold,
         TITULO_SIZE,
         larguraMaximaTexto,

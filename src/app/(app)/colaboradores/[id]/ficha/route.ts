@@ -26,10 +26,18 @@ function sanitizeFileName(nome: string) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+
+  // Por padrão o PDF abre direto no navegador ("Visualizar ficha", na
+  // listagem de colaboradores) — mais rápido pra uma conferência pontual e
+  // não obriga a pessoa a ir até a pasta de downloads. O fluxo de
+  // desligamento (ver desligar-colaborador-button.tsx) é a exceção: ali o
+  // download é uma etapa formal de conformidade NR-06 antes de desligar
+  // alguém, então força o download de verdade via ?download=1.
+  const forcarDownload = new URL(request.url).searchParams.has("download");
 
   const [colaborador, user] = await Promise.all([
     getColaboradorDetalhe(id),
@@ -37,10 +45,10 @@ export async function GET(
   ]);
 
   // O proxy (middleware) já bloqueia quem não está logado antes de chegar
-  // aqui, mas confirmamos de novo — baixar ficha é permitido pra qualquer
-  // papel autenticado (inclusive "leitura"), então não há checagem de papel,
-  // só de sessão. O isolamento entre empresas fica por conta do RLS em
-  // getColaboradorDetalhe.
+  // aqui, mas confirmamos de novo — abrir/baixar a ficha é permitido pra
+  // qualquer papel autenticado (inclusive "leitura"), então não há checagem
+  // de papel, só de sessão. O isolamento entre empresas fica por conta do
+  // RLS em getColaboradorDetalhe.
   if (!user) {
     return NextResponse.json(
       { error: "Sessão expirada. Faça login novamente." },
@@ -475,7 +483,7 @@ export async function GET(
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="ficha-epi-${sanitizeFileName(
+      "Content-Disposition": `${forcarDownload ? "attachment" : "inline"}; filename="ficha-epi-${sanitizeFileName(
         colaborador.nome,
       )}.pdf"`,
     },

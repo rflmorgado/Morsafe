@@ -232,6 +232,26 @@ export function NovoColaboradorButton({
             </div>
           </div>
 
+          <div>
+            <label
+              htmlFor="data_integracao_seguranca"
+              className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary"
+            >
+              Integração de Segurança{" "}
+              <span className="font-normal text-text-muted">(opcional)</span>
+            </label>
+            <input
+              id="data_integracao_seguranca"
+              name="data_integracao_seguranca"
+              type="date"
+              className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            />
+            <p className="mt-1 text-[11.5px] text-text-muted">
+              Data em que o colaborador passou pela Integração de Segurança
+              (treinamento de admissão, cobre uso correto de EPI).
+            </p>
+          </div>
+
           {error && (
             <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-text">
               {error}

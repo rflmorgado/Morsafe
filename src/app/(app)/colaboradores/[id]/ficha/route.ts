@@ -126,6 +126,27 @@ export async function GET(
     }
   }
 
+  // Usada nas linhas do histórico (uma linha por registro, ver abaixo): em
+  // vez de quebrar em várias linhas, corta com "…" quando não cabe — mantém
+  // cada registro numa única linha compacta, o que é o que permite caber
+  // muito mais entregas/devoluções/recusas por página.
+  function fitSingleLine(
+    text: string,
+    font: typeof fontRegular,
+    size: number,
+    maxWidth: number,
+  ) {
+    if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+    let truncado = text;
+    while (
+      truncado.length > 1 &&
+      font.widthOfTextAtSize(`${truncado}…`, size) > maxWidth
+    ) {
+      truncado = truncado.slice(0, -1);
+    }
+    return `${truncado}…`;
+  }
+
   // Selo MorSafe no canto superior direito — badge redondo na cor da marca
   // com o escudo branco por cima, marca "MorSafe" e uma frase de assinatura.
   const badgeR = 16;
@@ -269,33 +290,94 @@ export async function GET(
     });
     y -= 20;
   } else {
+    // Layout compacto — uma linha de título + uma linha de detalhe por
+    // registro (sem quebra, ver fitSingleLine), com a assinatura ao lado
+    // direito, na frente do item, em vez de abaixo do texto. Isso reduz a
+    // altura de cada linha de ~95pt (layout anterior, com assinatura
+    // embaixo) para ~36pt, essencial pra colaboradores antigos com dezenas
+    // de registros não gerarem fichas de centenas de páginas.
+    const ASSINATURA_LARGURA = 58;
+    const GAP_ASSINATURA = 10;
+    const TITULO_SIZE = 9.5;
+    const DETALHE_SIZE = 8;
+    const ALTURA_TEXTO = 19; // título + detalhe, já com o espaçamento entre eles
+
     for (const evento of colaborador.eventos) {
-      ensureSpace(46);
+      let assinaturaImagem: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null =
+        null;
+      let assinaturaAltura = 0;
+
+      if (evento.tipo === "entrega" && evento.assinaturaUrl) {
+        try {
+          const base64 = evento.assinaturaUrl.split(",")[1] ?? "";
+          assinaturaImagem = await pdfDoc.embedPng(
+            Buffer.from(base64, "base64"),
+          );
+          assinaturaAltura =
+            ASSINATURA_LARGURA *
+            (assinaturaImagem.height / assinaturaImagem.width);
+        } catch (e) {
+          console.error("ficha: falha ao incorporar assinatura:", e);
+          assinaturaImagem = null;
+        }
+      }
+
+      const alturaLinha = Math.max(ALTURA_TEXTO, assinaturaAltura);
+      ensureSpace(alturaLinha + 14);
+
+      const topoLinhaY = y;
+      const larguraMaximaTexto = assinaturaImagem
+        ? pageWidth - marginX * 2 - ASSINATURA_LARGURA - GAP_ASSINATURA
+        : pageWidth - marginX * 2;
 
       const caLabel = evento.ca ? ` (CA ${evento.ca})` : "";
-      page.drawText(`${TIPO_LABEL[evento.tipo]} — ${evento.epi}${caLabel}`, {
+      const tituloTexto = fitSingleLine(
+        `${TIPO_LABEL[evento.tipo]} — ${evento.epi}${caLabel}`,
+        fontBold,
+        TITULO_SIZE,
+        larguraMaximaTexto,
+      );
+      page.drawText(tituloTexto, {
         x: marginX,
-        y,
-        size: 11,
+        y: topoLinhaY,
+        size: TITULO_SIZE,
         font: fontBold,
         color: textDark,
       });
-      y -= 14;
-      page.drawText(`${formatDate(evento.data)} · ${evento.detalhe}`, {
+
+      const detalheTexto = fitSingleLine(
+        `${formatDate(evento.data)} · ${evento.detalhe}`,
+        fontRegular,
+        DETALHE_SIZE,
+        larguraMaximaTexto,
+      );
+      page.drawText(detalheTexto, {
         x: marginX,
-        y,
-        size: 9.5,
+        y: topoLinhaY - 11,
+        size: DETALHE_SIZE,
         font: fontRegular,
         color: textMuted,
       });
-      y -= 12;
+
+      if (assinaturaImagem) {
+        const imgX = pageWidth - marginX - ASSINATURA_LARGURA;
+        const imgY = topoLinhaY - (alturaLinha + assinaturaAltura) / 2 + 4;
+        page.drawImage(assinaturaImagem, {
+          x: imgX,
+          y: imgY,
+          width: ASSINATURA_LARGURA,
+          height: assinaturaAltura,
+        });
+      }
+
+      y = topoLinhaY - alturaLinha - 6;
       page.drawLine({
         start: { x: marginX, y },
         end: { x: pageWidth - marginX, y },
         thickness: 0.5,
         color: lineColor,
       });
-      y -= 14;
+      y -= 10;
     }
   }
 

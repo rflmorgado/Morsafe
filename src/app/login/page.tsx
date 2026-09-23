@@ -61,18 +61,30 @@ export default async function LoginPage({
           <div className="mt-6 text-center text-xs text-text-muted">
             Acesso restrito a usuários autorizados
           </div>
-          <div className="mt-2 text-center text-[11px] text-text-muted">
+          <div className="mt-2.5 flex items-center justify-center gap-3.5 text-[11px] text-text-muted">
             <Link
               href="/politica-de-privacidade"
-              className="hover:text-brand-700 hover:underline"
+              className="inline-flex items-center gap-1 hover:text-brand-700 hover:underline"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element -- ícone pequeno, mesmo padrão do ShieldIcon */}
+              <img
+                src="/brand/icon-privacidade.png"
+                alt=""
+                className="h-3.5 w-3.5 object-contain opacity-80"
+              />
               Política de Privacidade
             </Link>
-            <span className="mx-1.5">·</span>
+            <span className="text-border-strong">·</span>
             <Link
               href="/seguranca-da-informacao"
-              className="hover:text-brand-700 hover:underline"
+              className="inline-flex items-center gap-1 hover:text-brand-700 hover:underline"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element -- ícone pequeno, mesmo padrão do ShieldIcon */}
+              <img
+                src="/brand/icon-seguranca.png"
+                alt=""
+                className="h-3.5 w-3.5 object-contain opacity-80"
+              />
               Segurança da Informação
             </Link>
           </div>

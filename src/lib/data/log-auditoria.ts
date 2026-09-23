@@ -27,6 +27,9 @@ export const TABELA_LABEL: Record<string, string> = {
   usuarios: "Usuário",
   setores: "Setor",
   cargos: "Função",
+  entregas: "Entrega de EPI",
+  devolucoes: "Devolução de EPI",
+  recusas: "Recusa de EPI",
 };
 
 // Artigo + substantivo por tabela, usado nas frases do histórico ("Cadastrou
@@ -39,6 +42,9 @@ const ARTIGO_REGISTRO: Record<string, string> = {
   usuarios: "o usuário",
   setores: "o setor",
   cargos: "a função",
+  entregas: "a entrega de EPI",
+  devolucoes: "a devolução de EPI",
+  recusas: "a recusa de EPI",
 };
 
 type RegistrarLogParams = {

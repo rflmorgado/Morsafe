@@ -9,7 +9,13 @@ import type { SetorComCargos } from "@/lib/data/setores";
 
 type RawRow = Record<string, unknown>;
 
-type FieldKey = "nome" | "setor" | "cargo" | "cpf" | "telefone";
+type FieldKey =
+  | "nome"
+  | "setor"
+  | "cargo"
+  | "cpf"
+  | "telefone"
+  | "integracao";
 
 const FIELD_LABEL: Record<FieldKey, string> = {
   nome: "Nome",
@@ -17,6 +23,7 @@ const FIELD_LABEL: Record<FieldKey, string> = {
   cargo: "Cargo",
   cpf: "CPF",
   telefone: "Telefone",
+  integracao: "Integração de Segurança / Treinamento NR-06",
 };
 
 const GUESS_KEYWORDS: Record<FieldKey, string[]> = {
@@ -25,6 +32,7 @@ const GUESS_KEYWORDS: Record<FieldKey, string[]> = {
   cargo: ["cargo", "funcao", "role", "position"],
   cpf: ["cpf"],
   telefone: ["telefone", "fone", "celular", "phone", "contato"],
+  integracao: ["integracao", "nr06", "nr-06", "nr 06", "treinamento"],
 };
 
 function normalize(value: string) {
@@ -33,6 +41,44 @@ function normalize(value: string) {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .trim();
+}
+
+/**
+ * Converte o valor de uma célula de data numa string ISO (yyyy-mm-dd), ou
+ * null se não der pra reconhecer o formato — usado só pra Integração de
+ * Segurança/NR-06, que é opcional, então uma data não reconhecida vira "sem
+ * data" em vez de travar a importação da linha inteira. Aceita:
+ * - Date (quando a planilha lê a célula como data de verdade, ver
+ *   `cellDates: true` no XLSX.read abaixo);
+ * - "dd/mm/aaaa" ou "dd-mm-aaaa" (formato comum no Brasil);
+ * - "aaaa-mm-dd" (ISO, caso a coluna já venha assim).
+ */
+function parseDataFlexivel(value: unknown): string | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, "0");
+    const d = String(value.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  if (typeof value === "string") {
+    const texto = value.trim();
+    if (!texto) return null;
+
+    const br = texto.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (br) {
+      const [, dd, mm, yyyy] = br;
+      return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+    }
+
+    const iso = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (iso) {
+      const [, yyyy, mm, dd] = iso;
+      return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+    }
+  }
+
+  return null;
 }
 
 function guessColumn(headers: string[], field: FieldKey): string {
@@ -53,6 +99,11 @@ type ResolvedRow = {
   cargoId: string | null;
   cpf: string;
   telefone: string;
+  dataIntegracaoSeguranca: string | null;
+  // Valor bruto da célula de Integração/NR-06 antes do parse, só pra
+  // distinguir na revisão "coluna vazia" de "tinha algo mas não reconheci o
+  // formato" — o segundo caso vira um aviso, não erro, mas vale mostrar.
+  integracaoBruta: string;
   erro: string | null;
 };
 
@@ -102,6 +153,7 @@ export function ImportarColaboradoresButton({
     cargo: "",
     cpf: "",
     telefone: "",
+    integracao: "",
   });
   const [parseError, setParseError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -113,7 +165,14 @@ export function ImportarColaboradoresButton({
     setFileName("");
     setHeaders([]);
     setRawRows([]);
-    setMapping({ nome: "", setor: "", cargo: "", cpf: "", telefone: "" });
+    setMapping({
+      nome: "",
+      setor: "",
+      cargo: "",
+      cpf: "",
+      telefone: "",
+      integracao: "",
+    });
     setParseError(null);
     setSubmitError(null);
     setSuccessCount(null);
@@ -131,7 +190,10 @@ export function ImportarColaboradoresButton({
 
     try {
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
+      // cellDates: true faz células de data virarem objetos Date de verdade
+      // (em vez de número serial do Excel) — só afeta a leitura da coluna de
+      // Integração de Segurança/NR-06, ver parseDataFlexivel acima.
+      const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json<RawRow>(sheet, { defval: "" });
 
@@ -149,6 +211,7 @@ export function ImportarColaboradoresButton({
         cargo: guessColumn(detectedHeaders, "cargo"),
         cpf: guessColumn(detectedHeaders, "cpf"),
         telefone: guessColumn(detectedHeaders, "telefone"),
+        integracao: guessColumn(detectedHeaders, "integracao"),
       });
       setStep("mapear");
     } catch {
@@ -173,6 +236,12 @@ export function ImportarColaboradoresButton({
       const telefone = mapping.telefone
         ? String(row[mapping.telefone] ?? "").trim()
         : "";
+      const integracaoBruta = mapping.integracao
+        ? String(row[mapping.integracao] ?? "").trim()
+        : "";
+      const dataIntegracaoSeguranca = mapping.integracao
+        ? parseDataFlexivel(row[mapping.integracao])
+        : null;
 
       let erro: string | null = null;
       let setorId: string | null = null;
@@ -213,6 +282,8 @@ export function ImportarColaboradoresButton({
         cargoId,
         cpf,
         telefone,
+        dataIntegracaoSeguranca,
+        integracaoBruta,
         erro,
       };
     });
@@ -252,6 +323,7 @@ export function ImportarColaboradoresButton({
         cargoId: string;
         cpf: string | null;
         telefone: string | null;
+        dataIntegracaoSeguranca: string | null;
       }[] = [];
 
       for (const r of validRows) {
@@ -282,6 +354,7 @@ export function ImportarColaboradoresButton({
           cargoId: finalCargoId,
           cpf: r.cpf || null,
           telefone: r.telefone || null,
+          dataIntegracaoSeguranca: r.dataIntegracaoSeguranca,
         });
       }
 
@@ -450,6 +523,11 @@ export function ImportarColaboradoresButton({
                     <th className="px-3 py-2 font-semibold text-text-secondary">
                       Cargo
                     </th>
+                    {mapping.integracao && (
+                      <th className="px-3 py-2 font-semibold text-text-secondary">
+                        Integração/NR-06
+                      </th>
+                    )}
                     <th className="px-3 py-2 font-semibold text-text-secondary">
                       Status
                     </th>
@@ -470,6 +548,23 @@ export function ImportarColaboradoresButton({
                       <td className="px-3 py-2 text-foreground">
                         {r.cargoNome || "—"}
                       </td>
+                      {mapping.integracao && (
+                        <td className="px-3 py-2">
+                          {r.dataIntegracaoSeguranca ? (
+                            <span className="text-foreground">
+                              {new Date(
+                                r.dataIntegracaoSeguranca + "T00:00:00",
+                              ).toLocaleDateString("pt-BR")}
+                            </span>
+                          ) : r.integracaoBruta ? (
+                            <span className="text-warning-text">
+                              data não reconhecida
+                            </span>
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-3 py-2">
                         {(() => {
                           const { texto, className } = statusLinha(r);

@@ -262,6 +262,7 @@ export default async function ColaboradoresPage({
                             cargoId: c.cargoId,
                             cpf: c.cpf,
                             telefone: c.telefone,
+                            dataIntegracaoSeguranca: c.dataIntegracaoSeguranca,
                           }}
                           setores={setores}
                         />

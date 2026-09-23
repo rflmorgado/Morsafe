@@ -83,6 +83,7 @@ export function RegistrarDevolucaoButton({
     }
     formData.set("epi_id", entregaSelecionada.epiId);
     formData.set("entrega_vinculada_id", entregaSelecionada.id);
+    formData.set("quantidade", String(entregaSelecionada.quantidade));
     startTransition(async () => {
       const result = await registrarDevolucao({ error: null }, formData);
       if (result.error) {
@@ -171,6 +172,7 @@ export function RegistrarDevolucaoButton({
               </option>
               {entregasEmPosse.map((ev) => (
                 <option key={ev.id} value={ev.id}>
+                  {ev.quantidade > 1 ? `${ev.quantidade}x ` : ""}
                   {ev.epiNome}
                   {ev.epiCa ? ` — C.A. ${ev.epiCa}` : ""} · entregue em{" "}
                   {formatDate(ev.data)}

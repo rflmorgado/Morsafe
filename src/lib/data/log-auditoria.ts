@@ -102,6 +102,8 @@ export type LogAuditoriaItem = {
   criadoEm: string;
 };
 
+export const HISTORICO_PAGE_SIZE = 25;
+
 /**
  * Descreve uma linha do histórico em uma frase legível, a partir da ação,
  * da tabela afetada e do snapshot salvo em `detalhes` (nome do registro no
@@ -164,30 +166,47 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
  * Histórico de ações REALIZADAS por um usuário (não ações sofridas por
  * ele) — usado na tela "Histórico" dentro de Usuários, pra rastreabilidade
  * de quem fez o quê dentro do app.
+ *
+ * Paginado (25 por página, por padrão) em vez de trazer tudo de uma vez:
+ * uma importação em massa ou uma sequência de edições gera dezenas/centenas
+ * de linhas de auditoria em minutos, e sem paginação a tela virava uma
+ * rolagem enorme e sem fim. A paginação é feita direto no banco (`.range`),
+ * não em memória, porque aqui não precisa reordenar por nada além de
+ * "mais recente primeiro" — diferente da listagem de colaboradores, que
+ * ordena por colunas que não existem todas na mesma tabela.
  */
 export async function listLogsPorUsuario(
   supabase: SupabaseClient<Database>,
   usuarioId: string,
-  limit = 100,
-): Promise<LogAuditoriaItem[]> {
-  const { data, error } = await supabase
+  { page = 1, pageSize = HISTORICO_PAGE_SIZE }: { page?: number; pageSize?: number } = {},
+): Promise<{ logs: LogAuditoriaItem[]; total: number }> {
+  const currentPage = page > 0 ? page : 1;
+  const from = (currentPage - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await supabase
     .from("log_auditoria")
-    .select("id, tabela_referencia, registro_id, acao, detalhes, criado_em")
+    .select("id, tabela_referencia, registro_id, acao, detalhes, criado_em", {
+      count: "exact",
+    })
     .eq("usuario", usuarioId)
     .order("criado_em", { ascending: false })
-    .limit(limit);
+    .range(from, to);
 
   if (error || !data) {
     console.error("listLogsPorUsuario:", error?.message);
-    return [];
+    return { logs: [], total: 0 };
   }
 
-  return data.map((l) => ({
-    id: l.id,
-    tabela: l.tabela_referencia,
-    registroId: l.registro_id,
-    acao: l.acao,
-    detalhes: l.detalhes as Record<string, unknown> | null,
-    criadoEm: l.criado_em,
-  }));
+  return {
+    logs: data.map((l) => ({
+      id: l.id,
+      tabela: l.tabela_referencia,
+      registroId: l.registro_id,
+      acao: l.acao,
+      detalhes: l.detalhes as Record<string, unknown> | null,
+      criadoEm: l.criado_em,
+    })),
+    total: count ?? data.length,
+  };
 }

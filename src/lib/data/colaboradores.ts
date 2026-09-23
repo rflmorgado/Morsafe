@@ -1,4 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import {
+  MOTIVO_ENTREGA_LABEL,
+  MOTIVO_DEVOLUCAO_LABEL,
+} from "@/lib/data/movimentacoes-labels";
 
 export const COLABORADORES_PAGE_SIZE = 20;
 
@@ -238,7 +242,7 @@ export async function getColaboradorDetalhe(id: string) {
   const [entregas, devolucoes, recusas] = await Promise.all([
     supabase
       .from("entregas")
-      .select("id, data, hora, motivo, epis ( nome, ca )")
+      .select("id, data, hora, motivo, assinatura_url, epis ( nome, ca )")
       .eq("colaborador_id", id)
       .order("data", { ascending: false }),
     supabase
@@ -260,6 +264,10 @@ export async function getColaboradorDetalhe(id: string) {
     epi: string;
     ca: string | null;
     detalhe: string;
+    // Só entregas têm assinatura — usada na ficha em PDF (ver
+    // ficha/route.ts) pra mostrar a confirmação de recebimento junto de
+    // cada item do histórico.
+    assinaturaUrl?: string | null;
   };
 
   const eventos: Evento[] = [
@@ -269,7 +277,8 @@ export async function getColaboradorDetalhe(id: string) {
       data: e.data,
       epi: (e.epis as unknown as { nome: string; ca: string | null } | null)?.nome ?? "—",
       ca: (e.epis as unknown as { nome: string; ca: string | null } | null)?.ca ?? null,
-      detalhe: e.motivo.replaceAll("_", " "),
+      detalhe: MOTIVO_ENTREGA_LABEL[e.motivo] ?? e.motivo,
+      assinaturaUrl: e.assinatura_url,
     })),
     ...(devolucoes.data ?? []).map((d) => ({
       id: `devolucao-${d.id}`,
@@ -277,7 +286,7 @@ export async function getColaboradorDetalhe(id: string) {
       data: d.data,
       epi: (d.epis as unknown as { nome: string; ca: string | null } | null)?.nome ?? "—",
       ca: (d.epis as unknown as { nome: string; ca: string | null } | null)?.ca ?? null,
-      detalhe: `${d.motivo.replaceAll("_", " ")}${
+      detalhe: `${MOTIVO_DEVOLUCAO_LABEL[d.motivo] ?? d.motivo}${
         d.devolvido_fisicamente ? "" : " · não devolvido fisicamente"
       }`,
     })),

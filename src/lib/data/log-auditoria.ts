@@ -17,12 +17,28 @@ export const ACAO_LABEL: Record<string, string> = {
   importado: "Importação em massa",
   exportado: "Exportação em CSV",
   baixou_ficha: "Ficha de EPI baixada",
+  login: "Login",
+  logout: "Logout",
 };
 
 export const TABELA_LABEL: Record<string, string> = {
   colaboradores: "Colaborador",
   epis: "EPI",
   usuarios: "Usuário",
+  setores: "Setor",
+  cargos: "Função",
+};
+
+// Artigo + substantivo por tabela, usado nas frases do histórico ("Cadastrou
+// O COLABORADOR 'fulano'", "Cadastrou A FUNÇÃO 'soldador'"...) — evita ter
+// que ficar comparando rótulo por rótulo dentro de cada case do switch
+// abaixo conforme novas tabelas passam a gerar histórico.
+const ARTIGO_REGISTRO: Record<string, string> = {
+  colaboradores: "o colaborador",
+  epis: "o EPI",
+  usuarios: "o usuário",
+  setores: "o setor",
+  cargos: "a função",
 };
 
 type RegistrarLogParams = {
@@ -90,10 +106,12 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
   const tabelaLabel = TABELA_LABEL[item.tabela] ?? item.tabela;
 
   switch (item.acao) {
-    case "criado":
+    case "criado": {
+      const artigo = ARTIGO_REGISTRO[item.tabela];
       return nome
-        ? `Cadastrou ${tabelaLabel === "Usuário" ? "o usuário" : `${tabelaLabel === "EPI" ? "o EPI" : "o colaborador"}`} "${nome}"`
+        ? `Cadastrou ${artigo ?? "um registro em " + tabelaLabel} "${nome}"`
         : `Criou um registro em ${tabelaLabel}`;
+    }
     case "atualizado":
       return nome
         ? `Editou o cadastro de "${nome}"`
@@ -127,6 +145,10 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
     }
     case "baixou_ficha":
       return nome ? `Baixou a ficha de EPI de "${nome}"` : "Baixou a ficha de EPI de um colaborador";
+    case "login":
+      return "Fez login no MorSafe";
+    case "logout":
+      return "Fez logout do MorSafe";
     default:
       return ACAO_LABEL[item.acao] ?? item.acao;
   }

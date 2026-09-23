@@ -1,21 +1,42 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getColaboradorDetalhe } from "@/lib/data/colaboradores";
+import { getCurrentUser } from "@/lib/data/current-user";
+import { getUsuarioDaEmpresa } from "@/lib/data/usuarios";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  listLogsPorUsuario,
+  descreverLogAuditoria,
+  ACAO_LABEL,
+} from "@/lib/data/log-auditoria";
 
-const TIPO_LABEL: Record<string, string> = {
-  entrega: "Entrega",
-  devolucao: "Devolução",
-  recusa: "Recusa",
+const PAPEL_LABEL: Record<string, string> = {
+  admin: "Admin",
+  encarregado: "Encarregado",
+  leitura: "Leitura",
 };
 
 const DOT_CLASS: Record<string, string> = {
-  entrega: "bg-brand-600",
-  devolucao: "bg-text-muted",
-  recusa: "bg-warning-text",
+  criado: "bg-brand-600",
+  atualizado: "bg-text-muted",
+  desligado: "bg-danger-text",
+  desativado: "bg-danger-text",
+  reativado: "bg-brand-600",
+  excluido: "bg-danger-text",
+  papel_alterado: "bg-warning-text",
+  importado: "bg-text-muted",
+  exportado: "bg-text-muted",
+  baixou_ficha: "bg-text-muted",
+  login: "bg-brand-300",
+  logout: "bg-text-muted",
 };
 
-function formatDate(value: string) {
-  return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function initials(nome: string) {
@@ -25,30 +46,106 @@ function initials(nome: string) {
   return (first + last).toUpperCase();
 }
 
-export default async function ColaboradorDetalhePage({
+// Mesma regra de acesso da tela /usuarios: exclusiva do admin da própria
+// empresa. A tela de histórico é ainda mais sensível que a lista (mostra
+// tudo que a pessoa já fez no sistema), então não relaxa essa checagem.
+export default async function HistoricoUsuarioPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const colaborador = await getColaboradorDetalhe(id);
+  const user = await getCurrentUser();
 
-  if (!colaborador) notFound();
+  if (!user || user.papel !== "admin" || !user.empresaId) {
+    return (
+      <div className="space-y-1">
+        <h2 className="text-xl font-bold tracking-tight text-foreground">
+          Acesso restrito
+        </h2>
+        <p className="text-[13px] text-text-secondary">
+          Esta página é exclusiva do administrador da empresa.
+        </p>
+      </div>
+    );
+  }
+
+  let alvo: Awaited<ReturnType<typeof getUsuarioDaEmpresa>> = null;
+  let logs: Awaited<ReturnType<typeof listLogsPorUsuario>> = [];
+  let erroConfiguracao = false;
+  try {
+    const admin = createAdminClient();
+    [alvo, logs] = await Promise.all([
+      getUsuarioDaEmpresa(id, user.empresaId),
+      listLogsPorUsuario(admin, id),
+    ]);
+  } catch (e) {
+    console.error("HistoricoUsuarioPage:", e);
+    erroConfiguracao = true;
+  }
+
+  if (erroConfiguracao) {
+    return (
+      <div className="space-y-1">
+        <h2 className="text-xl font-bold tracking-tight text-foreground">
+          Histórico
+        </h2>
+        <p className="mt-4 max-w-md rounded-lg bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-text">
+          Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY
+          ausente no Vercel). Adicione essa variável de ambiente em
+          Settings &gt; Environment Variables e faça um novo deploy.
+        </p>
+      </div>
+    );
+  }
+
+  // Antes disparava notFound(), que — sem um not-found.tsx próprio nesta
+  // rota — cai na página 404 genérica e sem marca do Next.js, quebrando a
+  // navegação (a pessoa fica sem saída visível de volta pro app). Em vez
+  // disso, mostra um estado de erro no mesmo padrão visual das outras
+  // checagens desta página (acesso restrito / config incompleta), sempre
+  // com o caminho de volta pra Usuários. O log abaixo registra o motivo
+  // exato (usuário não existe vs. pertence a outra empresa) pra diagnosticar
+  // se isso se repetir.
+  if (!alvo) {
+    console.error(
+      `HistoricoUsuarioPage: usuário não encontrado (id=${id}, empresaId=${user.empresaId})`,
+    );
+    return (
+      <div className="space-y-1">
+        <Link
+          href="/usuarios"
+          className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-700 hover:underline"
+        >
+          ← Usuários
+        </Link>
+        <h2 className="text-xl font-bold tracking-tight text-foreground">
+          Usuário não encontrado
+        </h2>
+        <p className="max-w-md text-[13px] text-text-secondary">
+          Este usuário não existe mais ou não pertence à sua empresa. Ele pode
+          ter sido excluído definitivamente — nesse caso, o histórico de
+          ações dele deixa de ficar disponível.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1">
       <Link
-        href="/colaboradores"
+        href="/usuarios"
         className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-700 hover:underline"
       >
-        ← Colaboradores
+        ← Usuários
       </Link>
 
       <h2 className="text-xl font-bold tracking-tight text-foreground">
-        Ficha do colaborador
+        Histórico de ações
       </h2>
       <p className="mb-5 text-[13px] text-text-secondary">
-        Histórico completo de entregas, devoluções e recusas.
+        Tudo que esta pessoa fez dentro do MorSafe, mais recente primeiro —
+        pra rastreabilidade e conformidade.
       </p>
 
       <div className="overflow-hidden rounded-[14px] border border-border-subtle bg-surface">
@@ -57,47 +154,49 @@ export default async function ColaboradorDetalhePage({
           style={{ background: "var(--brand-900)" }}
         >
           <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-brand-600 text-[17px] font-bold text-white">
-            {initials(colaborador.nome)}
+            {initials(alvo.nome)}
           </div>
           <div>
             <div className="text-[17px] font-bold text-white">
-              {colaborador.nome}
+              {alvo.nome}
             </div>
             <div className="text-[12.5px] text-brand-100/70">
-              {colaborador.setor} · {colaborador.cargo}
+              {alvo.email} · {PAPEL_LABEL[alvo.papel] ?? alvo.papel}
             </div>
           </div>
           <span
             className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-              colaborador.status === "ativo"
+              alvo.ativo
                 ? "bg-brand-100 text-brand-700"
                 : "bg-danger-bg text-danger-text"
             }`}
           >
-            {colaborador.status === "ativo" ? "Ativo" : "Inativo"}
+            {alvo.ativo ? "Ativo" : "Inativo"}
           </span>
         </div>
 
         <div className="px-6 py-5">
-          {colaborador.eventos.length === 0 ? (
+          {logs.length === 0 ? (
             <p className="text-sm text-text-muted">
-              Nenhuma entrega, devolução ou recusa registrada ainda.
+              Nenhuma ação registrada ainda.
             </p>
           ) : (
-            colaborador.eventos.map((evento) => (
+            logs.map((log) => (
               <div
-                key={evento.id}
+                key={log.id}
                 className="flex gap-3.5 border-b border-border-subtle py-3 last:border-b-0"
               >
                 <span
-                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${DOT_CLASS[evento.tipo]}`}
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                    DOT_CLASS[log.acao] ?? "bg-text-muted"
+                  }`}
                 />
                 <div>
                   <div className="text-[13.5px] font-semibold text-foreground">
-                    {TIPO_LABEL[evento.tipo]} — {evento.epi}
+                    {ACAO_LABEL[log.acao] ?? log.acao}
                   </div>
                   <div className="mt-0.5 text-xs text-text-secondary">
-                    {formatDate(evento.data)} · {evento.detalhe}
+                    {formatDateTime(log.criadoEm)} · {descreverLogAuditoria(log)}
                   </div>
                 </div>
               </div>

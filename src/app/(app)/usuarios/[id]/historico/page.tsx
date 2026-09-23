@@ -6,6 +6,7 @@ import {
   listLogsPorUsuario,
   descreverLogAuditoria,
   ACAO_LABEL,
+  HISTORICO_PAGE_SIZE,
 } from "@/lib/data/log-auditoria";
 
 const PAPEL_LABEL: Record<string, string> = {
@@ -29,6 +30,11 @@ const DOT_CLASS: Record<string, string> = {
   logout: "bg-text-muted",
 };
 
+// O banco grava `criado_em` em UTC (timestamptz). Sem o `timeZone` abaixo,
+// o servidor formata usando o fuso dele — na Vercel isso é UTC, então os
+// horários apareciam 3h à frente do horário de Brasília. Fixando o fuso
+// aqui, o horário exibido bate com o horário local de quem fez a ação,
+// independente de onde o servidor está rodando.
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("pt-BR", {
     day: "2-digit",
@@ -36,6 +42,7 @@ function formatDateTime(value: string) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
   });
 }
 
@@ -51,10 +58,14 @@ function initials(nome: string) {
 // tudo que a pessoa já fez no sistema), então não relaxa essa checagem.
 export default async function HistoricoUsuarioPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { id } = await params;
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
   const user = await getCurrentUser();
 
   if (!user || user.papel !== "admin" || !user.empresaId) {
@@ -71,18 +82,24 @@ export default async function HistoricoUsuarioPage({
   }
 
   let alvo: Awaited<ReturnType<typeof getUsuarioDaEmpresa>> = null;
-  let logs: Awaited<ReturnType<typeof listLogsPorUsuario>> = [];
+  let logs: Awaited<ReturnType<typeof listLogsPorUsuario>>["logs"] = [];
+  let total = 0;
   let erroConfiguracao = false;
   try {
     const admin = createAdminClient();
-    [alvo, logs] = await Promise.all([
+    const [alvoResult, logsResult] = await Promise.all([
       getUsuarioDaEmpresa(id, user.empresaId),
-      listLogsPorUsuario(admin, id),
+      listLogsPorUsuario(admin, id, { page }),
     ]);
+    alvo = alvoResult;
+    logs = logsResult.logs;
+    total = logsResult.total;
   } catch (e) {
     console.error("HistoricoUsuarioPage:", e);
     erroConfiguracao = true;
   }
+
+  const totalPages = Math.max(1, Math.ceil(total / HISTORICO_PAGE_SIZE));
 
   if (erroConfiguracao) {
     return (
@@ -184,7 +201,7 @@ export default async function HistoricoUsuarioPage({
             logs.map((log) => (
               <div
                 key={log.id}
-                className="flex gap-3.5 border-b border-border-subtle py-3 last:border-b-0"
+                className="flex gap-3 border-b border-border-subtle py-2.5 last:border-b-0"
               >
                 <span
                   className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
@@ -192,7 +209,7 @@ export default async function HistoricoUsuarioPage({
                   }`}
                 />
                 <div>
-                  <div className="text-[13.5px] font-semibold text-foreground">
+                  <div className="text-[13px] font-semibold text-foreground">
                     {ACAO_LABEL[log.acao] ?? log.acao}
                   </div>
                   <div className="mt-0.5 text-xs text-text-secondary">
@@ -204,6 +221,41 @@ export default async function HistoricoUsuarioPage({
           )}
         </div>
       </div>
+
+      {total > 0 && (
+        <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+          <span className="text-[12.5px] text-text-secondary">
+            Página {page} de {totalPages} · {total} ação
+            {total === 1 ? "" : "ões"}
+          </span>
+          <div className="flex gap-2">
+            <Link
+              href={`/usuarios/${id}/historico${page - 1 > 1 ? `?page=${page - 1}` : ""}`}
+              aria-disabled={page <= 1}
+              tabIndex={page <= 1 ? -1 : undefined}
+              className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+                page <= 1
+                  ? "pointer-events-none opacity-40"
+                  : "hover:bg-surface-muted"
+              }`}
+            >
+              ← Anterior
+            </Link>
+            <Link
+              href={`/usuarios/${id}/historico?page=${page + 1}`}
+              aria-disabled={page >= totalPages}
+              tabIndex={page >= totalPages ? -1 : undefined}
+              className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+                page >= totalPages
+                  ? "pointer-events-none opacity-40"
+                  : "hover:bg-surface-muted"
+              }`}
+            >
+              Próxima →
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -22,7 +22,7 @@ export default function PoliticaDePrivacidadePage() {
         { label: "Responsável", value: "Rafael Morgado — Fundador e Diretor" },
       ]}
     >
-      <p className="text-[14.5px] leading-relaxed text-brand-900">
+      <p className="text-[14.5px] leading-relaxed text-foreground">
         Este documento descreve como a MorSafe trata os dados pessoais dos
         colaboradores e usuários das empresas clientes que utilizam a
         plataforma para controle de entrega de Equipamentos de Proteção

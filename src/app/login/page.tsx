@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ShieldIcon } from "@/components/brand/shield-icon";
 import { LoginForm } from "./login-form";
 
@@ -59,6 +60,21 @@ export default async function LoginPage({
 
           <div className="mt-6 text-center text-xs text-text-muted">
             Acesso restrito a usuários autorizados
+          </div>
+          <div className="mt-2 text-center text-[11px] text-text-muted">
+            <Link
+              href="/politica-de-privacidade"
+              className="hover:text-brand-700 hover:underline"
+            >
+              Política de Privacidade
+            </Link>
+            <span className="mx-1.5">·</span>
+            <Link
+              href="/seguranca-da-informacao"
+              className="hover:text-brand-700 hover:underline"
+            >
+              Segurança da Informação
+            </Link>
           </div>
         </div>
       </div>

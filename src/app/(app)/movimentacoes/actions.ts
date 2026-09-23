@@ -74,12 +74,16 @@ export async function registrarEntrega(
   const data = String(formData.get("data") ?? "").trim();
   const hora = String(formData.get("hora") ?? "").trim();
   const assinaturaUrl = String(formData.get("assinatura_url") ?? "").trim();
+  const quantidade = Number(formData.get("quantidade") ?? 1);
 
   if (!colaboradorId || !epiId || !motivo || !data || !hora) {
     return { error: "Preencha colaborador, EPI, motivo, data e hora." };
   }
   if (!assinaturaUrl) {
     return { error: "Colete a assinatura de confirmação do recebimento." };
+  }
+  if (!Number.isInteger(quantidade) || quantidade < 1) {
+    return { error: "Quantidade deve ser um número inteiro de pelo menos 1." };
   }
 
   const user = await getCurrentUser();
@@ -121,6 +125,7 @@ export async function registrarEntrega(
       data,
       hora,
       motivo,
+      quantidade,
       assinatura_url: assinaturaUrl,
       custo_unitario_no_momento: epi.custo_medio_atual,
       criado_por: user.id,
@@ -133,7 +138,7 @@ export async function registrarEntrega(
     return { error: "Não foi possível registrar a entrega. Tente novamente." };
   }
 
-  await ajustarEstoque(supabase, user.empresaId, epiId, -1);
+  await ajustarEstoque(supabase, user.empresaId, epiId, -quantidade);
 
   await registrarLogAuditoria({
     supabase,
@@ -142,7 +147,7 @@ export async function registrarEntrega(
     registroId: nova.id,
     acao: "criado",
     usuarioId: user.id,
-    detalhes: { nome: `${colaborador.nome} — ${epi.nome}` },
+    detalhes: { nome: `${colaborador.nome} — ${epi.nome}`, quantidade },
   });
 
   revalidatePath("/movimentacoes");
@@ -172,6 +177,9 @@ export async function registrarDevolucao(
   const destino = String(formData.get("destino") ?? "").trim() as DestinoDevolucao;
   const devolvidoFisicamente = formData.get("devolvido_fisicamente") === "on";
   const data = String(formData.get("data") ?? "").trim();
+  // Quantidade da entrega vinculada (não é digitada aqui) — devolução
+  // sempre baixa a entrega inteira, ver comentário em EntregaEmPosse.
+  const quantidade = Number(formData.get("quantidade") ?? 1);
 
   if (
     !colaboradorId ||
@@ -233,7 +241,8 @@ export async function registrarDevolucao(
   }
 
   if (devolvidoFisicamente && destino === "reaproveitamento") {
-    await ajustarEstoque(supabase, user.empresaId, epiId, 1);
+    const creditoValido = Number.isInteger(quantidade) && quantidade > 0 ? quantidade : 1;
+    await ajustarEstoque(supabase, user.empresaId, epiId, creditoValido);
   }
 
   await registrarLogAuditoria({
@@ -243,7 +252,7 @@ export async function registrarDevolucao(
     registroId: nova.id,
     acao: "criado",
     usuarioId: user.id,
-    detalhes: { nome: `${colaborador.nome} — ${epi.nome}` },
+    detalhes: { nome: `${colaborador.nome} — ${epi.nome}`, quantidade },
   });
 
   revalidatePath("/movimentacoes");

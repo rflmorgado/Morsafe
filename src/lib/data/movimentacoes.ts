@@ -32,10 +32,16 @@ export type MovimentacaoEvento = {
   epiCa: string | null;
   motivoLabel: string;
   detalhe: string | null;
+  // Só entrega e devolução têm quantidade (uma recusa não entrega nada). Na
+  // devolução, vem da entrega vinculada — devolver sempre baixa a
+  // quantidade inteira daquela entrega, não um número digitado à parte (ver
+  // comentário em listEntregasEmPosse mais abaixo).
+  quantidade?: number;
 };
 
 type EpiEmbed = { nome: string; ca: string | null } | null;
 type ColaboradorEmbed = { id: string; nome: string } | null;
+type EntregaLigadaEmbed = { quantidade: number } | null;
 
 export type ListMovimentacoesOptions = {
   tipo?: TipoMovimentacao;
@@ -70,7 +76,7 @@ async function buscarEventos(
     let q = supabase
       .from("entregas")
       .select(
-        "id, data, hora, motivo, criado_em, colaboradores ( id, nome ), epis ( nome, ca )",
+        "id, data, hora, motivo, quantidade, criado_em, colaboradores ( id, nome ), epis ( nome, ca )",
       );
     if (colaboradorId) q = q.eq("colaborador_id", colaboradorId);
     if (epiId) q = q.eq("epi_id", epiId);
@@ -93,6 +99,7 @@ async function buscarEventos(
         epiCa: epi?.ca ?? null,
         motivoLabel: MOTIVO_ENTREGA_LABEL[e.motivo] ?? e.motivo,
         detalhe: null,
+        quantidade: e.quantidade,
       });
     }
   }
@@ -101,7 +108,7 @@ async function buscarEventos(
     let q = supabase
       .from("devolucoes")
       .select(
-        "id, data, motivo, destino, devolvido_fisicamente, criado_em, colaboradores ( id, nome ), epis ( nome, ca )",
+        "id, data, motivo, destino, devolvido_fisicamente, criado_em, colaboradores ( id, nome ), epis ( nome, ca ), entregas ( quantidade )",
       );
     if (colaboradorId) q = q.eq("colaborador_id", colaboradorId);
     if (epiId) q = q.eq("epi_id", epiId);
@@ -112,6 +119,7 @@ async function buscarEventos(
     for (const d of data ?? []) {
       const colaborador = d.colaboradores as unknown as ColaboradorEmbed;
       const epi = d.epis as unknown as EpiEmbed;
+      const entregaLigada = d.entregas as unknown as EntregaLigadaEmbed;
       eventos.push({
         id: `devolucao-${d.id}`,
         tipo: "devolucao",
@@ -126,6 +134,7 @@ async function buscarEventos(
         detalhe: `${DESTINO_DEVOLUCAO_LABEL[d.destino] ?? d.destino}${
           d.devolvido_fisicamente ? "" : " · não devolvido fisicamente"
         }`,
+        quantidade: entregaLigada?.quantidade,
       });
     }
   }
@@ -322,6 +331,11 @@ export type EntregaEmPosse = {
   epiId: string;
   epiNome: string;
   epiCa: string | null;
+  // Quantidade original entregue — a devolução baixa essa entrega por
+  // inteiro (não suporta devolução parcial de uma mesma entrega), então o
+  // formulário de devolução usa esse valor tanto para mostrar na lista
+  // quanto para creditar de volta ao estoque a quantidade certa.
+  quantidade: number;
 };
 
 /**
@@ -343,7 +357,7 @@ export async function listEntregasEmPosse(
     await Promise.all([
       supabase
         .from("entregas")
-        .select("id, data, motivo, epi_id, epis ( nome, ca )")
+        .select("id, data, motivo, epi_id, quantidade, epis ( nome, ca )")
         .eq("colaborador_id", colaboradorId)
         .order("data", { ascending: false }),
       supabase
@@ -373,6 +387,7 @@ export async function listEntregasEmPosse(
         epiId: e.epi_id,
         epiNome: epi?.nome ?? "—",
         epiCa: epi?.ca ?? null,
+        quantidade: e.quantidade,
       };
     });
 }

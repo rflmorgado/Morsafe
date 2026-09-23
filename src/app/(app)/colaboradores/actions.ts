@@ -62,6 +62,16 @@ export async function createSetor(nome: string): Promise<CreateSetorState> {
     return { error: "Não foi possível criar o setor. Tente novamente." };
   }
 
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "setores",
+    registroId: data.id,
+    acao: "criado",
+    usuarioId: user.id,
+    detalhes: { nome: data.nome },
+  });
+
   revalidatePath("/colaboradores");
   return { error: null, id: data.id, nome: data.nome };
 }
@@ -108,6 +118,16 @@ export async function createCargo(
     console.error("createCargo:", error?.message);
     return { error: "Não foi possível criar a função. Tente novamente." };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "cargos",
+    registroId: data.id,
+    acao: "criado",
+    usuarioId: user.id,
+    detalhes: { nome: data.nome },
+  });
 
   revalidatePath("/colaboradores");
   return { error: null, id: data.id, nome: data.nome };

@@ -131,7 +131,7 @@ export function DesligarColaboradorButton({
               </span>
             </div>
             <a
-              href={`/colaboradores/${colaboradorId}/ficha`}
+              href={`/colaboradores/${colaboradorId}/ficha?download=1`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setFichaBaixada(true)}

@@ -175,6 +175,12 @@ export interface Database {
           setor_id: string;
           cargo_id: string;
           status: StatusColaborador;
+          // Data em que o colaborador realizou a Integração de Segurança —
+          // treinamento de admissão que cobre, entre outras coisas, o uso
+          // correto de EPI (a NR-06 exige orientação sobre uso, guarda e
+          // conservação, não só a entrega). Fica na maioria das empresas
+          // vinculado à integração geral, não a cada entrega individual.
+          data_integracao_seguranca: string | null;
           criado_em: string;
           atualizado_em: string;
         },
@@ -330,6 +336,11 @@ export interface Database {
           data: string;
           hora: string;
           motivo: MotivoEntrega;
+          // Quantidade de unidades entregues nesse registro — nem toda
+          // entrega é de uma unidade só (ex.: um par de luvas, um pacote de
+          // protetores auriculares). Tem default 1 no banco, mas a aplicação
+          // sempre envia o valor explícito escolhido no formulário.
+          quantidade: number;
           assinatura_url: string;
           custo_unitario_no_momento: number;
           criado_em: string;

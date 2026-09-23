@@ -80,7 +80,7 @@ export default async function ColaboradorDetalhePage({
 
         <div className="flex items-center gap-2 border-b border-border-subtle px-6 py-3">
           <span className="text-[12.5px] font-semibold text-text-secondary">
-            Integração de Segurança:
+            Integração de Segurança / Treinamento NR-06:
           </span>
           {colaborador.dataIntegracaoSeguranca ? (
             <span className="text-[12.5px] text-foreground">

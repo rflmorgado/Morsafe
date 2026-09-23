@@ -22,7 +22,7 @@ export default function SegurancaDaInformacaoPage() {
         { label: "Responsável", value: "Rafael Morgado — Fundador e Diretor" },
       ]}
     >
-      <p className="text-[14.5px] leading-relaxed text-brand-900">
+      <p className="text-[14.5px] leading-relaxed text-foreground">
         Este documento formaliza os controles técnicos e organizacionais
         adotados pela MorSafe para proteger os dados tratados na plataforma,
         em conformidade com o art. 46 da Lei Geral de Proteção de Dados

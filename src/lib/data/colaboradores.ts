@@ -91,7 +91,7 @@ export async function listColaboradores({
   let request = supabase
     .from("colaboradores")
     .select(
-      "id, nome, status, setor_id, cargo_id, cpf, telefone, setores ( nome ), cargos ( nome )",
+      "id, nome, status, setor_id, cargo_id, cpf, telefone, data_integracao_seguranca, setores ( nome ), cargos ( nome )",
     );
 
   if (query && query.trim()) {
@@ -135,6 +135,7 @@ export async function listColaboradores({
     cargoId: c.cargo_id,
     cpf: c.cpf,
     telefone: c.telefone,
+    dataIntegracaoSeguranca: c.data_integracao_seguranca,
     setor: (c.setores as unknown as { nome: string } | null)?.nome ?? "—",
     cargo: (c.cargos as unknown as { nome: string } | null)?.nome ?? "—",
     ultimaEntrega: ultimaEntrega.get(c.id) ?? null,
@@ -178,7 +179,9 @@ export async function listColaboradoresParaExportar({
 
   let request = supabase
     .from("colaboradores")
-    .select("id, nome, status, cpf, telefone, setores ( nome ), cargos ( nome )");
+    .select(
+      "id, nome, status, cpf, telefone, data_integracao_seguranca, setores ( nome ), cargos ( nome )",
+    );
 
   if (query && query.trim()) {
     request = request.ilike("nome", `%${query.trim()}%`);
@@ -220,6 +223,7 @@ export async function listColaboradoresParaExportar({
     cargo: (c.cargos as unknown as { nome: string } | null)?.nome ?? "—",
     cpf: c.cpf,
     telefone: c.telefone,
+    dataIntegracaoSeguranca: c.data_integracao_seguranca,
     ultimaEntrega: ultimaEntrega.get(c.id) ?? null,
   }));
 
@@ -232,7 +236,7 @@ export async function getColaboradorDetalhe(id: string) {
   const { data: colaborador, error } = await supabase
     .from("colaboradores")
     .select(
-      "id, nome, status, criado_em, setores ( nome ), cargos ( nome )",
+      "id, nome, status, criado_em, data_integracao_seguranca, setores ( nome ), cargos ( nome )",
     )
     .eq("id", id)
     .single();
@@ -242,12 +246,16 @@ export async function getColaboradorDetalhe(id: string) {
   const [entregas, devolucoes, recusas] = await Promise.all([
     supabase
       .from("entregas")
-      .select("id, data, hora, motivo, assinatura_url, epis ( nome, ca )")
+      .select(
+        "id, data, hora, motivo, quantidade, assinatura_url, epis ( nome, ca )",
+      )
       .eq("colaborador_id", id)
       .order("data", { ascending: false }),
     supabase
       .from("devolucoes")
-      .select("id, data, motivo, destino, devolvido_fisicamente, epis ( nome, ca )")
+      .select(
+        "id, data, motivo, destino, devolvido_fisicamente, epis ( nome, ca ), entregas ( quantidade )",
+      )
       .eq("colaborador_id", id)
       .order("data", { ascending: false }),
     supabase
@@ -268,6 +276,9 @@ export async function getColaboradorDetalhe(id: string) {
     // ficha/route.ts) pra mostrar a confirmação de recebimento junto de
     // cada item do histórico.
     assinaturaUrl?: string | null;
+    // Só entrega e devolução têm quantidade (na devolução, vem da entrega
+    // vinculada — ver comentário em EntregaEmPosse, lib/data/movimentacoes.ts).
+    quantidade?: number;
   };
 
   const eventos: Evento[] = [
@@ -279,6 +290,7 @@ export async function getColaboradorDetalhe(id: string) {
       ca: (e.epis as unknown as { nome: string; ca: string | null } | null)?.ca ?? null,
       detalhe: MOTIVO_ENTREGA_LABEL[e.motivo] ?? e.motivo,
       assinaturaUrl: e.assinatura_url,
+      quantidade: e.quantidade,
     })),
     ...(devolucoes.data ?? []).map((d) => ({
       id: `devolucao-${d.id}`,
@@ -289,6 +301,7 @@ export async function getColaboradorDetalhe(id: string) {
       detalhe: `${MOTIVO_DEVOLUCAO_LABEL[d.motivo] ?? d.motivo}${
         d.devolvido_fisicamente ? "" : " · não devolvido fisicamente"
       }`,
+      quantidade: (d.entregas as unknown as { quantidade: number } | null)?.quantidade,
     })),
     ...(recusas.data ?? []).map((r) => ({
       id: `recusa-${r.id}`,
@@ -307,6 +320,12 @@ export async function getColaboradorDetalhe(id: string) {
     setor: (colaborador.setores as unknown as { nome: string } | null)?.nome ?? "—",
     cargo: (colaborador.cargos as unknown as { nome: string } | null)?.nome ?? "—",
     criadoEm: colaborador.criado_em,
+    // Data da Integração de Segurança do colaborador — treinamento de
+    // admissão que cobre, entre outras coisas, o uso correto de EPI. Exibida
+    // na ficha em PDF (ver ficha/route.ts) porque reforça a defesa da
+    // empresa numa eventual ação trabalhista: mostra que não houve só a
+    // entrega do equipamento, mas também orientação sobre o uso dele.
+    dataIntegracaoSeguranca: colaborador.data_integracao_seguranca,
     eventos,
   };
 }

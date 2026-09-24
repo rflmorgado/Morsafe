@@ -1,0 +1,194 @@
+"use server";
+
+import { createAdminClient } from "@/lib/supabase/admin";
+import { gerarTokenEstacao } from "@/lib/estacao-assinatura/tokens";
+
+/**
+ * Todas as actions deste arquivo rodam SEM usuário logado — quem chama é o
+ * navegador do tablet/celular pareado, autenticado só pelo token que ele
+ * guarda no localStorage (ver src/app/estacao/page.tsx), nunca por uma
+ * sessão do Supabase Auth. Por isso usam o cliente com service role
+ * (ignora RLS) e cada função abaixo faz a própria checagem manual de
+ * "esse token é de uma estação ativa" antes de tocar em qualquer linha —
+ * essa checagem É a barreira de segurança aqui, não o RLS.
+ */
+
+export type ExchangeCodigoResult =
+  | { error: string; token?: undefined }
+  | { error: null; token: string; estacaoId: string; estacaoNome: string };
+
+/**
+ * Troca um código de pareamento (mostrado como QR na tela de admin, válido
+ * por poucos minutos) por um token permanente — chamado uma única vez, na
+ * hora de configurar o aparelho.
+ */
+export async function exchangeCodigoPareamento(
+  codigo: string,
+): Promise<ExchangeCodigoResult> {
+  const codigoLimpo = codigo.trim().toUpperCase();
+  if (!codigoLimpo) {
+    return { error: "Código inválido." };
+  }
+
+  const supabase = createAdminClient();
+
+  const { data: estacao, error: buscaError } = await supabase
+    .from("estacoes_assinatura")
+    .select("id, nome, ativo, codigo_expira_em")
+    .eq("codigo_pareamento", codigoLimpo)
+    .maybeSingle();
+
+  if (buscaError || !estacao) {
+    return { error: "Código não encontrado. Peça um novo QR ao administrador." };
+  }
+  if (!estacao.ativo) {
+    return { error: "Esta estação foi desativada pelo administrador." };
+  }
+  if (
+    !estacao.codigo_expira_em ||
+    new Date(estacao.codigo_expira_em).getTime() < Date.now()
+  ) {
+    return {
+      error: "Este código expirou. Peça um novo QR ao administrador.",
+    };
+  }
+
+  const token = gerarTokenEstacao();
+
+  const { error: updateError } = await supabase
+    .from("estacoes_assinatura")
+    .update({
+      token,
+      codigo_pareamento: null,
+      codigo_expira_em: null,
+      pareado_em: new Date().toISOString(),
+      ultimo_ping: new Date().toISOString(),
+    })
+    .eq("id", estacao.id);
+
+  if (updateError) {
+    console.error("exchangeCodigoPareamento:", updateError.message);
+    return { error: "Não foi possível parear o aparelho. Tente novamente." };
+  }
+
+  return {
+    error: null,
+    token,
+    estacaoId: estacao.id,
+    estacaoNome: estacao.nome,
+  };
+}
+
+export type SolicitacaoPendente = {
+  id: string;
+  colaboradorNome: string;
+  epiNome: string;
+  criadoEm: string;
+};
+
+export type BuscarSolicitacaoResult =
+  | { error: string; estacaoNome?: undefined; solicitacao?: undefined }
+  | {
+      error: null;
+      estacaoNome: string;
+      solicitacao: SolicitacaoPendente | null;
+    };
+
+/**
+ * Consultado pela estação a cada ~2s (ver src/app/estacao/page.tsx) — além
+ * de devolver o próximo pedido pendente (o mais antigo primeiro, se houver
+ * mais de um na fila), atualiza `ultimo_ping` pra alimentar a bolinha de
+ * status na tela de administração.
+ */
+export async function buscarSolicitacaoPendente(
+  token: string,
+): Promise<BuscarSolicitacaoResult> {
+  if (!token) return { error: "Aparelho não pareado." };
+
+  const supabase = createAdminClient();
+
+  const { data: estacao, error: estacaoError } = await supabase
+    .from("estacoes_assinatura")
+    .select("id, nome, ativo")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (estacaoError || !estacao || !estacao.ativo) {
+    return { error: "Aparelho não reconhecido ou desativado." };
+  }
+
+  await supabase
+    .from("estacoes_assinatura")
+    .update({ ultimo_ping: new Date().toISOString() })
+    .eq("id", estacao.id);
+
+  const { data: pendente } = await supabase
+    .from("solicitacoes_assinatura")
+    .select("id, colaborador_nome, epi_nome, criado_em")
+    .eq("estacao_id", estacao.id)
+    .eq("status", "aguardando")
+    .order("criado_em", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    error: null,
+    estacaoNome: estacao.nome,
+    solicitacao: pendente
+      ? {
+          id: pendente.id,
+          colaboradorNome: pendente.colaborador_nome,
+          epiNome: pendente.epi_nome,
+          criadoEm: pendente.criado_em,
+        }
+      : null,
+  };
+}
+
+export type ResponderSolicitacaoState = { error: string | null };
+
+/**
+ * Chamado pela estação depois que o colaborador assina na tela — só aceita
+ * responder um pedido que pertence à PRÓPRIA estação (pelo token) e que
+ * ainda está "aguardando", pra um token não conseguir responder por
+ * pedidos de outra estação nem reenviar assinatura de um pedido já
+ * fechado.
+ */
+export async function responderSolicitacaoAssinatura(
+  token: string,
+  solicitacaoId: string,
+  assinaturaUrl: string,
+): Promise<ResponderSolicitacaoState> {
+  if (!token) return { error: "Aparelho não pareado." };
+  if (!assinaturaUrl) return { error: "Assinatura vazia." };
+
+  const supabase = createAdminClient();
+
+  const { data: estacao, error: estacaoError } = await supabase
+    .from("estacoes_assinatura")
+    .select("id, ativo")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (estacaoError || !estacao || !estacao.ativo) {
+    return { error: "Aparelho não reconhecido ou desativado." };
+  }
+
+  const { error } = await supabase
+    .from("solicitacoes_assinatura")
+    .update({
+      status: "assinado",
+      assinatura_url: assinaturaUrl,
+      respondido_em: new Date().toISOString(),
+    })
+    .eq("id", solicitacaoId)
+    .eq("estacao_id", estacao.id)
+    .eq("status", "aguardando");
+
+  if (error) {
+    console.error("responderSolicitacaoAssinatura:", error.message);
+    return { error: "Não foi possível enviar a assinatura. Tente novamente." };
+  }
+
+  return { error: null };
+}

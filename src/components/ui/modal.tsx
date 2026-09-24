@@ -29,11 +29,18 @@ export function Modal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
+      {/* flex-col + max-h aqui é o que faz o formulário caber na tela do
+          celular: sem isso, um formulário com vários campos (ex.: Novo
+          colaborador) ficava mais alto que a tela e o botão "Salvar" saía
+          fora da área visível, sem nenhuma barra de rolagem pra alcançá-lo —
+          o formulário ficava impossível de enviar no celular. Agora só o
+          corpo rola (overflow-y-auto), o cabeçalho com o título/fechar fica
+          sempre fixo no topo. */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-[14px] border border-border-subtle bg-surface shadow-xl"
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col rounded-[14px] border border-border-subtle bg-surface shadow-xl"
       >
-        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-border-subtle px-5 py-4">
           <h3 className="text-[15px] font-bold text-foreground">{title}</h3>
           <button
             type="button"
@@ -44,7 +51,7 @@ export function Modal({
             ✕
           </button>
         </div>
-        <div className="px-5 py-5">{children}</div>
+        <div className="overflow-y-auto px-5 py-5">{children}</div>
       </div>
     </div>
   );

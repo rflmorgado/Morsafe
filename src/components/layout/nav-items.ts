@@ -20,6 +20,11 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "EPIs homologados", href: "/epis" },
   { label: "Usuários", href: "/usuarios", adminOnly: true },
   { label: "Movimentações", href: "/movimentacoes" },
+  {
+    label: "Estações de assinatura",
+    href: "/estacoes",
+    adminOnly: true,
+  },
   { label: "Estoque", href: "/estoque", comingSoon: true },
   { label: "Auditoria NR-06", href: "/auditoria", comingSoon: true },
   { label: "Relatórios", href: "/relatorios", comingSoon: true },

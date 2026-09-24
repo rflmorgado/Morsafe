@@ -30,6 +30,11 @@ export type MotivoDevolucao =
   | "mudanca_funcao"
   | "extraviado_nao_devolvido";
 export type DestinoDevolucao = "descarte" | "reaproveitamento" | "nao_aplicavel";
+export type StatusSolicitacaoAssinatura =
+  | "aguardando"
+  | "assinado"
+  | "cancelado"
+  | "expirado";
 
 type Relationship = {
   foreignKeyName: string;
@@ -502,6 +507,80 @@ export interface Database {
             foreignKeyName: "auditorias_nr06_setor_id_fkey";
             columns: ["setor_id"];
             referencedRelation: "setores";
+            referencedColumns: ["id"];
+          },
+        ]
+      >;
+
+      estacoes_assinatura: TableDef<
+        {
+          id: string;
+          empresa_id: string;
+          nome: string;
+          // Token permanente do aparelho pareado (tablet/celular da própria
+          // empresa) — null até o pareamento acontecer. Dá acesso só de
+          // leitura/escrita nas próprias solicitações desta estação, nunca
+          // a mais nada do sistema (ver src/app/estacao/actions.ts).
+          token: string | null;
+          // Código de uso único mostrado como QR na hora de parear um
+          // aparelho novo — expira sozinho (codigo_expira_em) e é apagado
+          // assim que usado, pra não poder ser reaproveitado depois.
+          codigo_pareamento: string | null;
+          codigo_expira_em: string | null;
+          ativo: boolean;
+          criado_em: string;
+          pareado_em: string | null;
+          // Atualizado a cada vez que o aparelho pareado consulta o
+          // servidor (ver /estacao) — base pra mostrar "visto por último
+          // há Xmin" na tela de administração das estações.
+          ultimo_ping: string | null;
+        },
+        "empresa_id" | "nome",
+        [
+          {
+            foreignKeyName: "estacoes_assinatura_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ]
+      >;
+
+      solicitacoes_assinatura: TableDef<
+        {
+          id: string;
+          empresa_id: string;
+          estacao_id: string;
+          status: StatusSolicitacaoAssinatura;
+          // Snapshot do que está sendo assinado — não é FK pra colaborador/
+          // EPI porque a estação (que só tem o token, sem acesso ao resto do
+          // banco) precisa conseguir MOSTRAR isso na tela sem fazer join
+          // nenhum, só lendo a própria solicitação.
+          colaborador_nome: string;
+          epi_nome: string;
+          assinatura_url: string | null;
+          criado_por: string | null;
+          criado_em: string;
+          respondido_em: string | null;
+        },
+        "empresa_id" | "estacao_id" | "colaborador_nome" | "epi_nome",
+        [
+          {
+            foreignKeyName: "solicitacoes_assinatura_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "solicitacoes_assinatura_estacao_id_fkey";
+            columns: ["estacao_id"];
+            referencedRelation: "estacoes_assinatura";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "solicitacoes_assinatura_criado_por_fkey";
+            columns: ["criado_por"];
+            referencedRelation: "usuarios";
             referencedColumns: ["id"];
           },
         ]

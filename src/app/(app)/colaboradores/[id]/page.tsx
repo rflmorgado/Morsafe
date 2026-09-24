@@ -53,22 +53,22 @@ export default async function ColaboradorDetalhePage({
 
       <div className="overflow-hidden rounded-[14px] border border-border-subtle bg-surface">
         <div
-          className="flex items-center gap-3.5 px-6 py-5"
+          className="flex flex-wrap items-center gap-3.5 px-4 py-5 sm:px-6"
           style={{ background: "var(--brand-900)" }}
         >
           <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-brand-600 text-[17px] font-bold text-white">
             {initials(colaborador.nome)}
           </div>
-          <div>
-            <div className="text-[17px] font-bold text-white">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[17px] font-bold text-white">
               {colaborador.nome}
             </div>
-            <div className="text-[12.5px] text-brand-100/70">
+            <div className="truncate text-[12.5px] text-brand-100/70">
               {colaborador.setor} · {colaborador.cargo}
             </div>
           </div>
           <span
-            className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
               colaborador.status === "ativo"
                 ? "bg-brand-100 text-brand-700"
                 : "bg-danger-bg text-danger-text"
@@ -78,7 +78,7 @@ export default async function ColaboradorDetalhePage({
           </span>
         </div>
 
-        <div className="flex items-center gap-2 border-b border-border-subtle px-6 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-3 sm:px-6">
           <span className="text-[12.5px] font-semibold text-text-secondary">
             Integração de Segurança / Treinamento NR-06:
           </span>
@@ -93,7 +93,7 @@ export default async function ColaboradorDetalhePage({
           )}
         </div>
 
-        <div className="px-6 py-5">
+        <div className="px-4 py-5 sm:px-6">
           {colaborador.eventos.length === 0 ? (
             <p className="text-sm text-text-muted">
               Nenhuma entrega, devolução ou recusa registrada ainda.

@@ -9,6 +9,7 @@ import {
   type TipoMovimentacao,
 } from "@/lib/data/movimentacoes";
 import { getCurrentUser } from "@/lib/data/current-user";
+import { listEstacoesAtivas } from "@/lib/data/estacoes-assinatura";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
 import { MovimentacoesFilters } from "./movimentacoes-filters";
 import { RegistrarEntregaButton } from "./registrar-entrega-button";
@@ -106,6 +107,7 @@ export default async function MovimentacoesPage({
     colaboradoresFiltro,
     episFiltro,
     user,
+    estacoesAtivas,
   ] = await Promise.all([
     listMovimentacoes({
       tipo: tipoFiltro,
@@ -120,6 +122,7 @@ export default async function MovimentacoesPage({
     listColaboradoresParaFiltro(),
     listEpisParaFiltro(),
     getCurrentUser(),
+    listEstacoesAtivas(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / MOVIMENTACOES_PAGE_SIZE));
@@ -177,6 +180,7 @@ export default async function MovimentacoesPage({
             <RegistrarEntregaButton
               colaboradores={colaboradoresAtivos}
               epis={episAtivos}
+              estacoes={estacoesAtivas}
             />
           </div>
         )}

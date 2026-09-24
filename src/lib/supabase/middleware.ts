@@ -6,6 +6,12 @@ const PUBLIC_PATHS = [
   "/redefinir-senha",
   "/politica-de-privacidade",
   "/seguranca-da-informacao",
+  // Tela do aparelho pareado (tablet/celular da empresa fixado num ponto de
+  // coleta) e o link de pareamento — quem abre isso nunca está logado no
+  // MorSafe como usuário, só autenticado pelo token da própria estação (ver
+  // src/app/estacao/actions.ts). Sem essa exceção, o middleware redirecionava
+  // pra /login e a estação nunca conseguia carregar.
+  "/estacao",
 ];
 
 /**

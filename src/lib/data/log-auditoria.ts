@@ -30,6 +30,7 @@ export const TABELA_LABEL: Record<string, string> = {
   entregas: "Entrega de EPI",
   devolucoes: "Devolução de EPI",
   recusas: "Recusa de EPI",
+  estacoes_assinatura: "Estação de assinatura",
 };
 
 // Artigo + substantivo por tabela, usado nas frases do histórico ("Cadastrou
@@ -45,6 +46,7 @@ const ARTIGO_REGISTRO: Record<string, string> = {
   entregas: "a entrega de EPI",
   devolucoes: "a devolução de EPI",
   recusas: "a recusa de EPI",
+  estacoes_assinatura: "a estação de assinatura",
 };
 
 type RegistrarLogParams = {

@@ -6,7 +6,14 @@ import { getCurrentUser } from "@/lib/data/current-user";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
-export type AtualizarLogoState = { error: string | null };
+export type AtualizarLogoState = {
+  error: string | null;
+  // DEBUG TEMPORÁRIO — remover junto com o debug de ficha/route.ts assim que
+  // descobrirmos por que o logo salvo não volta na leitura (ver
+  // getEmpresaAtual / ficha/route.ts). Mostra quantas linhas o update
+  // realmente afetou no banco.
+  debug?: string;
+};
 
 /**
  * Salva (ou remove, passando null) o logo da empresa exibido no topo da
@@ -29,14 +36,21 @@ export async function atualizarLogoEmpresa(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("empresas")
     .update({ logo_url: logoDataUrl })
-    .eq("id", user.empresaId);
+    .eq("id", user.empresaId)
+    .select("id, logo_url");
+
+  const debug = `update empresaId=${user.empresaId} linhasAfetadas=${
+    data?.length ?? 0
+  } logoUrlSalvo=${
+    data?.[0]?.logo_url ? `presente(${data[0].logo_url.length} chars)` : "null"
+  } erro=${error?.message ?? "nenhum"}`;
 
   if (error) {
     console.error("atualizarLogoEmpresa:", error.message);
-    return { error: "Não foi possível salvar o logo. Tente novamente." };
+    return { error: "Não foi possível salvar o logo. Tente novamente.", debug };
   }
 
   await registrarLogAuditoria({
@@ -53,5 +67,5 @@ export async function atualizarLogoEmpresa(
   });
 
   revalidatePath("/empresa");
-  return { error: null };
+  return { error: null, debug };
 }

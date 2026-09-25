@@ -189,7 +189,7 @@ export default async function MovimentacoesPage({
         }
       />
 
-      <div className="overflow-hidden rounded-[14px] border border-border-subtle bg-surface">
+      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-card">
         {eventos.length === 0 ? (
           <p className="px-6 py-6 text-sm text-text-muted">
             Nenhuma movimentação encontrada.
@@ -198,7 +198,7 @@ export default async function MovimentacoesPage({
           eventos.map((evento) => (
             <div
               key={evento.id}
-              className="flex gap-3.5 border-b border-border-subtle px-6 py-4 last:border-b-0"
+              className="flex gap-3.5 border-b border-border-subtle px-6 py-4 transition-colors last:border-b-0 hover:bg-surface-muted/70"
             >
               <span
                 className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${DOT_CLASS[evento.tipo]}`}

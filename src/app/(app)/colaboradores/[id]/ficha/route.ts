@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import QRCode from "qrcode";
 import { getColaboradorDetalhe } from "@/lib/data/colaboradores";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { getEmpresaAtual } from "@/lib/data/empresa";
@@ -643,6 +644,47 @@ export async function GET(
             maxWidth: pageWidth - marginX * 2,
           },
         );
+
+        // QR code — mesma verificação do texto acima, só que num formato que
+        // um celular lê direto (câmera, sem precisar digitar o link à mão).
+        // Se a geração do PNG falhar por qualquer motivo, a ficha segue
+        // normalmente com o link em texto, que já é suficiente sozinho.
+        try {
+          const qrPngBuffer = await QRCode.toBuffer(linkVerificacao, {
+            type: "png",
+            errorCorrectionLevel: "M",
+            margin: 1,
+            width: 240,
+            color: { dark: "#153524", light: "#ffffff" },
+          });
+          const qrImage = await pdfDoc.embedPng(qrPngBuffer);
+
+          const QR_TAMANHO = 56;
+          const QR_GAP = 8;
+          y -= 8;
+          ensureSpace(QR_TAMANHO + 6);
+          page.drawImage(qrImage, {
+            x: marginX,
+            y: y - QR_TAMANHO,
+            width: QR_TAMANHO,
+            height: QR_TAMANHO,
+          });
+          page.drawText(
+            "Escaneie o QR Code com a câmera do celular para abrir a página de verificação deste documento.",
+            {
+              x: marginX + QR_TAMANHO + QR_GAP,
+              y: y - QR_TAMANHO / 2 - 3,
+              size: 7.5,
+              font: fontRegular,
+              color: textMuted,
+              maxWidth: pageWidth - marginX * 2 - QR_TAMANHO - QR_GAP,
+              lineHeight: 10,
+            },
+          );
+          y -= QR_TAMANHO + 6;
+        } catch (e) {
+          console.error("ficha: falha ao gerar QR code de verificação:", e);
+        }
       }
     } catch (e) {
       console.error("ficha: falha ao gerar código de verificação:", e);

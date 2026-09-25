@@ -133,6 +133,113 @@ export async function createCargo(
   return { error: null, id: data.id, nome: data.nome };
 }
 
+export type DeleteCargoState = { error: string | null };
+
+/**
+ * Exclui uma função/cargo descontinuado, pra limpar a lista de opções do
+ * formulário de colaborador. Só uma limpeza de cadastro — não tem "desativar"
+ * aqui como em EPI/colaborador/usuário, porque uma função sem nenhum
+ * colaborador vinculado (ver `cargos.setor_id`/`colaboradores.cargo_id
+ * ... on delete restrict` no schema) não carrega histórico nenhum: o próprio
+ * banco recusa a exclusão (violação de chave estrangeira, código 23503) se
+ * ainda houver algum colaborador — ativo OU desligado — com essa função, e
+ * é esse erro que vira a mensagem abaixo em vez de travar a tela.
+ */
+export async function deleteCargo(cargoId: string): Promise<DeleteCargoState> {
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+
+  const { data: cargo } = await supabase
+    .from("cargos")
+    .select("nome")
+    .eq("id", cargoId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("cargos").delete().eq("id", cargoId);
+
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        error:
+          "Não é possível excluir: ainda existem colaboradores (ativos ou desligados) com essa função. Edite o cadastro deles pra trocar a função antes de excluir.",
+      };
+    }
+    console.error("deleteCargo:", error.message);
+    return { error: "Não foi possível excluir a função. Tente novamente." };
+  }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "cargos",
+    registroId: cargoId,
+    acao: "excluido",
+    usuarioId: user.id,
+    detalhes: { nome: cargo?.nome ?? null },
+  });
+
+  revalidatePath("/colaboradores");
+  return { error: null };
+}
+
+export type DeleteSetorState = { error: string | null };
+
+/**
+ * Mesma lógica de deleteCargo, um nível acima — só exclui se o setor não
+ * tiver nenhuma função nem colaborador vinculado (mesma proteção via chave
+ * estrangeira no banco).
+ */
+export async function deleteSetor(setorId: string): Promise<DeleteSetorState> {
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+
+  const { data: setor } = await supabase
+    .from("setores")
+    .select("nome")
+    .eq("id", setorId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("setores").delete().eq("id", setorId);
+
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        error:
+          "Não é possível excluir: esse setor ainda tem funções ou colaboradores cadastrados nele. Exclua as funções do setor (e mova os colaboradores) antes.",
+      };
+    }
+    console.error("deleteSetor:", error.message);
+    return { error: "Não foi possível excluir o setor. Tente novamente." };
+  }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "setores",
+    registroId: setorId,
+    acao: "excluido",
+    usuarioId: user.id,
+    detalhes: { nome: setor?.nome ?? null },
+  });
+
+  revalidatePath("/colaboradores");
+  return { error: null };
+}
+
 export type CreateColaboradorState = {
   error: string | null;
   success?: boolean;

@@ -11,6 +11,8 @@ import {
 import { getCurrentUser } from "@/lib/data/current-user";
 import { listEstacoesAtivas } from "@/lib/data/estacoes-assinatura";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
+import { PageHeader } from "@/components/ui/page-header";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { MovimentacoesFilters } from "./movimentacoes-filters";
 import { RegistrarEntregaButton } from "./registrar-entrega-button";
 import { RegistrarDevolucaoButton } from "./registrar-devolucao-button";
@@ -136,55 +138,56 @@ export default async function MovimentacoesPage({
 
   return (
     <div className="space-y-1">
-      <h2 className="text-xl font-bold tracking-tight text-foreground">
-        Movimentações
-      </h2>
-      <p className="mb-5 text-[13px] text-text-secondary">
-        Entregas, devoluções e recusas de EPI — histórico completo, mais
-        recente primeiro.
-      </p>
+      <PageHeader
+        title="Movimentações"
+        description="Entregas, devoluções e recusas de EPI — histórico completo, mais recente primeiro."
+      />
 
-      <div className="mb-4 flex flex-col gap-3">
-        <MovimentacoesFilters
-          colaboradores={colaboradoresFiltro}
-          epis={episFiltro}
-        />
-        {podeGerenciar && (
-          <div className="flex flex-wrap justify-end gap-2">
-            <a
-              href={buildExportHref(tipo, colaborador, epi, de, ate)}
-              title="Exportar lista filtrada em CSV"
-              className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
+      <ListToolbar
+        filters={
+          <MovimentacoesFilters
+            colaboradores={colaboradoresFiltro}
+            epis={episFiltro}
+          />
+        }
+        actions={
+          podeGerenciar && (
+            <>
+              <a
+                href={buildExportHref(tipo, colaborador, epi, de, ate)}
+                title="Exportar lista filtrada em CSV"
+                className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
               >
-                <path d="M12 3v12" />
-                <path d="M7 10l5 5 5-5" />
-                <path d="M5 21h14" />
-              </svg>
-              Exportar CSV
-            </a>
-            <RegistrarRecusaButton
-              colaboradores={colaboradoresAtivos}
-              epis={episAtivos}
-            />
-            <RegistrarDevolucaoButton colaboradores={colaboradoresAtivos} />
-            <RegistrarEntregaButton
-              colaboradores={colaboradoresAtivos}
-              epis={episAtivos}
-              estacoes={estacoesAtivas}
-            />
-          </div>
-        )}
-      </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="M12 3v12" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M5 21h14" />
+                </svg>
+                Exportar CSV
+              </a>
+              <RegistrarRecusaButton
+                colaboradores={colaboradoresAtivos}
+                epis={episAtivos}
+              />
+              <RegistrarDevolucaoButton colaboradores={colaboradoresAtivos} />
+              <RegistrarEntregaButton
+                colaboradores={colaboradoresAtivos}
+                epis={episAtivos}
+                estacoes={estacoesAtivas}
+              />
+            </>
+          )
+        }
+      />
 
       <div className="overflow-hidden rounded-[14px] border border-border-subtle bg-surface">
         {eventos.length === 0 ? (

@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ShieldIcon } from "@/components/brand/shield-icon";
-import { NAV_ITEMS } from "./nav-items";
+import { NAV_ITEMS, NAV_SECTION_LABEL } from "./nav-items";
+import { NAV_ICON_BY_HREF } from "./nav-icons";
 import { logout } from "@/app/(app)/actions";
 
 function NavLinks({
@@ -24,44 +25,55 @@ function NavLinks({
 
   return (
     <>
-      {items.map((item) => {
+      {items.map((item, index) => {
         const active = pathname.startsWith(item.href);
-
-        if (item.comingSoon) {
-          return (
-            <div
-              key={item.href}
-              className="flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-[13.5px] font-medium text-white/35"
-              title="Em breve"
-            >
-              <span className="truncate">{item.label}</span>
-              <span className="shrink-0 whitespace-nowrap rounded-full border border-white/10 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-white/40">
-                Em breve
-              </span>
-            </div>
-          );
-        }
+        const Icon = NAV_ICON_BY_HREF[item.href];
+        const novaSecao = index === 0 || item.section !== items[index - 1].section;
 
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition ${
-              active ? "bg-white/10 text-white" : "text-white/70 hover:text-white/90"
-            }`}
-          >
-            <span className="flex items-center gap-2.5">
-              {item.href === "/dashboard" && (
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    active ? "bg-brand-500" : "bg-transparent"
-                  }`}
-                />
-              )}
-              {item.label}
-            </span>
-          </Link>
+          <div key={item.href}>
+            {novaSecao && (
+              <p
+                className={`mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-white/30 ${
+                  index === 0 ? "" : "mt-4"
+                }`}
+              >
+                {NAV_SECTION_LABEL[item.section]}
+              </p>
+            )}
+
+            {item.comingSoon ? (
+              <div
+                className="flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-[13.5px] font-medium text-white/35"
+                title={`${item.label} — em breve`}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  {Icon && <Icon className="h-4 w-4 shrink-0" />}
+                  <span className="truncate">{item.label}</span>
+                </span>
+                <span className="shrink-0 whitespace-nowrap rounded-full border border-white/10 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-white/40">
+                  Em breve
+                </span>
+              </div>
+            ) : (
+              <Link
+                href={item.href}
+                onClick={onNavigate}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition ${
+                  active
+                    ? "bg-white/10 text-white"
+                    : "text-white/70 hover:bg-white/5 hover:text-white/90"
+                }`}
+              >
+                {Icon && (
+                  <Icon
+                    className={`h-4 w-4 shrink-0 ${active ? "text-brand-400" : "text-white/40"}`}
+                  />
+                )}
+                <span className="leading-tight">{item.label}</span>
+              </Link>
+            )}
+          </div>
         );
       })}
     </>
@@ -85,7 +97,7 @@ export function AppShell({
 
   return (
     <div className="mx-auto min-h-screen max-w-[1180px] p-4 lg:p-8">
-      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-[0_1px_2px_rgba(18,53,36,0.06),0_4px_16px_rgba(18,53,36,0.06)] lg:grid lg:min-h-[640px] lg:grid-cols-[220px_1fr]">
+      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-[0_1px_2px_rgba(18,53,36,0.06),0_4px_16px_rgba(18,53,36,0.06)] lg:grid lg:min-h-[640px] lg:grid-cols-[236px_1fr]">
         {/* Topbar — mobile */}
         <div className="lg:hidden" style={{ background: "var(--brand-950)" }}>
           <div className="flex items-center justify-between px-4 py-3.5">

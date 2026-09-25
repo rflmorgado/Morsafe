@@ -243,24 +243,30 @@ export async function getColaboradorDetalhe(id: string) {
 
   if (error || !colaborador) return null;
 
+  // criado_em (timestamp do servidor, imutável) e o nome de quem registrou
+  // (usuarios via criado_por) vão pra ficha em PDF — ver comentário em
+  // ficha/route.ts sobre por que isso importa numa eventual ação
+  // trabalhista: "data"/"hora" são digitados no formulário, criado_em não.
   const [entregas, devolucoes, recusas] = await Promise.all([
     supabase
       .from("entregas")
       .select(
-        "id, data, hora, motivo, quantidade, assinatura_url, epis ( nome, ca )",
+        "id, data, hora, motivo, quantidade, assinatura_url, criado_em, epis ( nome, ca ), usuarios ( nome )",
       )
       .eq("colaborador_id", id)
       .order("data", { ascending: false }),
     supabase
       .from("devolucoes")
       .select(
-        "id, data, motivo, destino, devolvido_fisicamente, epis ( nome, ca ), entregas ( quantidade )",
+        "id, data, motivo, destino, devolvido_fisicamente, criado_em, epis ( nome, ca ), entregas ( quantidade ), usuarios ( nome )",
       )
       .eq("colaborador_id", id)
       .order("data", { ascending: false }),
     supabase
       .from("recusas")
-      .select("id, data, hora, observacoes, epis ( nome, ca )")
+      .select(
+        "id, data, hora, observacoes, criado_em, epis ( nome, ca ), usuarios ( nome )",
+      )
       .eq("colaborador_id", id)
       .order("data", { ascending: false }),
   ]);
@@ -279,6 +285,11 @@ export async function getColaboradorDetalhe(id: string) {
     // Só entrega e devolução têm quantidade (na devolução, vem da entrega
     // vinculada — ver comentário em EntregaEmPosse, lib/data/movimentacoes.ts).
     quantidade?: number;
+    // Quem registrou (usuarios.nome via criado_por) e quando, de verdade —
+    // ver comentário acima sobre criado_em. null só em registros muito
+    // antigos, de antes dessas colunas existirem.
+    responsavelNome: string | null;
+    criadoEm: string | null;
   };
 
   const eventos: Evento[] = [
@@ -291,6 +302,8 @@ export async function getColaboradorDetalhe(id: string) {
       detalhe: MOTIVO_ENTREGA_LABEL[e.motivo] ?? e.motivo,
       assinaturaUrl: e.assinatura_url,
       quantidade: e.quantidade,
+      responsavelNome: (e.usuarios as unknown as { nome: string } | null)?.nome ?? null,
+      criadoEm: e.criado_em,
     })),
     ...(devolucoes.data ?? []).map((d) => ({
       id: `devolucao-${d.id}`,
@@ -302,6 +315,8 @@ export async function getColaboradorDetalhe(id: string) {
         d.devolvido_fisicamente ? "" : " · não devolvido fisicamente"
       }`,
       quantidade: (d.entregas as unknown as { quantidade: number } | null)?.quantidade,
+      responsavelNome: (d.usuarios as unknown as { nome: string } | null)?.nome ?? null,
+      criadoEm: d.criado_em,
     })),
     ...(recusas.data ?? []).map((r) => ({
       id: `recusa-${r.id}`,
@@ -310,6 +325,8 @@ export async function getColaboradorDetalhe(id: string) {
       epi: (r.epis as unknown as { nome: string; ca: string | null } | null)?.nome ?? "—",
       ca: (r.epis as unknown as { nome: string; ca: string | null } | null)?.ca ?? null,
       detalhe: r.observacoes ?? "Recusa registrada",
+      responsavelNome: (r.usuarios as unknown as { nome: string } | null)?.nome ?? null,
+      criadoEm: r.criado_em,
     })),
   ].sort((a, b) => (a.data < b.data ? 1 : -1));
 

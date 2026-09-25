@@ -3,6 +3,82 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { getDashboardData } from "@/lib/data/dashboard";
 import { getCurrentUser } from "@/lib/data/current-user";
 
+// Ícones dos 4 KPIs — cada um simples o bastante pra ler bem nos 20px do
+// "chip" colorido do KpiCard, sem depender de um pacote de ícones externo.
+function IconTruck(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M2 7h11v9H2z" />
+      <path d="M13 10h4.5l3.5 3.2V16h-8z" />
+      <circle cx="6.5" cy="18" r="1.8" />
+      <circle cx="17" cy="18" r="1.8" />
+    </svg>
+  );
+}
+
+function IconWallet(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h12A2.5 2.5 0 0 1 20 7.5V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M16 12.5h3v3h-3a1.5 1.5 0 0 1 0-3z" />
+    </svg>
+  );
+}
+
+function IconBox(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M3.5 8 12 4l8.5 4-8.5 4z" />
+      <path d="M3.5 8v8l8.5 4 8.5-4V8" />
+      <path d="M12 12v8" />
+    </svg>
+  );
+}
+
+function IconCalendarAlert(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M3.5 10h17" />
+      <path d="M8 3v4M16 3v4" />
+      <path d="M12 13v3" />
+      <circle cx="12" cy="18.2" r="0.15" fill="currentColor" />
+    </svg>
+  );
+}
+
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
 }
@@ -49,7 +125,7 @@ export default async function DashboardPage() {
           type="button"
           disabled
           title="Em breve"
-          className="w-full rounded-lg bg-brand-700/40 px-4 py-2.5 text-[13.5px] font-semibold text-white/70 sm:w-auto"
+          className="w-full rounded-lg border border-border-strong bg-surface-muted px-4 py-2.5 text-[13.5px] font-semibold text-text-muted sm:w-auto"
         >
           + Nova entrega
         </button>
@@ -59,6 +135,7 @@ export default async function DashboardPage() {
         <KpiCard
           label="Entregas no mês"
           value={data.entregasMes}
+          icon={<IconTruck className="h-5 w-5" />}
           delta={
             data.variacaoEntregas === null
               ? undefined
@@ -73,6 +150,7 @@ export default async function DashboardPage() {
         <KpiCard
           label="Gasto no mês"
           value={formatMoney(data.gastoMesTotal)}
+          icon={<IconWallet className="h-5 w-5" />}
           delta={
             data.topSetor
               ? `Setor ${data.topSetor.nome} concentra ${data.topSetor.pct}%`
@@ -83,12 +161,14 @@ export default async function DashboardPage() {
         <KpiCard
           label="EPIs com estoque baixo"
           value={data.estoqueBaixoTotal}
+          icon={<IconBox className="h-5 w-5" />}
           delta={data.estoqueBaixoTotal > 0 ? "Ação recomendada" : "Tudo certo"}
           deltaTone={data.estoqueBaixoTotal > 0 ? "warn" : "up"}
         />
         <KpiCard
           label="CAs vencendo em 30 dias"
           value={data.caVencendoTotal}
+          icon={<IconCalendarAlert className="h-5 w-5" />}
           delta={
             data.caVencendoTotal > 0
               ? "Renovar com fornecedor"

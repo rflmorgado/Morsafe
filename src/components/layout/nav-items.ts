@@ -33,6 +33,12 @@ export const NAV_ITEMS: NavItem[] = [
     adminOnly: true,
     section: "operacao",
   },
+  {
+    label: "Dados da empresa",
+    href: "/empresa",
+    adminOnly: true,
+    section: "sistema",
+  },
   { label: "Usuários", href: "/usuarios", adminOnly: true, section: "sistema" },
   {
     label: "Nova empresa",

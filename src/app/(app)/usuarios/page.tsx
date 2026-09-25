@@ -85,14 +85,14 @@ export default async function UsuariosPage() {
 
       <ListToolbar actions={<NovoUsuarioButton />} />
 
-      <div className="overflow-x-auto rounded-[14px] border border-border-subtle">
+      <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card">
         <table className="w-full min-w-[560px] border-collapse bg-surface text-left">
           <thead>
             <tr>
               {["Nome", "E-mail", "Papel", "Status", ""].map((label) => (
                 <th
                   key={label || "acoes"}
-                  className="border-b border-border-subtle bg-brand-50 px-4 py-3 text-[11.5px] font-semibold uppercase tracking-wide text-text-secondary"
+                  className="border-b border-border-subtle bg-surface-muted px-4 py-3.5 text-[11px] font-semibold tracking-[0.04em] text-text-secondary uppercase"
                 >
                   {label}
                 </th>
@@ -113,7 +113,7 @@ export default async function UsuariosPage() {
                 return (
                   <tr
                     key={u.id}
-                    className="border-b border-border-subtle last:border-b-0"
+                    className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-muted/70"
                   >
                     <td className="px-4 py-3.5 text-[13.5px] font-medium text-foreground">
                       <span className="inline-flex items-center gap-2">

@@ -617,6 +617,59 @@ export interface Database {
           },
         ]
       >;
+
+      // Registro de verificação pública de um documento gerado (ex: Ficha de
+      // EPI) — permite que um terceiro (juiz, auditor, perito), sem login
+      // nenhum no MorSafe, confirme em /verificar/<codigo> que aquele
+      // documento foi realmente emitido pelo sistema, pra quem, quando e com
+      // qual conteúdo (hash). empresa_nome/colaborador_nome são um snapshot
+      // (não só o id) pra a página pública não precisar fazer join nenhum
+      // nem expor colunas sensíveis de `colaboradores` (mesma ideia de
+      // solicitacoes_assinatura.colaborador_nome). Sem RLS (mesmo padrão de
+      // `empresas`) — a única forma de achar uma linha é sabendo o código,
+      // que é aleatório e não sequencial (ver lib/data/verificacao-documento.ts).
+      verificacoes_documento: TableDef<
+        {
+          id: string;
+          codigo: string;
+          empresa_id: string;
+          empresa_nome: string;
+          colaborador_id: string;
+          colaborador_nome: string;
+          tipo_documento: string;
+          quantidade_eventos: number;
+          hash_conteudo: string;
+          gerado_por: string | null;
+          gerado_em: string;
+        },
+        | "codigo"
+        | "empresa_id"
+        | "empresa_nome"
+        | "colaborador_id"
+        | "colaborador_nome"
+        | "quantidade_eventos"
+        | "hash_conteudo",
+        [
+          {
+            foreignKeyName: "verificacoes_documento_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "verificacoes_documento_colaborador_id_fkey";
+            columns: ["colaborador_id"];
+            referencedRelation: "colaboradores";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "verificacoes_documento_gerado_por_fkey";
+            columns: ["gerado_por"];
+            referencedRelation: "usuarios";
+            referencedColumns: ["id"];
+          },
+        ]
+      >;
     };
 
     Views: {

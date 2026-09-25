@@ -18,6 +18,13 @@ const TAMANHO_MAX_ARQUIVO = 5 * 1024 * 1024;
  */
 export function LogoEmpresaForm({ logoAtual }: { logoAtual: string | null }) {
   const [preview, setPreview] = useState<string | null>(logoAtual);
+  // Último valor confirmado salvo no banco nesta sessão — começa igual ao
+  // que veio do servidor, mas atualiza depois de um "Salvar" bem-sucedido
+  // (sem precisar recarregar a página). Comparar `preview` com ISSO, em vez
+  // de com `logoAtual` (que nunca muda depois do carregamento inicial), é o
+  // que faz "Salvar" desabilitar de novo e a mensagem de sucesso aparecer
+  // corretamente logo após salvar.
+  const [salvo, setSalvo] = useState<string | null>(logoAtual);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
@@ -74,11 +81,12 @@ export function LogoEmpresaForm({ logoAtual }: { logoAtual: string | null }) {
         setError(result.error);
         return;
       }
+      setSalvo(preview);
       setSucesso(true);
     });
   }
 
-  const alterado = preview !== logoAtual;
+  const alterado = preview !== salvo;
 
   return (
     <div className="space-y-4">
@@ -146,7 +154,7 @@ export function LogoEmpresaForm({ logoAtual }: { logoAtual: string | null }) {
           {error}
         </p>
       )}
-      {sucesso && !alterado && (
+      {sucesso && (
         <p className="rounded-lg bg-brand-100 px-3.5 py-2.5 text-sm text-brand-700">
           Logo salvo.
         </p>

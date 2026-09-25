@@ -69,6 +69,10 @@ export interface Database {
           nome: string;
           cnpj: string | null;
           endereco: string | null;
+          // PNG em data URL (ver logo-empresa-form.tsx) — sem Supabase
+          // Storage configurado no app, mesma decisão já tomada pra
+          // assinatura de entrega (entregas.assinatura_url).
+          logo_url: string | null;
           ativo: boolean;
           criado_em: string;
         },

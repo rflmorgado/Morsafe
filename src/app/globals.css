@@ -47,28 +47,37 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --surface-muted: #0d1712;
-    --surface: #131f19;
+    --surface-muted: #0a100c;
+    --surface: #182620;
     --foreground: #eef4f0;
     --text-secondary: #a8b7ae;
     --text-muted: #71827a;
-    --border-subtle: #22322a;
-    --border-strong: #324438;
+    --border-subtle: #26382e;
+    --border-strong: #384c40;
     --brand-50: #152820;
     --brand-100: #1a3427;
     --danger-bg: #3a1a17;
     --warning-bg: #3a2e0f;
 
-    /* Sombra escura simples — contra fundo escuro, a sombra "verde" perde o
-       sentido; o que dá profundidade aqui é só preto translúcido. */
-    --elevation-card: 0 1px 2px rgba(0, 0, 0, 0.28),
-      0 10px 24px -14px rgba(0, 0, 0, 0.55);
-    --elevation-card-hover: 0 2px 4px rgba(0, 0, 0, 0.32),
-      0 16px 32px -14px rgba(0, 0, 0, 0.6);
-    --elevation-btn: 0 1px 2px rgba(0, 0, 0, 0.32),
-      0 4px 10px -4px rgba(0, 0, 0, 0.5);
-    --elevation-btn-hover: 0 2px 6px rgba(0, 0, 0, 0.36),
-      0 8px 18px -6px rgba(0, 0, 0, 0.55);
+    /* Contra um fundo já escuro, uma sombra preta não aparece — ela só
+       escurece o que já é escuro. Por isso: (1) o "card" (--surface) agora
+       tem bem mais contraste com o fundo da página (--surface-muted) do que
+       antes (eram praticamente o mesmo tom), e (2) a "elevação" aqui é um
+       realce claro e sutil na borda de cima (como luz batendo de cima),
+       técnica padrão pra profundidade em tema escuro, combinada com uma
+       sombra preta por baixo só pra ancorar. Sombra "preto puro" sozinha,
+       como estava antes, é invisível nesse fundo. */
+    --elevation-card: inset 0 1px 0 0 rgba(255, 255, 255, 0.045),
+      0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 32px -14px rgba(0, 0, 0, 0.7);
+    --elevation-card-hover: inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+      0 2px 4px rgba(0, 0, 0, 0.45), 0 20px 40px -14px rgba(0, 0, 0, 0.75);
+    /* Botão primário é verde saturado (bg-brand-700), não escuro — aqui um
+       leve brilho na cor da marca funciona melhor que um contorno claro
+       genérico, e ainda ancora com uma sombra preta por baixo. */
+    --elevation-btn: 0 1px 2px rgba(0, 0, 0, 0.4),
+      0 6px 16px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(92, 179, 126, 0.18);
+    --elevation-btn-hover: 0 2px 6px rgba(0, 0, 0, 0.45),
+      0 10px 22px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(92, 179, 126, 0.3);
   }
 }
 

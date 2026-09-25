@@ -12,6 +12,11 @@ const PUBLIC_PATHS = [
   // src/app/estacao/actions.ts). Sem essa exceção, o middleware redirecionava
   // pra /login e a estação nunca conseguia carregar.
   "/estacao",
+  // Página pública de verificação de documento (ver ficha/route.ts e
+  // lib/data/verificacao-documento.ts) — um juiz, auditor ou perito abrindo
+  // o link/código impresso no rodapé de uma Ficha de EPI nunca tem login no
+  // MorSafe.
+  "/verificar",
 ];
 
 /**

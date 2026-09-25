@@ -136,6 +136,14 @@ body {
    editar cada arquivo, o relevo/interação é aplicado aqui, direto na classe
    utilitária do Tailwind. */
 .bg-brand-700 {
+  /* Um verniz sutil (mais claro em cima, transparente embaixo) por cima da
+     cor sólida — sem isso o botão fica "tinta chapada"; com isso, parece
+     uma superfície de verdade. */
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0) 65%
+  );
   box-shadow: var(--shadow-btn);
   transition-property:
     background-color, box-shadow, transform;

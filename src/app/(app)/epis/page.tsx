@@ -9,6 +9,8 @@ import { EditarEpiButton } from "./editar-epi-button";
 import { DesativarEpiButton } from "./desativar-epi-button";
 import { ReativarEpiButton } from "./reativar-epi-button";
 import { ExcluirEpiButton } from "./excluir-epi-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
@@ -168,43 +170,43 @@ export default async function EpisPage({
 
   return (
     <div className="space-y-1">
-      <h2 className="text-xl font-bold tracking-tight text-foreground">
-        EPIs homologados
-      </h2>
-      <p className="mb-5 text-[13px] text-text-secondary">
-        Cadastro mestre de EPI, com C.A. e custo médio.
-      </p>
+      <PageHeader
+        title="EPIs homologados"
+        description="Cadastro mestre de EPI, com C.A. e custo médio."
+      />
 
-      <div className="mb-4 flex flex-col gap-3">
-        <EpisFilters />
-        {podeGerenciar && (
-          <div className="flex flex-wrap justify-end gap-2">
-            <a
-              href={buildExportHref(q, tipo, status, sort, dir)}
-              title="Exportar catálogo filtrado em CSV"
-              className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
+      <ListToolbar
+        filters={<EpisFilters />}
+        actions={
+          podeGerenciar && (
+            <>
+              <a
+                href={buildExportHref(q, tipo, status, sort, dir)}
+                title="Exportar catálogo filtrado em CSV"
+                className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
               >
-                <path d="M12 3v12" />
-                <path d="M7 10l5 5 5-5" />
-                <path d="M5 21h14" />
-              </svg>
-              Exportar CSV
-            </a>
-            {podeImportar && <ImportarEpisButton />}
-            <NovoEpiButton />
-          </div>
-        )}
-      </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="M12 3v12" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M5 21h14" />
+                </svg>
+                Exportar CSV
+              </a>
+              {podeImportar && <ImportarEpisButton />}
+              <NovoEpiButton />
+            </>
+          )
+        }
+      />
 
       <div className="overflow-x-auto rounded-[14px] border border-border-subtle">
         <table className="w-full min-w-[680px] border-collapse bg-surface text-left">

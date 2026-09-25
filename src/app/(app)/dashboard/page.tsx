@@ -113,7 +113,7 @@ export default async function DashboardPage() {
               {data.estoqueBaixo.map((item) => (
                 <div
                   key={`estoque-${item.epi_id}`}
-                  className="flex items-center justify-between border-b border-border-subtle py-2.5 text-[13px] last:border-b-0"
+                  className="flex items-center justify-between border-b border-border-subtle py-2.5 text-[13px] transition-colors last:border-b-0 hover:bg-surface-muted/60"
                 >
                   <span>
                     {item.nome} —{" "}
@@ -135,7 +135,7 @@ export default async function DashboardPage() {
               {data.caVencendo.map((item) => (
                 <div
                   key={`ca-${item.epi_id}`}
-                  className="flex items-center justify-between border-b border-border-subtle py-2.5 text-[13px] last:border-b-0"
+                  className="flex items-center justify-between border-b border-border-subtle py-2.5 text-[13px] transition-colors last:border-b-0 hover:bg-surface-muted/60"
                 >
                   <span>
                     CA {item.ca} ({item.nome}) vence em{" "}

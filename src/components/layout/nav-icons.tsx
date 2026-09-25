@@ -80,6 +80,17 @@ export function IconEstacoes({ className }: NavIconProps) {
   );
 }
 
+export function IconEmpresa({ className }: NavIconProps) {
+  return (
+    <IconBase className={className}>
+      <rect x="4" y="3" width="12" height="18" rx="1.2" />
+      <path d="M16 8h4v13" />
+      <path d="M4 21h16" />
+      <path d="M7.5 7h1.5M11 7h1.5M7.5 11h1.5M11 11h1.5M7.5 15h1.5M11 15h1.5" />
+    </IconBase>
+  );
+}
+
 export function IconUsuarios({ className }: NavIconProps) {
   return (
     <IconBase className={className}>
@@ -140,6 +151,7 @@ export const NAV_ICON_BY_HREF: Record<string, ComponentType<NavIconProps>> = {
   "/epis": IconEpis,
   "/movimentacoes": IconMovimentacoes,
   "/estacoes": IconEstacoes,
+  "/empresa": IconEmpresa,
   "/usuarios": IconUsuarios,
   "/setup-empresa": IconNovaEmpresa,
   "/estoque": IconEstoque,

@@ -8,6 +8,7 @@ import { listSetoresComCargos } from "@/lib/data/setores";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { NovoColaboradorButton } from "./novo-colaborador-button";
 import { ImportarColaboradoresButton } from "./importar-colaboradores-button";
+import { GerenciarCargosButton } from "./gerenciar-cargos-button";
 import { DesligarColaboradorButton } from "./desligar-colaborador-button";
 import { ReativarColaboradorButton } from "./reativar-colaborador-button";
 import { ExcluirColaboradorButton } from "./excluir-colaborador-button";
@@ -174,6 +175,7 @@ export default async function ColaboradoresPage({
               {podeImportar && (
                 <ImportarColaboradoresButton setores={setores} />
               )}
+              <GerenciarCargosButton setores={setores} />
               <NovoColaboradorButton setores={setores} />
             </>
           )

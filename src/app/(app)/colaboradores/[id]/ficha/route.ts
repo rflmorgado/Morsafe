@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/data/current-user";
 import { getEmpresaAtual } from "@/lib/data/empresa";
 import { createClient } from "@/lib/supabase/server";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
+import { criarVerificacaoDocumento } from "@/lib/data/verificacao-documento";
 
 const TIPO_LABEL: Record<string, string> = {
   entrega: "Entrega",
@@ -16,6 +17,17 @@ const TIPO_LABEL: Record<string, string> = {
 
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
+}
+
+// Usado só na linha "Registrado por" de cada evento (ver mais abaixo) —
+// diferente de formatDate, mostra também a hora, porque vem de criado_em
+// (timestamp do servidor), não do "data"/"hora" digitado no formulário.
+function formatDateTime(iso: string) {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("pt-BR")} às ${d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
 }
 
 function sanitizeFileName(nome: string) {
@@ -371,7 +383,8 @@ export async function GET(
     const GAP_ASSINATURA = 10;
     const TITULO_SIZE = 9.5;
     const DETALHE_SIZE = 8;
-    const ALTURA_TEXTO = 19; // título + detalhe, já com o espaçamento entre eles
+    const RESPONSAVEL_SIZE = 7;
+    const ALTURA_TEXTO = 28; // título + detalhe + "registrado por", já com o espaçamento entre eles
 
     // Rótulo da coluna de assinatura — sem isso, a miniatura ao lado de cada
     // entrega aparece "solta", sem indicar que aquele espaço é reservado
@@ -451,6 +464,30 @@ export async function GET(
         x: marginX,
         y: topoLinhaY - 11,
         size: DETALHE_SIZE,
+        font: fontRegular,
+        color: textMuted,
+      });
+
+      // "Registrado por" — quem lançou o registro no sistema e quando, pelo
+      // timestamp do próprio servidor (criado_em), não pela data/hora
+      // digitada no formulário. Isso é o que permite, numa eventual ação
+      // trabalhista, identificar e (se preciso) chamar como testemunha quem
+      // de fato fez aquele registro — sem isso, só se sabia quem assinou
+      // como tendo recebido, nunca quem tinha lançado a entrega.
+      const responsavelTexto = evento.criadoEm
+        ? fitSingleLine(
+            evento.responsavelNome
+              ? `Registrado por ${evento.responsavelNome} em ${formatDateTime(evento.criadoEm)}`
+              : `Registrado em ${formatDateTime(evento.criadoEm)}`,
+            fontRegular,
+            RESPONSAVEL_SIZE,
+            larguraMaximaTexto,
+          )
+        : "Registro sem responsável/data de lançamento identificados";
+      page.drawText(responsavelTexto, {
+        x: marginX,
+        y: topoLinhaY - 20,
+        size: RESPONSAVEL_SIZE,
         font: fontRegular,
         color: textMuted,
       });
@@ -564,6 +601,53 @@ export async function GET(
       maxWidth: pageWidth - marginX * 2,
     },
   );
+
+  // Código de verificação pública — permite que um terceiro (juiz, auditor,
+  // perito), sem login nenhum no MorSafe, confirme em /verificar/<código>
+  // que este documento foi realmente emitido pelo sistema, pra quem, quando
+  // e com qual conteúdo (hash). Ver lib/data/verificacao-documento.ts. Se a
+  // geração falhar por qualquer motivo (ex: migração do banco ainda não
+  // aplicada), a ficha continua sendo emitida normalmente, só sem esse
+  // rodapé — nunca trava a emissão do documento por causa disso.
+  if (user.empresaId) {
+    try {
+      const verificacao = await criarVerificacaoDocumento({
+        empresaId: user.empresaId,
+        empresaNome: user.empresaNome ?? empresaNomeDoc,
+        colaboradorId: id,
+        colaboradorNome: colaborador.nome,
+        tipoDocumento: "ficha_epi",
+        geradoPor: user.id,
+        eventos: colaborador.eventos.map((evento) => ({
+          id: evento.id,
+          tipo: evento.tipo,
+          data: evento.data,
+          criadoEm: evento.criadoEm,
+          epi: evento.epi,
+          quantidade: evento.quantidade,
+        })),
+      });
+
+      if (verificacao) {
+        const origin = new URL(request.url).origin;
+        const linkVerificacao = `${origin}/verificar/${verificacao.codigo}`;
+        y -= 12;
+        ensureSpace(22);
+        drawWrappedText(
+          `Verifique a autenticidade deste documento em ${linkVerificacao} (código ${verificacao.codigo}).`,
+          {
+            size: 8,
+            font: fontBold,
+            color: brand,
+            lineHeight: 11,
+            maxWidth: pageWidth - marginX * 2,
+          },
+        );
+      }
+    } catch (e) {
+      console.error("ficha: falha ao gerar código de verificação:", e);
+    }
+  }
 
   const pdfBytes = await pdfDoc.save();
 

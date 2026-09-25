@@ -230,6 +230,14 @@ export async function GET(
   const LOGO_GAP_ABAIXO = 30;
 
   const topoHeaderY = y;
+  // DEBUG TEMPORÁRIO — remover assim que o logo aparecer corretamente na
+  // ficha. Mostra na própria página (não só no console do servidor, que o
+  // Rafael não tem como ver) se a empresa foi encontrada, se o logo_url veio
+  // preenchido do banco e se o embedPng deu certo — pra descobrir em qual
+  // dessas três etapas a coisa está falhando.
+  let logoDebug = `DBG logo: empresaId=${user.empresaId ?? "ausente"} empresaEncontrada=${
+    empresa ? "sim" : "nao"
+  } logoUrl=${empresa?.logoUrl ? `presente(${empresa.logoUrl.length} chars)` : "ausente"}`;
   if (empresa?.logoUrl) {
     try {
       const base64 = empresa.logoUrl.split(",")[1] ?? "";
@@ -248,10 +256,19 @@ export async function GET(
         height: logoAltura,
       });
       y = topoHeaderY - LOGO_MAX_ALTURA - LOGO_GAP_ABAIXO;
+      logoDebug += ` embedPng=ok(${logoImagem.width}x${logoImagem.height})`;
     } catch (e) {
       console.error("ficha: falha ao incorporar logo da empresa:", e);
+      logoDebug += ` embedPng=ERRO:${e instanceof Error ? e.message : String(e)}`;
     }
   }
+  page.drawText(logoDebug, {
+    x: marginX,
+    y: pageHeight - 12,
+    size: 6,
+    font: fontRegular,
+    color: rgb(0.75, 0.75, 0.75),
+  });
 
   // Header
   page.drawText("Ficha de Entrega de EPI", {

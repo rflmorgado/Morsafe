@@ -7,6 +7,8 @@ import { ReativarUsuarioButton } from "./reativar-usuario-button";
 import { ExcluirUsuarioButton } from "./excluir-usuario-button";
 import { HistoricoUsuarioButton } from "./historico-usuario-button";
 import { AutoRefresh } from "./auto-refresh";
+import { PageHeader } from "@/components/ui/page-header";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 
 const PAPEL_LABEL: Record<string, string> = {
   admin: "Admin",
@@ -39,12 +41,10 @@ export default async function UsuariosPage() {
   if (!user || user.papel !== "admin" || !user.empresaId) {
     return (
       <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">
-          Acesso restrito
-        </h2>
-        <p className="text-[13px] text-text-secondary">
-          Esta página é exclusiva do administrador da empresa.
-        </p>
+        <PageHeader
+          title="Acesso restrito"
+          description="Esta página é exclusiva do administrador da empresa."
+        />
       </div>
     );
   }
@@ -65,9 +65,7 @@ export default async function UsuariosPage() {
   if (erroConfiguracao) {
     return (
       <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">
-          Usuários
-        </h2>
+        <PageHeader title="Usuários" />
         <p className="mt-4 max-w-md rounded-lg bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-text">
           Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY
           ausente no Vercel). Adicione essa variável de ambiente em
@@ -80,16 +78,12 @@ export default async function UsuariosPage() {
   return (
     <div className="space-y-1">
       <AutoRefresh />
-      <h2 className="text-xl font-bold tracking-tight text-foreground">
-        Usuários
-      </h2>
-      <p className="mb-5 text-[13px] text-text-secondary">
-        Quem tem acesso ao MorSafe na sua empresa.
-      </p>
+      <PageHeader
+        title="Usuários"
+        description="Quem tem acesso ao MorSafe na sua empresa."
+      />
 
-      <div className="mb-4 flex justify-end">
-        <NovoUsuarioButton />
-      </div>
+      <ListToolbar actions={<NovoUsuarioButton />} />
 
       <div className="overflow-x-auto rounded-[14px] border border-border-subtle">
         <table className="w-full min-w-[560px] border-collapse bg-surface text-left">

@@ -30,6 +30,19 @@
   --danger-text: #b3261e;
   --warning-bg: #fef6e0;
   --warning-text: #8a5a00;
+
+  /* Elevação — mesma cor de sombra (verde-escuro, rgb do --brand-900) já usada
+     no shadow do shell (app-shell.tsx), só que graduada em duas intensidades:
+     "card" pros painéis/tabelas em repouso, "btn" pros botões primários, que
+     precisam de mais peso por serem menores e coloridos. */
+  --elevation-card: 0 1px 2px rgba(18, 53, 36, 0.04),
+    0 10px 24px -12px rgba(18, 53, 36, 0.18);
+  --elevation-card-hover: 0 2px 4px rgba(18, 53, 36, 0.06),
+    0 16px 32px -12px rgba(18, 53, 36, 0.24);
+  --elevation-btn: 0 1px 2px rgba(18, 53, 36, 0.14),
+    0 4px 10px -4px rgba(18, 53, 36, 0.38);
+  --elevation-btn-hover: 0 2px 6px rgba(18, 53, 36, 0.18),
+    0 8px 18px -6px rgba(18, 53, 36, 0.42);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,6 +58,17 @@
     --brand-100: #1a3427;
     --danger-bg: #3a1a17;
     --warning-bg: #3a2e0f;
+
+    /* Sombra escura simples — contra fundo escuro, a sombra "verde" perde o
+       sentido; o que dá profundidade aqui é só preto translúcido. */
+    --elevation-card: 0 1px 2px rgba(0, 0, 0, 0.28),
+      0 10px 24px -14px rgba(0, 0, 0, 0.55);
+    --elevation-card-hover: 0 2px 4px rgba(0, 0, 0, 0.32),
+      0 16px 32px -14px rgba(0, 0, 0, 0.6);
+    --elevation-btn: 0 1px 2px rgba(0, 0, 0, 0.32),
+      0 4px 10px -4px rgba(0, 0, 0, 0.5);
+    --elevation-btn-hover: 0 2px 6px rgba(0, 0, 0, 0.36),
+      0 8px 18px -6px rgba(0, 0, 0, 0.55);
   }
 }
 
@@ -75,10 +99,42 @@
   --color-danger-text: var(--danger-text);
   --color-warning-bg: var(--warning-bg);
   --color-warning-text: var(--warning-text);
+
+  --shadow-card: var(--elevation-card);
+  --shadow-card-hover: var(--elevation-card-hover);
+  --shadow-btn: var(--elevation-btn);
+  --shadow-btn-hover: var(--elevation-btn-hover);
 }
 
 body {
   background: var(--surface-muted);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* Foco visível consistente (teclado) em toda a aplicação — substitui o
+   outline azul padrão do navegador pela cor da marca. */
+:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Botões primários ("+ Novo colaborador", "Registrar entrega", "Salvar" em
+   modais etc.) repetem a combinação `bg-brand-700 ... text-white` em ~15
+   componentes espalhados pelo app. bg-brand-700 (sem opacidade/hover) só é
+   usado nesses botões — nunca em badges ou outro elemento — então em vez de
+   editar cada arquivo, o relevo/interação é aplicado aqui, direto na classe
+   utilitária do Tailwind. */
+.bg-brand-700 {
+  box-shadow: var(--shadow-btn);
+  transition-property:
+    background-color, box-shadow, transform;
+}
+.bg-brand-700:hover:not(:disabled) {
+  box-shadow: var(--shadow-btn-hover);
+}
+.bg-brand-700:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-btn);
 }

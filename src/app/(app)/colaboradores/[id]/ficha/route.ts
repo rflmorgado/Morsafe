@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { getColaboradorDetalhe } from "@/lib/data/colaboradores";
 import { getCurrentUser } from "@/lib/data/current-user";
+import { getEmpresaAtual } from "@/lib/data/empresa";
 import { createClient } from "@/lib/supabase/server";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
@@ -65,18 +66,23 @@ export async function GET(
 
   // Baixar a ficha dá acesso ao histórico de EPI do colaborador (dado
   // sensível), então entra no histórico de ações igual às demais mutações —
-  // registra quem baixou a ficha de quem, e quando.
-  if (user.empresaId) {
-    await registrarLogAuditoria({
-      supabase: await createClient(),
-      empresaId: user.empresaId,
-      tabela: "colaboradores",
-      registroId: id,
-      acao: "baixou_ficha",
-      usuarioId: user.id,
-      detalhes: { nome: colaborador.nome },
-    });
-  }
+  // registra quem baixou a ficha de quem, e quando. Aproveita a mesma volta
+  // pro banco pra já trazer o logo da empresa (cadastrado em /empresa),
+  // exibido no topo do documento — ver getEmpresaAtual.
+  const [, empresa] = await Promise.all([
+    user.empresaId
+      ? registrarLogAuditoria({
+          supabase: await createClient(),
+          empresaId: user.empresaId,
+          tabela: "colaboradores",
+          registroId: id,
+          acao: "baixou_ficha",
+          usuarioId: user.id,
+          detalhes: { nome: colaborador.nome },
+        })
+      : Promise.resolve(),
+    user.empresaId ? getEmpresaAtual(user.empresaId) : Promise.resolve(null),
+  ]);
 
   const pdfDoc = await PDFDocument.create();
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -200,6 +206,52 @@ export async function GET(
     font: fontOblique,
     color: textMuted,
   });
+
+  // Logo da empresa cliente (opcional, cadastrado em /empresa) — desenhado
+  // acima do título, no canto superior esquerdo, simetricamente oposto ao
+  // selo do MorSafe à direita. Empresas que ainda não cadastraram um logo
+  // (a maioria, até passarem por /empresa) simplesmente não reservam esse
+  // espaço — o título começa direto no topo, como sempre foi.
+  //
+  // O espaço reservado abaixo do logo é SEMPRE o mesmo (LOGO_MAX_ALTURA +
+  // LOGO_GAP_ABAIXO), não a altura real do logo depois de redimensionado —
+  // isso importa porque cada empresa cliente sobe um logo com proporção
+  // diferente (quadrado, horizontal tipo letreiro, vertical...), e sem
+  // isso o título ficaria mais perto ou mais longe do logo dependendo do
+  // formato de cada uma. Com o espaço fixo, o título sempre começa na
+  // mesma altura, não importa o logo.
+  const LOGO_MAX_LARGURA = 160;
+  const LOGO_MAX_ALTURA = 40;
+  // pdf-lib posiciona texto pela linha de base (baseline), não pelo topo da
+  // letra — boa parte deste valor é "consumida" pela própria altura da
+  // fonte do título (18pt bold) acima da linha de base, não é espaço em
+  // branco puro. Ajustado visualmente (ver scratchpad de testes) até sobrar
+  // uns 16-18pt de vão de fato entre o logo e o título.
+  const LOGO_GAP_ABAIXO = 30;
+
+  const topoHeaderY = y;
+  if (empresa?.logoUrl) {
+    try {
+      const base64 = empresa.logoUrl.split(",")[1] ?? "";
+      const logoImagem = await pdfDoc.embedPng(Buffer.from(base64, "base64"));
+      const escala = Math.min(
+        LOGO_MAX_LARGURA / logoImagem.width,
+        LOGO_MAX_ALTURA / logoImagem.height,
+        1, // nunca amplia um logo pequeno, só reduz um grande
+      );
+      const logoLargura = logoImagem.width * escala;
+      const logoAltura = logoImagem.height * escala;
+      page.drawImage(logoImagem, {
+        x: marginX,
+        y: topoHeaderY - logoAltura,
+        width: logoLargura,
+        height: logoAltura,
+      });
+      y = topoHeaderY - LOGO_MAX_ALTURA - LOGO_GAP_ABAIXO;
+    } catch (e) {
+      console.error("ficha: falha ao incorporar logo da empresa:", e);
+    }
+  }
 
   // Header
   page.drawText("Ficha de Entrega de EPI", {

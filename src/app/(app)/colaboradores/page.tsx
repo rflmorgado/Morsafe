@@ -15,6 +15,8 @@ import { VisualizarFichaButton } from "./visualizar-ficha-button";
 import { EditarColaboradorButton } from "./editar-colaborador-button";
 import { ColaboradoresFilters } from "./colaboradores-filters";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
+import { PageHeader } from "@/components/ui/page-header";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
@@ -138,45 +140,45 @@ export default async function ColaboradoresPage({
 
   return (
     <div className="space-y-1">
-      <h2 className="text-xl font-bold tracking-tight text-foreground">
-        Colaboradores
-      </h2>
-      <p className="mb-5 text-[13px] text-text-secondary">
-        Lista com busca rápida e filtro por setor.
-      </p>
+      <PageHeader
+        title="Colaboradores"
+        description="Lista com busca rápida e filtro por setor."
+      />
 
-      <div className="mb-4 flex flex-col gap-3">
-        <ColaboradoresFilters setores={setores} />
-        {podeGerenciar && (
-          <div className="flex flex-wrap justify-end gap-2">
-            <a
-              href={buildExportHref(q, setor, status, sort, dir)}
-              title="Exportar lista filtrada em CSV"
-              className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
+      <ListToolbar
+        filters={<ColaboradoresFilters setores={setores} />}
+        actions={
+          podeGerenciar && (
+            <>
+              <a
+                href={buildExportHref(q, setor, status, sort, dir)}
+                title="Exportar lista filtrada em CSV"
+                className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
               >
-                <path d="M12 3v12" />
-                <path d="M7 10l5 5 5-5" />
-                <path d="M5 21h14" />
-              </svg>
-              Exportar CSV
-            </a>
-            {podeImportar && (
-              <ImportarColaboradoresButton setores={setores} />
-            )}
-            <NovoColaboradorButton setores={setores} />
-          </div>
-        )}
-      </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="M12 3v12" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M5 21h14" />
+                </svg>
+                Exportar CSV
+              </a>
+              {podeImportar && (
+                <ImportarColaboradoresButton setores={setores} />
+              )}
+              <NovoColaboradorButton setores={setores} />
+            </>
+          )
+        }
+      />
 
       <div className="overflow-x-auto rounded-[14px] border border-border-subtle">
         <table className="w-full min-w-[720px] border-collapse bg-surface text-left">

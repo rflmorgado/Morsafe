@@ -13,18 +13,22 @@ export function KpiCard({
 }) {
   return (
     <Card>
-      <p className="text-xs font-medium text-text-secondary">{label}</p>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">
+      <p className="text-[11.5px] font-semibold text-text-secondary">
+        {label}
+      </p>
+      <p className="mt-2.5 text-[28px] leading-none font-bold tracking-tight tabular-nums text-foreground">
         {value}
       </p>
       {delta && (
-        <p
-          className={`mt-1.5 text-xs font-medium ${
-            deltaTone === "warn" ? "text-warning-text" : "text-brand-600"
+        <span
+          className={`mt-3 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+            deltaTone === "warn"
+              ? "bg-warning-bg text-warning-text"
+              : "bg-brand-100 text-brand-700"
           }`}
         >
           {delta}
-        </p>
+        </span>
       )}
     </Card>
   );

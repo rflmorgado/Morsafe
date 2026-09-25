@@ -3,6 +3,8 @@ import { listEstacoesAssinatura } from "@/lib/data/estacoes-assinatura";
 import { NovaEstacaoButton } from "./nova-estacao-button";
 import { EstacaoRowActions } from "./estacao-row-actions";
 import { AutoRefresh } from "./auto-refresh";
+import { PageHeader } from "@/components/ui/page-header";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 
 // Limiares de "aparelho visto por último" — a estação (ver src/app/estacao)
 // consulta o servidor a cada poucos segundos enquanto a página estiver
@@ -46,12 +48,10 @@ export default async function EstacoesPage() {
   if (!user || user.papel !== "admin" || !user.empresaId) {
     return (
       <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">
-          Acesso restrito
-        </h2>
-        <p className="text-[13px] text-text-secondary">
-          Esta página é exclusiva do administrador da empresa.
-        </p>
+        <PageHeader
+          title="Acesso restrito"
+          description="Esta página é exclusiva do administrador da empresa."
+        />
       </div>
     );
   }
@@ -61,19 +61,12 @@ export default async function EstacoesPage() {
   return (
     <div className="space-y-1">
       <AutoRefresh />
-      <h2 className="text-xl font-bold tracking-tight text-foreground">
-        Estações de assinatura
-      </h2>
-      <p className="mb-5 max-w-2xl text-[13px] text-text-secondary">
-        Aparelhos da própria empresa (tablet ou celular) fixados num ponto de
-        coleta — o almoxarifado, por exemplo — pra coletar a assinatura do
-        colaborador quando o registro é feito num computador sem tela touch.
-        Nunca usa o celular pessoal do colaborador.
-      </p>
+      <PageHeader
+        title="Estações de assinatura"
+        description="Aparelhos da própria empresa (tablet ou celular) fixados num ponto de coleta — o almoxarifado, por exemplo — pra coletar a assinatura do colaborador quando o registro é feito num computador sem tela touch. Nunca usa o celular pessoal do colaborador."
+      />
 
-      <div className="mb-4 flex justify-end">
-        <NovaEstacaoButton />
-      </div>
+      <ListToolbar actions={<NovaEstacaoButton />} />
 
       <div className="overflow-x-auto rounded-[14px] border border-border-subtle">
         <table className="w-full min-w-[560px] border-collapse bg-surface text-left">

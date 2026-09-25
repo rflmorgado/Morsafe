@@ -1,3 +1,5 @@
+export type NavSection = "operacao" | "sistema" | "em_breve";
+
 export type NavItem = {
   label: string;
   href: string;
@@ -7,26 +9,54 @@ export type NavItem = {
   superAdminOnly?: boolean;
   // Só aparece para o admin de uma empresa cliente (papel exatamente
   // "admin" — não super_admin, que não pertence a nenhuma empresa, nem
-  // encarregado/leitura). Usado pela gestão de usuários da própria empresa.
+  // encarregado/leitura). Usado pela gestão de usuários da própria empresa
+  // e pela administração das estações de assinatura.
   adminOnly?: boolean;
+  // Agrupamento visual na barra lateral (ver app-shell.tsx) — junta o que é
+  // rotina operacional (usado todo dia), separa do que é administração do
+  // sistema (usado com bem menos frequência) e do que ainda nem existe.
+  section: NavSection;
 };
 
-// Ordem e nomes espelham o protótipo aprovado (reference/prototipo.html).
-// Fase 1 entrega só Dashboard + Colaboradores; o resto fica "em breve"
-// até as respectivas fases do roadmap serem implementadas.
+// Ordem pensada como fluxo de uso: primeiro tudo que é operação do dia a
+// dia (visão geral → quem → o quê → o registro em si → o apoio a esse
+// registro), depois o que é administração do sistema, por último o que
+// ainda está no roadmap.
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Colaboradores", href: "/colaboradores" },
-  { label: "EPIs homologados", href: "/epis" },
-  { label: "Usuários", href: "/usuarios", adminOnly: true },
-  { label: "Movimentações", href: "/movimentacoes" },
+  { label: "Dashboard", href: "/dashboard", section: "operacao" },
+  { label: "Colaboradores", href: "/colaboradores", section: "operacao" },
+  { label: "EPIs homologados", href: "/epis", section: "operacao" },
+  { label: "Movimentações", href: "/movimentacoes", section: "operacao" },
   {
     label: "Estações de assinatura",
     href: "/estacoes",
     adminOnly: true,
+    section: "operacao",
   },
-  { label: "Estoque", href: "/estoque", comingSoon: true },
-  { label: "Auditoria NR-06", href: "/auditoria", comingSoon: true },
-  { label: "Relatórios", href: "/relatorios", comingSoon: true },
-  { label: "Nova empresa", href: "/setup-empresa", superAdminOnly: true },
+  { label: "Usuários", href: "/usuarios", adminOnly: true, section: "sistema" },
+  {
+    label: "Nova empresa",
+    href: "/setup-empresa",
+    superAdminOnly: true,
+    section: "sistema",
+  },
+  { label: "Estoque", href: "/estoque", comingSoon: true, section: "em_breve" },
+  {
+    label: "Auditoria NR-06",
+    href: "/auditoria",
+    comingSoon: true,
+    section: "em_breve",
+  },
+  {
+    label: "Relatórios",
+    href: "/relatorios",
+    comingSoon: true,
+    section: "em_breve",
+  },
 ];
+
+export const NAV_SECTION_LABEL: Record<NavSection, string> = {
+  operacao: "Operação",
+  sistema: "Sistema",
+  em_breve: "Em breve",
+};

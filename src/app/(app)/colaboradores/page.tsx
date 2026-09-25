@@ -180,14 +180,14 @@ export default async function ColaboradoresPage({
         }
       />
 
-      <div className="overflow-x-auto rounded-[14px] border border-border-subtle">
+      <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card">
         <table className="w-full min-w-[720px] border-collapse bg-surface text-left">
           <thead>
             <tr>
               {COLUNAS.map((coluna) => (
                 <th
                   key={coluna.label || "acoes"}
-                  className="border-b border-border-subtle bg-brand-50 px-4 py-3 text-[11.5px] font-semibold uppercase tracking-wide text-text-secondary"
+                  className="border-b border-border-subtle bg-surface-muted px-4 py-3.5 text-[11px] font-semibold tracking-[0.04em] text-text-secondary uppercase"
                 >
                   {coluna.sortKey ? (
                     <Link

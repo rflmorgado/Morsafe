@@ -28,9 +28,6 @@ export function LogoEmpresaForm({ logoAtual }: { logoAtual: string | null }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
-  // DEBUG TEMPORÁRIO — ver logo-empresa-form.tsx e ficha/route.ts, remover
-  // assim que descobrirmos por que o logo salvo não volta na ficha.
-  const [debug, setDebug] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function processarArquivo(file: File) {
@@ -80,7 +77,6 @@ export function LogoEmpresaForm({ logoAtual }: { logoAtual: string | null }) {
     setSucesso(false);
     startTransition(async () => {
       const result = await atualizarLogoEmpresa(preview);
-      setDebug(result.debug ?? null);
       if (result.error) {
         setError(result.error);
         return;
@@ -161,11 +157,6 @@ export function LogoEmpresaForm({ logoAtual }: { logoAtual: string | null }) {
       {sucesso && (
         <p className="rounded-lg bg-brand-100 px-3.5 py-2.5 text-sm text-brand-700">
           Logo salvo.
-        </p>
-      )}
-      {debug && (
-        <p className="rounded-lg bg-surface-muted px-3.5 py-2 text-[10.5px] text-text-muted">
-          DBG: {debug}
         </p>
       )}
 

@@ -321,6 +321,26 @@ export async function GET(
     const DETALHE_SIZE = 8;
     const ALTURA_TEXTO = 19; // título + detalhe, já com o espaçamento entre eles
 
+    // Rótulo da coluna de assinatura — sem isso, a miniatura ao lado de cada
+    // entrega aparece "solta", sem indicar que aquele espaço é reservado
+    // pra assinatura do colaborador. Alinhado à mesma borda direita onde as
+    // imagens de assinatura são desenhadas (ver imgX abaixo).
+    const rotuloAssinatura = "Assinatura do colaborador";
+    const rotuloAssinaturaSize = 7.5;
+    const rotuloAssinaturaLargura = fontBold.widthOfTextAtSize(
+      rotuloAssinatura,
+      rotuloAssinaturaSize,
+    );
+    ensureSpace(ALTURA_TEXTO);
+    page.drawText(rotuloAssinatura, {
+      x: pageWidth - marginX - rotuloAssinaturaLargura,
+      y,
+      size: rotuloAssinaturaSize,
+      font: fontBold,
+      color: textMuted,
+    });
+    y -= 14;
+
     for (const evento of colaborador.eventos) {
       let assinaturaImagem: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null =
         null;

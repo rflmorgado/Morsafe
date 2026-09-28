@@ -141,7 +141,16 @@ export async function atualizarPapelUsuario(
     return { error: "Papel inválido." };
   }
 
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error("atualizarPapelUsuario (admin client):", e);
+    return {
+      error:
+        "Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY ausente). Avise o suporte do MorSafe.",
+    };
+  }
 
   const { data: alvo } = await admin
     .from("usuarios")
@@ -200,7 +209,16 @@ export async function desativarUsuario(
     return { error: "Você não pode desativar o próprio acesso por aqui." };
   }
 
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error("desativarUsuario (admin client):", e);
+    return {
+      error:
+        "Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY ausente). Avise o suporte do MorSafe.",
+    };
+  }
 
   const { data: alvo } = await admin
     .from("usuarios")
@@ -249,7 +267,16 @@ export async function reativarUsuario(
     return { error: SEM_PERMISSAO };
   }
 
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error("reativarUsuario (admin client):", e);
+    return {
+      error:
+        "Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY ausente). Avise o suporte do MorSafe.",
+    };
+  }
 
   const { data: alvo } = await admin
     .from("usuarios")
@@ -324,7 +351,16 @@ export async function excluirUsuarioDefinitivamente(
     return { error: "Você não pode excluir o próprio acesso por aqui." };
   }
 
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error("excluirUsuarioDefinitivamente (admin client):", e);
+    return {
+      error:
+        "Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY ausente). Avise o suporte do MorSafe.",
+    };
+  }
 
   const { data: usuario, error: usuarioError } = await admin
     .from("usuarios")

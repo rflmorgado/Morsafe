@@ -29,14 +29,30 @@ export async function atualizarLogoEmpresa(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("empresas")
     .update({ logo_url: logoDataUrl })
-    .eq("id", user.empresaId);
+    .eq("id", user.empresaId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("atualizarLogoEmpresa:", error.message);
     return { error: "Não foi possível salvar o logo. Tente novamente." };
+  }
+  // Um .update() que não bate com nenhuma linha retorna error: null mesmo
+  // sem alterar nada (ver CLAUDE.md, regra 1) — foi exatamente essa falha
+  // silenciosa, nesta mesma função, que causou o primeiro bug real deste
+  // projeto. Este check é o que garante que não volte a passar despercebido.
+  if (!data) {
+    console.error(
+      "atualizarLogoEmpresa: update não afetou nenhuma linha para empresaId=",
+      user.empresaId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar o salvamento do logo. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
 
   await registrarLogAuditoria({

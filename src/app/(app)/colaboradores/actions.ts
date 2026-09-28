@@ -499,14 +499,29 @@ export async function desligarColaborador(
     .eq("id", colaboradorId)
     .maybeSingle();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("colaboradores")
     .update({ status: "inativo" })
-    .eq("id", colaboradorId);
+    .eq("id", colaboradorId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("desligarColaborador:", error.message);
     return { error: "Não foi possível desligar o colaborador. Tente novamente." };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
+  // nenhuma linha retorna error: null mesmo sem desligar ninguém — pra uma
+  // ação NR-06 desse porte, "pareceu que salvou" não é bom o suficiente.
+  if (!data) {
+    console.error(
+      "desligarColaborador: update não afetou nenhuma linha para colaboradorId=",
+      colaboradorId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar o desligamento. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
 
   if (user.empresaId) {

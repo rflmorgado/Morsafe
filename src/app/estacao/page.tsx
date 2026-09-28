@@ -124,8 +124,8 @@ export default function EstacaoPage() {
     setErro(null);
     setFaseAssinatura("enviando");
 
-    responderSolicitacaoAssinatura(token, solicitacao.id, assinaturaUrl).then(
-      (result) => {
+    responderSolicitacaoAssinatura(token, solicitacao.id, assinaturaUrl)
+      .then((result) => {
         if (result.error) {
           setErro(result.error);
           setFaseAssinatura("assinando");
@@ -136,8 +136,18 @@ export default function EstacaoPage() {
           setSolicitacao(null);
           setFaseAssinatura("ocioso");
         }, 1800);
-      },
-    );
+      })
+      .catch((e) => {
+        // Sem este catch, uma queda de rede no meio do envio deixava o botão
+        // preso em "Enviando..." pra sempre — sem erro, sem jeito de tentar
+        // de novo a não ser recarregar a página (nada óbvio numa tela de
+        // quiosque que fica sempre aberta e sem navegação).
+        console.error("handleEnviarAssinatura:", e);
+        setErro(
+          "Falha de conexão ao enviar a assinatura. Verifique a internet e tente novamente.",
+        );
+        setFaseAssinatura("assinando");
+      });
   }
 
   function handleTrocarAparelho() {

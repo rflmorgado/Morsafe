@@ -57,18 +57,28 @@ export function EstacaoRowActions({
   estacaoId,
   estacaoNome,
   ativa,
+  pareada,
 }: {
   estacaoId: string;
   estacaoNome: string;
   ativa: boolean;
+  pareada: boolean;
 }) {
   const router = useRouter();
   const [pareamento, setPareamento] = useState<PareamentoInfo | null>(null);
   const [confirmarOpen, setConfirmarOpen] = useState(false);
+  // Confirmação separada da de desativar/reativar (acima) — só entra em
+  // jogo quando a estação já tem um aparelho pareado, porque só nesse caso
+  // gerar um novo código tem efeito colateral imediato: o token atual é
+  // zerado na hora (ver comentário em gerarNovoCodigoPareamento) e o
+  // aparelho já em uso perde acesso sem aviso nenhum. Numa estação nunca
+  // pareada não existe aparelho pra tirar do ar, então segue direto sem
+  // perguntar, como já era.
+  const [confirmarNovoCodigoOpen, setConfirmarNovoCodigoOpen] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function handleGerarCodigo() {
+  function gerarCodigo() {
     setErro(null);
     startTransition(async () => {
       const result = await gerarNovoCodigoPareamento(estacaoId);
@@ -78,6 +88,20 @@ export function EstacaoRowActions({
       }
       setPareamento(result.pareamento);
     });
+  }
+
+  function handleGerarCodigoClick() {
+    setErro(null);
+    if (pareada) {
+      setConfirmarNovoCodigoOpen(true);
+      return;
+    }
+    gerarCodigo();
+  }
+
+  function handleConfirmarNovoCodigo() {
+    setConfirmarNovoCodigoOpen(false);
+    gerarCodigo();
   }
 
   function handleConfirmarStatus() {
@@ -102,7 +126,7 @@ export function EstacaoRowActions({
           type="button"
           title="Gerar novo código de pareamento (troca de aparelho)"
           aria-label={`Gerar novo código de pareamento para ${estacaoNome}`}
-          onClick={handleGerarCodigo}
+          onClick={handleGerarCodigoClick}
           disabled={pending}
           className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted transition hover:bg-surface-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -129,6 +153,51 @@ export function EstacaoRowActions({
         estacaoNome={estacaoNome}
         pareamento={pareamento}
       />
+
+      <Modal
+        open={confirmarNovoCodigoOpen}
+        onClose={() => {
+          setConfirmarNovoCodigoOpen(false);
+          setErro(null);
+        }}
+        title="Gerar novo código de pareamento"
+      >
+        <div className="space-y-4">
+          <p className="text-[13.5px] text-text-secondary">
+            <span className="font-semibold text-foreground">
+              {estacaoNome}
+            </span>{" "}
+            já tem um aparelho pareado. Gerar um novo código tira esse
+            aparelho do ar imediatamente — ele só volta a funcionar depois
+            que o código novo for escaneado nele (ou em outro). Use isso pra
+            trocar de aparelho (tablet quebrou, foi substituído etc.).
+          </p>
+
+          {erro && (
+            <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-text">
+              {erro}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setConfirmarNovoCodigoOpen(false)}
+              className="rounded-lg px-4 py-2.5 text-[13.5px] font-semibold text-text-secondary transition hover:bg-surface-muted"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmarNovoCodigo}
+              disabled={pending}
+              className="rounded-lg bg-danger-text px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {pending ? "Gerando..." : "Gerar mesmo assim"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={confirmarOpen}

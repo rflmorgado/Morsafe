@@ -4,7 +4,12 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { Modal } from "@/components/ui/modal";
-import { importarColaboradores, createSetor, createCargo } from "./actions";
+import {
+  importarColaboradores,
+  createSetor,
+  createCargo,
+  type ImportarColaboradorFalha,
+} from "./actions";
 import type { SetorComCargos } from "@/lib/data/setores";
 
 type RawRow = Record<string, unknown>;
@@ -158,6 +163,7 @@ export function ImportarColaboradoresButton({
   const [parseError, setParseError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState<number | null>(null);
+  const [falhas, setFalhas] = useState<ImportarColaboradorFalha[]>([]);
   const [pending, startTransition] = useTransition();
 
   function resetAll() {
@@ -176,6 +182,7 @@ export function ImportarColaboradoresButton({
     setParseError(null);
     setSubmitError(null);
     setSuccessCount(null);
+    setFalhas([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -224,7 +231,7 @@ export function ImportarColaboradoresButton({
   const resolvedRows = useMemo<ResolvedRow[]>(() => {
     if (step !== "revisar") return [];
 
-    return rawRows.map((row, i) => {
+    const linhas = rawRows.map((row, i) => {
       const nome = String(row[mapping.nome] ?? "").trim();
       const setorNome = mapping.setor
         ? String(row[mapping.setor] ?? "").trim()
@@ -287,6 +294,33 @@ export function ImportarColaboradoresButton({
         erro,
       };
     });
+
+    // CPF duplicado dentro da PRÓPRIA planilha: sem essa checagem, a
+    // importação tentava salvar as duas linhas e a constraint unique
+    // (empresa_id, cpf) do banco derrubava o lote inteiro (ver
+    // importarColaboradores em actions.ts) — agora fica visível já na
+    // revisão, apontando a linha da primeira ocorrência, e só as
+    // repetições ficam de fora (a primeira segue normal). Compara só
+    // dígitos pra "123.456.789-00" e "12345678900" contarem como o mesmo
+    // CPF.
+    const primeiraLinhaPorCpf = new Map<string, number>();
+    for (const r of linhas) {
+      if (r.erro || !r.cpf) continue;
+      const chave = r.cpf.replace(/\D/g, "") || r.cpf;
+      if (!primeiraLinhaPorCpf.has(chave)) {
+        primeiraLinhaPorCpf.set(chave, r.linha);
+      }
+    }
+    for (const r of linhas) {
+      if (r.erro || !r.cpf) continue;
+      const chave = r.cpf.replace(/\D/g, "") || r.cpf;
+      const primeira = primeiraLinhaPorCpf.get(chave);
+      if (primeira !== undefined && primeira !== r.linha) {
+        r.erro = `CPF duplicado nesta planilha (mesmo CPF na linha ${primeira})`;
+      }
+    }
+
+    return linhas;
   }, [step, rawRows, mapping, setores]);
 
   const validRows = resolvedRows.filter((r) => r.erro === null);
@@ -318,6 +352,7 @@ export function ImportarColaboradoresButton({
 
       const novosCargos = new Map<string, string>(); // `${setorId}::nome normalizado` -> id
       const linhasResolvidas: {
+        linha: number;
         nome: string;
         setorId: string;
         cargoId: string;
@@ -349,6 +384,7 @@ export function ImportarColaboradoresButton({
         }
 
         linhasResolvidas.push({
+          linha: r.linha,
           nome: r.nome,
           setorId: finalSetorId,
           cargoId: finalCargoId,
@@ -365,7 +401,13 @@ export function ImportarColaboradoresButton({
         return;
       }
 
-      setSuccessCount(result.inserted ?? validRows.length);
+      // Mesmo quando algumas linhas falham (ex: CPF já cadastrado — ver
+      // comentário em importarColaboradores), as outras já foram salvas:
+      // por isso isso não é tratado como result.error, e sim mostrado como
+      // sucesso parcial na tela seguinte, com a lista de quais linhas
+      // ficaram de fora e por quê.
+      setSuccessCount(result.inserted ?? 0);
+      setFalhas(result.falhas ?? []);
       router.refresh();
     });
   }
@@ -383,13 +425,35 @@ export function ImportarColaboradoresButton({
       <Modal open={open} onClose={handleClose} title="Importar colaboradores">
         {successCount !== null ? (
           <div className="space-y-4">
-            <p className="rounded-lg bg-brand-50 px-3.5 py-3 text-[13.5px] font-medium text-brand-700">
-              ✓ {successCount}{" "}
-              {successCount === 1
-                ? "colaborador importado"
-                : "colaboradores importados"}{" "}
-              com sucesso.
-            </p>
+            {successCount > 0 && (
+              <p className="rounded-lg bg-brand-50 px-3.5 py-3 text-[13.5px] font-medium text-brand-700">
+                ✓ {successCount}{" "}
+                {successCount === 1
+                  ? "colaborador importado"
+                  : "colaboradores importados"}{" "}
+                com sucesso.
+              </p>
+            )}
+
+            {falhas.length > 0 && (
+              <div className="space-y-1.5 rounded-lg bg-danger-bg px-3.5 py-3">
+                <p className="text-[13px] font-semibold text-danger-text">
+                  {falhas.length}{" "}
+                  {falhas.length === 1
+                    ? "linha não foi importada"
+                    : "linhas não foram importadas"}
+                  :
+                </p>
+                <ul className="max-h-40 space-y-0.5 overflow-y-auto text-[12.5px] text-danger-text">
+                  {falhas.map((f) => (
+                    <li key={f.linha}>
+                      Linha {f.linha} ({f.nome || "—"}): {f.erro}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="flex justify-end">
               <button
                 type="button"
@@ -524,89 +588,4 @@ export function ImportarColaboradoresButton({
                       Cargo
                     </th>
                     {mapping.integracao && (
-                      <th className="px-3 py-2 font-semibold text-text-secondary">
-                        Integração/NR-06
-                      </th>
-                    )}
-                    <th className="px-3 py-2 font-semibold text-text-secondary">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resolvedRows.map((r) => (
-                    <tr
-                      key={r.linha}
-                      className="border-t border-border-subtle"
-                    >
-                      <td className="px-3 py-2 text-foreground">
-                        {r.nome || "—"}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {r.setorNome || "—"}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {r.cargoNome || "—"}
-                      </td>
-                      {mapping.integracao && (
-                        <td className="px-3 py-2">
-                          {r.dataIntegracaoSeguranca ? (
-                            <span className="text-foreground">
-                              {new Date(
-                                r.dataIntegracaoSeguranca + "T00:00:00",
-                              ).toLocaleDateString("pt-BR")}
-                            </span>
-                          ) : r.integracaoBruta ? (
-                            <span className="text-warning-text">
-                              data não reconhecida
-                            </span>
-                          ) : (
-                            <span className="text-text-muted">—</span>
-                          )}
-                        </td>
-                      )}
-                      <td className="px-3 py-2">
-                        {(() => {
-                          const { texto, className } = statusLinha(r);
-                          return <span className={className}>{texto}</span>;
-                        })()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {submitError && (
-              <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-text">
-                {submitError}
-              </p>
-            )}
-
-            <div className="flex justify-between pt-1">
-              <button
-                type="button"
-                onClick={() => setStep("mapear")}
-                className="rounded-lg px-4 py-2.5 text-[13.5px] font-semibold text-text-secondary transition hover:bg-surface-muted"
-              >
-                ← Ajustar mapeamento
-              </button>
-              <button
-                type="button"
-                disabled={pending || validRows.length === 0}
-                onClick={handleConfirmar}
-                className="rounded-lg bg-brand-700 px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {pending
-                  ? "Importando..."
-                  : `Importar ${validRows.length} colaborador${
-                      validRows.length === 1 ? "" : "es"
-                    }`}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-    </>
-  );
-}
+                      <th

@@ -23,6 +23,12 @@ export function PareamentoModal({
   pareamento: PareamentoInfo | null;
 }) {
   const [qrDataUrl, setQrDataUrl] = useState("");
+  // Contagem regressiva de verdade (não só o horário fixo de expiração) —
+  // o código dura só 5 minutos (ver calcularExpiracaoCodigo em
+  // lib/estacao-assinatura/tokens.ts) e, sem isso, a tela ficava mostrando
+  // um QR válido-na-aparência indefinidamente: só ao tentar parear (minutos
+  // depois) o admin descobria que já tinha expirado.
+  const [restanteMs, setRestanteMs] = useState<number | null>(null);
 
   // Só o navegador sabe o domínio de verdade — por isso o link só existe
   // depois de montado no cliente. Não precisa de estado: é só derivar do
@@ -40,12 +46,33 @@ export function PareamentoModal({
       .catch((e) => console.error("QRCode.toDataURL:", e));
   }, [pareamento]);
 
+  useEffect(() => {
+    // Nada pra zerar quando não há pareamento: o componente retorna null
+    // logo abaixo antes de restanteMs ser usado em qualquer render, então
+    // um valor antigo aqui não chega a aparecer na tela.
+    if (!pareamento) return;
+    const expiraEmMs = new Date(pareamento.expiraEm).getTime();
+    function tick() {
+      setRestanteMs(Math.max(0, expiraEmMs - Date.now()));
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [pareamento]);
+
   if (!pareamento) return null;
 
   const expira = new Date(pareamento.expiraEm).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
   });
+  const expirado = restanteMs !== null && restanteMs <= 0;
+  const restanteLabel =
+    restanteMs !== null
+      ? `${String(Math.floor(restanteMs / 60000)).padStart(2, "0")}:${String(
+          Math.floor((restanteMs % 60000) / 1000),
+        ).padStart(2, "0")}`
+      : null;
 
   return (
     <Modal open={open} onClose={onClose} title={`Parear "${estacaoNome}"`}>
@@ -57,7 +84,16 @@ export function PareamentoModal({
           página à tela inicial do aparelho.
         </p>
 
-        {qrDataUrl ? (
+        {expirado ? (
+          <div className="flex h-[220px] w-[220px] flex-col items-center justify-center gap-2 rounded-lg border border-border-subtle bg-danger-bg px-4 text-center">
+            <p className="text-[13px] font-semibold text-danger-text">
+              Este código expirou
+            </p>
+            <p className="text-[12px] text-danger-text">
+              Feche esta janela e gere um código novo pra essa estação.
+            </p>
+          </div>
+        ) : qrDataUrl ? (
           <img
             src={qrDataUrl}
             alt="QR code de pareamento"
@@ -75,21 +111,36 @@ export function PareamentoModal({
           <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
             Ou digite o código manualmente
           </p>
-          <p className="mt-0.5 font-mono text-[18px] font-bold tracking-widest text-foreground">
+          <p
+            className={`mt-0.5 font-mono text-[18px] font-bold tracking-widest ${
+              expirado ? "text-text-muted line-through" : "text-foreground"
+            }`}
+          >
             {pareamento.codigo}
           </p>
         </div>
 
-        <p className="text-[11.5px] text-text-muted">
-          Válido até {expira}. Se expirar antes de parear, gere um código
-          novo pra essa estação.
+        <p
+          className={`text-[11.5px] font-semibold ${
+            expirado
+              ? "text-danger-text"
+              : restanteMs !== null && restanteMs <= 60_000
+                ? "text-warning-text"
+                : "text-text-muted"
+          }`}
+        >
+          {expirado
+            ? `Expirou às ${expira}. Gere um código novo pra essa estação.`
+            : `Expira em ${restanteLabel} (às ${expira}).`}
         </p>
 
         <a
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="text-[11.5px] font-semibold text-brand-700 hover:underline"
+          className={`text-[11.5px] font-semibold text-brand-700 hover:underline ${
+            expirado ? "pointer-events-none opacity-40" : ""
+          }`}
         >
           Abrir o link diretamente (se já estiver no próprio aparelho)
         </a>

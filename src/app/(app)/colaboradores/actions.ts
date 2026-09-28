@@ -458,7 +458,26 @@ export async function updateColaborador(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
+
+  // Confirma que o colaborador é da MESMA empresa de quem está editando,
+  // antes de tentar o update — sem isso, alguém que soubesse (ou
+  // adivinhasse) o id de um colaborador de OUTRA empresa cliente poderia
+  // tentar editá-lo (ver mesma checagem em estacoes/actions.ts).
+  const { data: colaboradorAtual, error: buscaError } = await supabase
+    .from("colaboradores")
+    .select("empresa_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (
+    buscaError ||
+    !colaboradorAtual ||
+    colaboradorAtual.empresa_id !== user.empresaId
+  ) {
+    return { error: "Colaborador não encontrado." };
+  }
+
+  const { data, error } = await supabase
     .from("colaboradores")
     .update({
       nome,
@@ -468,7 +487,9 @@ export async function updateColaborador(
       telefone: telefone || null,
       data_integracao_seguranca: dataIntegracaoSeguranca || null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("updateColaborador:", error.message);
@@ -476,18 +497,28 @@ export async function updateColaborador(
       error: "Não foi possível salvar as alterações. Tente novamente.",
     };
   }
-
-  if (user.empresaId) {
-    await registrarLogAuditoria({
-      supabase,
-      empresaId: user.empresaId,
-      tabela: "colaboradores",
-      registroId: id,
-      acao: "atualizado",
-      usuarioId: user.id,
-      detalhes: { nome },
-    });
+  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
+  // nenhuma linha retorna error: null mesmo sem alterar nada.
+  if (!data) {
+    console.error(
+      "updateColaborador: update não afetou nenhuma linha para id=",
+      id,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a alteração. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: colaboradorAtual.empresa_id,
+    tabela: "colaboradores",
+    registroId: id,
+    acao: "atualizado",
+    usuarioId: user.id,
+    detalhes: { nome },
+  });
 
   revalidatePath("/colaboradores");
   revalidatePath(`/colaboradores/${id}`);
@@ -688,16 +719,26 @@ export async function reativarColaborador(
   }
 
   const supabase = await createClient();
-  const { data: colaborador } = await supabase
+  const { data: colaborador, error: buscaError } = await supabase
     .from("colaboradores")
-    .select("nome")
+    .select("nome, empresa_id")
     .eq("id", colaboradorId)
     .maybeSingle();
 
-  const { error } = await supabase
+  if (
+    buscaError ||
+    !colaborador ||
+    colaborador.empresa_id !== user.empresaId
+  ) {
+    return { error: "Colaborador não encontrado." };
+  }
+
+  const { data, error } = await supabase
     .from("colaboradores")
     .update({ status: "ativo" })
-    .eq("id", colaboradorId);
+    .eq("id", colaboradorId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("reativarColaborador:", error.message);
@@ -705,18 +746,29 @@ export async function reativarColaborador(
       error: "Não foi possível reativar o colaborador. Tente novamente.",
     };
   }
-
-  if (user.empresaId) {
-    await registrarLogAuditoria({
-      supabase,
-      empresaId: user.empresaId,
-      tabela: "colaboradores",
-      registroId: colaboradorId,
-      acao: "reativado",
-      usuarioId: user.id,
-      detalhes: colaborador ? { nome: colaborador.nome } : null,
-    });
+  // Mesma checagem da regra 1 do CLAUDE.md (ver desligarColaborador acima):
+  // um .update() que não bate com nenhuma linha retorna error: null mesmo
+  // sem reativar ninguém.
+  if (!data) {
+    console.error(
+      "reativarColaborador: update não afetou nenhuma linha para colaboradorId=",
+      colaboradorId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a reativação. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: colaborador.empresa_id,
+    tabela: "colaboradores",
+    registroId: colaboradorId,
+    acao: "reativado",
+    usuarioId: user.id,
+    detalhes: { nome: colaborador.nome },
+  });
 
   revalidatePath("/colaboradores");
   revalidatePath(`/colaboradores/${colaboradorId}`);

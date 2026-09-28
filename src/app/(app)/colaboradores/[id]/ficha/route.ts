@@ -104,10 +104,18 @@ export async function GET(
 
   // Selo MorSafe (letreiro no canto superior) — o PNG é um escudo branco,
   // por isso precisa de um fundo colorido atrás para aparecer na página.
-  const shieldBytes = await fs.readFile(
-    path.join(process.cwd(), "public/brand/shield.png"),
-  );
-  const shieldImage = await pdfDoc.embedPng(shieldBytes);
+  // Envolvido em try/catch porque, sem isso, esse arquivo sumir ou corromper
+  // num deploy futuro derrubaria a geração de TODA ficha de TODA empresa —
+  // aqui o pior caso vira só o círculo da marca sem o ícone dentro.
+  let shieldImage: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null;
+  try {
+    const shieldBytes = await fs.readFile(
+      path.join(process.cwd(), "public/brand/shield.png"),
+    );
+    shieldImage = await pdfDoc.embedPng(shieldBytes);
+  } catch (e) {
+    console.error("ficha: falha ao incorporar selo MorSafe:", e);
+  }
 
   const pageWidth = 595.28; // A4
   const pageHeight = 841.89;
@@ -188,13 +196,15 @@ export async function GET(
     color: brand,
   });
 
-  const shieldSize = badgeR * 1.15;
-  page.drawImage(shieldImage, {
-    x: badgeCenterX - shieldSize / 2,
-    y: badgeCenterY - shieldSize / 2,
-    width: shieldSize,
-    height: shieldSize,
-  });
+  if (shieldImage) {
+    const shieldSize = badgeR * 1.15;
+    page.drawImage(shieldImage, {
+      x: badgeCenterX - shieldSize / 2,
+      y: badgeCenterY - shieldSize / 2,
+      width: shieldSize,
+      height: shieldSize,
+    });
+  }
 
   const brandTextRightEdge = badgeCenterX - badgeR - 8;
 

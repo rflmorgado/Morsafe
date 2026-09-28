@@ -305,6 +305,10 @@ export async function createColaborador(
 }
 
 export type ImportarColaboradorRow = {
+  // Número da linha na planilha original (cabeçalho = linha 1, ver
+  // resolvedRows em importar-colaboradores-button.tsx) — só pra poder
+  // apontar exatamente qual linha falhou, ver comentário abaixo.
+  linha: number;
   nome: string;
   setorId: string;
   cargoId: string;
@@ -313,17 +317,29 @@ export type ImportarColaboradorRow = {
   dataIntegracaoSeguranca?: string | null;
 };
 
+export type ImportarColaboradorFalha = {
+  linha: number;
+  nome: string;
+  erro: string;
+};
+
 export type ImportarColaboradoresState = {
   error: string | null;
   inserted?: number;
+  falhas?: ImportarColaboradorFalha[];
 };
 
 /**
  * Importação em massa — recebe linhas já validadas e mapeadas no cliente
- * (setor/cargo já resolvidos para id) e insere tudo de uma vez. A validação
- * de nome/setor/cargo acontece no componente cliente antes de chegar aqui;
- * esta action confia nos ids recebidos e deixa a FK do banco barrar
- * qualquer id inválido.
+ * (setor/cargo já resolvidos para id, CPF duplicado dentro da própria
+ * planilha já filtrado na revisão) e insere UMA LINHA DE CADA VEZ, nunca
+ * tudo num `.insert(array)` só. É de propósito: um insert em lote é atômico
+ * — um único CPF que já existisse em outro colaborador desta empresa
+ * (constraint `unique (empresa_id, cpf)`) fazia a importação INTEIRA falhar
+ * (as 300 linhas de uma planilha, por exemplo) com um erro genérico, sem
+ * dizer qual linha. Inserindo uma por uma, essa linha vira uma falha
+ * reportada com o número dela e o motivo, e as outras continuam sendo
+ * importadas normalmente.
  *
  * Exige papel "admin" (um nível acima de criar/editar um único colaborador,
  * que pede só "encarregado"): uma importação erra em massa se a planilha ou
@@ -347,43 +363,59 @@ export async function importarColaboradores(
   }
 
   const supabase = await createClient();
-  const payload = rows.map((r) => ({
-    empresa_id: user.empresaId as string,
-    nome: r.nome,
-    setor_id: r.setorId,
-    cargo_id: r.cargoId,
-    cpf: r.cpf || null,
-    telefone: r.telefone || null,
-    data_integracao_seguranca: r.dataIntegracaoSeguranca || null,
-  }));
+  const empresaId = user.empresaId;
+  const falhas: ImportarColaboradorFalha[] = [];
+  let inserted = 0;
 
-  const { error, count } = await supabase
-    .from("colaboradores")
-    .insert(payload, { count: "exact" });
+  for (const r of rows) {
+    const { error } = await supabase.from("colaboradores").insert({
+      empresa_id: empresaId,
+      nome: r.nome,
+      setor_id: r.setorId,
+      cargo_id: r.cargoId,
+      cpf: r.cpf || null,
+      telefone: r.telefone || null,
+      data_integracao_seguranca: r.dataIntegracaoSeguranca || null,
+    });
 
-  if (error) {
-    console.error("importarColaboradores:", error.message);
-    return {
-      error: "Não foi possível importar os colaboradores. Tente novamente.",
-    };
+    if (error) {
+      // 23505 = unique_violation no Postgres — aqui é sempre a constraint
+      // unique (empresa_id, cpf): já existe outro colaborador com esse CPF
+      // cadastrado nesta empresa (não detectável no cliente, que só vê os
+      // CPFs da própria planilha sendo importada agora).
+      const mensagem =
+        error.code === "23505"
+          ? "CPF já cadastrado em outro colaborador desta empresa."
+          : "Não foi possível salvar esta linha.";
+      console.error(`importarColaboradores (linha ${r.linha}):`, error.message);
+      falhas.push({ linha: r.linha, nome: r.nome, erro: mensagem });
+      continue;
+    }
+
+    inserted++;
   }
 
-  const inserted = count ?? payload.length;
-  // Um único registro de log pra importação inteira (não um por linha) —
-  // o volume seria alto e o que importa pra auditoria é "quem importou
-  // quantos, quando", não cada linha individual.
-  await registrarLogAuditoria({
-    supabase,
-    empresaId: user.empresaId,
-    tabela: "colaboradores",
-    registroId: user.empresaId,
-    acao: "importado",
-    usuarioId: user.id,
-    detalhes: { quantidade: inserted },
-  });
+  if (inserted > 0) {
+    // Um único registro de log pra importação inteira (não um por linha) —
+    // o volume seria alto e o que importa pra auditoria é "quem importou
+    // quantos, quando", não cada linha individual.
+    await registrarLogAuditoria({
+      supabase,
+      empresaId,
+      tabela: "colaboradores",
+      registroId: empresaId,
+      acao: "importado",
+      usuarioId: user.id,
+      detalhes: { quantidade: inserted, falhas: falhas.length },
+    });
+    revalidatePath("/colaboradores");
+  }
 
-  revalidatePath("/colaboradores");
-  return { error: null, inserted };
+  return {
+    error: null,
+    inserted,
+    falhas: falhas.length > 0 ? falhas : undefined,
+  };
 }
 
 export type UpdateColaboradorState = {

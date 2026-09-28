@@ -36,6 +36,24 @@ export async function criarSolicitacaoAssinatura({
   }
 
   const supabase = await createClient();
+
+  // Confirma que a estação de destino pertence à MESMA empresa de quem está
+  // pedindo, antes de inserir — sem isso, alguém que soubesse o id de uma
+  // estação de OUTRA empresa cliente conseguiria fazer o pedido aparecer no
+  // tablet dela (ver CLAUDE.md e a auditoria de isolamento entre empresas).
+  const { data: estacao, error: estacaoError } = await supabase
+    .from("estacoes_assinatura")
+    .select("empresa_id, ativo")
+    .eq("id", estacaoId)
+    .maybeSingle();
+
+  if (estacaoError || !estacao || estacao.empresa_id !== user.empresaId) {
+    return { error: "Estação não encontrada." };
+  }
+  if (!estacao.ativo) {
+    return { error: "Esta estação está desativada." };
+  }
+
   const { data, error } = await supabase
     .from("solicitacoes_assinatura")
     .insert({

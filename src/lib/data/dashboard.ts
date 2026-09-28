@@ -29,12 +29,18 @@ export async function getDashboardData() {
         .eq("mes", mes),
       supabase
         .from("vw_estoque_baixo")
-        .select("epi_id, nome, saldo_atual, limite_alerta")
+        // count: "exact" aqui é o que faz `.count` abaixo refletir o TOTAL de
+        // linhas que batem com o filtro da view, não as 6 retornadas pelo
+        // .limit() — sem isso, estoqueBaixoTotal caía pro fallback
+        // `.data?.length`, travado em 6 mesmo quando existiam 23 itens em
+        // risco. Card de risco de conformidade mentindo "tudo certo" quando
+        // não estava.
+        .select("epi_id, nome, saldo_atual, limite_alerta", { count: "exact" })
         .order("saldo_atual", { ascending: true })
         .limit(6),
       supabase
         .from("vw_ca_vencendo")
-        .select("epi_id, nome, ca, ca_validade")
+        .select("epi_id, nome, ca, ca_validade", { count: "exact" })
         .order("ca_validade", { ascending: true })
         .limit(6),
     ]);

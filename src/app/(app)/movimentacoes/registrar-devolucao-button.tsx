@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Modal } from "@/components/ui/modal";
 import { registrarDevolucao, buscarEntregasEmPosse } from "./actions";
 import {
@@ -50,6 +50,13 @@ export function RegistrarDevolucaoButton({
     EntregaEmPosse | null
   >(null);
   const [motivo, setMotivo] = useState<MotivoDevolucao | "">("");
+  // Contador de qual foi a última troca de colaborador pedida — numa rede
+  // lenta, a resposta de buscarEntregasEmPosse de uma troca ANTERIOR pode
+  // chegar depois da troca mais recente. Sem isso, a lista de "EPIs a
+  // devolver" ficava com os itens do colaborador ERRADO enquanto o select já
+  // mostrava o nome do colaborador certo (era possível, daí, devolver algo
+  // em nome de quem não recebeu aquele EPI).
+  const requestIdRef = useRef(0);
 
   const extraviado = motivo === EXTRAVIADO;
 
@@ -59,19 +66,27 @@ export function RegistrarDevolucaoButton({
     setEntregaSelecionada(null);
     setMotivo("");
     setError(null);
+    // Invalida qualquer busca de entregas ainda em andamento, pra não
+    // preencher a lista depois que o formulário já foi fechado/limpo.
+    requestIdRef.current++;
   }
 
   async function handleColaboradorChange(id: string) {
     setColaboradorId(id);
     setEntregaSelecionada(null);
     setEntregasEmPosse([]);
+    const requestId = ++requestIdRef.current;
     if (!id) return;
     setCarregandoEntregas(true);
     try {
       const entregas = await buscarEntregasEmPosse(id);
+      // Se o colaborador foi trocado de novo enquanto esta busca estava no
+      // ar, esta resposta já é velha — aplicá-la agora sobrescreveria a
+      // lista do colaborador atual com itens de outro colaborador.
+      if (requestId !== requestIdRef.current) return;
       setEntregasEmPosse(entregas);
     } finally {
-      setCarregandoEntregas(false);
+      if (requestId === requestIdRef.current) setCarregandoEntregas(false);
     }
   }
 

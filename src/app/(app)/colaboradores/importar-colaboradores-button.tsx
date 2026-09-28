@@ -588,4 +588,89 @@ export function ImportarColaboradoresButton({
                       Cargo
                     </th>
                     {mapping.integracao && (
-                      <th
+                      <th className="px-3 py-2 font-semibold text-text-secondary">
+                        Integração/NR-06
+                      </th>
+                    )}
+                    <th className="px-3 py-2 font-semibold text-text-secondary">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resolvedRows.map((r) => (
+                    <tr
+                      key={r.linha}
+                      className="border-t border-border-subtle"
+                    >
+                      <td className="px-3 py-2 text-foreground">
+                        {r.nome || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {r.setorNome || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {r.cargoNome || "—"}
+                      </td>
+                      {mapping.integracao && (
+                        <td className="px-3 py-2">
+                          {r.dataIntegracaoSeguranca ? (
+                            <span className="text-foreground">
+                              {new Date(
+                                r.dataIntegracaoSeguranca + "T00:00:00",
+                              ).toLocaleDateString("pt-BR")}
+                            </span>
+                          ) : r.integracaoBruta ? (
+                            <span className="text-warning-text">
+                              data não reconhecida
+                            </span>
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
+                        </td>
+                      )}
+                      <td className="px-3 py-2">
+                        {(() => {
+                          const { texto, className } = statusLinha(r);
+                          return <span className={className}>{texto}</span>;
+                        })()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {submitError && (
+              <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-text">
+                {submitError}
+              </p>
+            )}
+
+            <div className="flex justify-between pt-1">
+              <button
+                type="button"
+                onClick={() => setStep("mapear")}
+                className="rounded-lg px-4 py-2.5 text-[13.5px] font-semibold text-text-secondary transition hover:bg-surface-muted"
+              >
+                ← Ajustar mapeamento
+              </button>
+              <button
+                type="button"
+                disabled={pending || validRows.length === 0}
+                onClick={handleConfirmar}
+                className="rounded-lg bg-brand-700 px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pending
+                  ? "Importando..."
+                  : `Importar ${validRows.length} colaborador${
+                      validRows.length === 1 ? "" : "es"
+                    }`}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
+  );
+}

@@ -230,3 +230,97 @@ export async function reativarEstacaoAssinatura(
   revalidatePath("/estacoes");
   return { error: null, success: true };
 }
+
+export type ExcluirEstacaoState = { error: string | null; success?: boolean };
+
+/**
+ * Exclusão definitiva — só liberada (ver EstacaoRowActions) para uma
+ * estação já desativada, mesmo padrão de EPI/colaborador/usuário:
+ * "desativar" é o caminho do dia a dia (reversível, sem confirmação por
+ * digitação), "excluir" é definitivo e não tem volta.
+ *
+ * Diferente de EPI/usuário, aqui não existe nenhuma tabela de conformidade
+ * (entregas/devoluções/recusas) apontando pra estação — só
+ * `solicitacoes_assinatura`, que é o estado transitório de cada pedido
+ * (pendente/assinado/cancelado), nunca o registro legal em si: a
+ * assinatura, uma vez confirmada, já foi copiada pro campo
+ * `assinatura_url` da ENTREGA correspondente (ver registrarEntrega em
+ * movimentacoes/actions.ts), que não referencia a estação e é imutável por
+ * design. Por isso apaga essas solicitações de propósito antes — sem isso,
+ * a FK solicitacoes_assinatura_estacao_id_fkey bloquearia a exclusão.
+ *
+ * Confirma que a linha saiu de verdade (via .select() no delete) em vez de
+ * confiar só em error === null (CLAUDE.md item 1) — sem isso, um RLS sem
+ * policy de delete faria essa chamada "funcionar" sem apagar nada, e o
+ * admin acharia que excluiu quando na verdade a estação continuaria lá.
+ */
+export async function excluirEstacaoAssinatura(
+  estacaoId: string,
+): Promise<ExcluirEstacaoState> {
+  const user = await getCurrentUser();
+  if (!user || !user.empresaId) {
+    return { error: "Sessão expirada. Faça login novamente." };
+  }
+  if (!temPapelMinimo(user.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+  const { data: estacao, error: buscaError } = await supabase
+    .from("estacoes_assinatura")
+    .select("nome, ativo, empresa_id")
+    .eq("id", estacaoId)
+    .maybeSingle();
+
+  if (buscaError || !estacao || estacao.empresa_id !== user.empresaId) {
+    return { error: "Estação não encontrada." };
+  }
+  if (estacao.ativo) {
+    return {
+      error:
+        "Só é possível excluir definitivamente uma estação que já está desativada.",
+    };
+  }
+
+  const { error: solicitacoesError } = await supabase
+    .from("solicitacoes_assinatura")
+    .delete()
+    .eq("estacao_id", estacaoId);
+
+  if (solicitacoesError) {
+    console.error(
+      "excluirEstacaoAssinatura (solicitações):",
+      solicitacoesError.message,
+    );
+    return {
+      error: "Não foi possível excluir o histórico de pedidos desta estação.",
+    };
+  }
+
+  const { data: apagadas, error: deleteError } = await supabase
+    .from("estacoes_assinatura")
+    .delete()
+    .eq("id", estacaoId)
+    .select("id");
+
+  if (deleteError || !apagadas || apagadas.length === 0) {
+    console.error(
+      "excluirEstacaoAssinatura:",
+      deleteError?.message ?? "nenhuma linha afetada",
+    );
+    return { error: "Não foi possível excluir a estação. Tente novamente." };
+  }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "estacoes_assinatura",
+    registroId: estacaoId,
+    acao: "excluido",
+    usuarioId: user.id,
+    detalhes: { nome: estacao.nome },
+  });
+
+  revalidatePath("/estacoes");
+  return { error: null, success: true };
+}

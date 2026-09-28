@@ -161,8 +161,10 @@ export type RegistrarDevolucaoState = { error: string | null; success?: boolean 
 /**
  * Registra a devolução de um EPI — sempre vinculada a uma entrega específica
  * ainda não devolvida (entrega_vinculada_id), nunca a um EPI "qualquer" do
- * catálogo. É essa entrega escolhida no formulário que também define qual
- * epi_id vai para o registro, preservando o vínculo entrega -> devolução.
+ * catálogo. epi_id e quantidade do registro vêm sempre da entrega vinculada
+ * (relidos do banco aqui, nunca do formulário), e colaborador_id é
+ * conferido contra o colaborador_id da própria entrega antes de gravar —
+ * ver comentário mais abaixo.
  */
 export async function registrarDevolucao(
   _prevState: RegistrarDevolucaoState,
@@ -177,9 +179,6 @@ export async function registrarDevolucao(
   const destino = String(formData.get("destino") ?? "").trim() as DestinoDevolucao;
   const devolvidoFisicamente = formData.get("devolvido_fisicamente") === "on";
   const data = String(formData.get("data") ?? "").trim();
-  // Quantidade da entrega vinculada (não é digitada aqui) — devolução
-  // sempre baixa a entrega inteira, ver comentário em EntregaEmPosse.
-  const quantidade = Number(formData.get("quantidade") ?? 1);
 
   if (
     !colaboradorId ||
@@ -205,24 +204,63 @@ export async function registrarDevolucao(
 
   const supabase = await createClient();
 
-  const [{ data: colaborador }, { data: epi }] = await Promise.all([
+  const [{ data: colaborador }, { data: entregaValida }] = await Promise.all([
     supabase
       .from("colaboradores")
       .select("nome")
       .eq("id", colaboradorId)
       .maybeSingle(),
-    supabase.from("epis").select("nome").eq("id", epiId).maybeSingle(),
+    supabase
+      .from("entregas")
+      .select("colaborador_id, epi_id, quantidade, epis ( nome )")
+      .eq("id", entregaVinculadaId)
+      .maybeSingle(),
   ]);
 
   if (!colaborador) return { error: "Colaborador não encontrado." };
+
+  // A checagem que faltava: colaborador_id e entrega_vinculada_id chegam do
+  // formulário como dois campos independentes, preenchidos a partir de dois
+  // estados de UI diferentes (select de colaborador + item escolhido na
+  // lista "em posse", carregada à parte via buscarEntregasEmPosse). Numa
+  // troca rápida de colaborador com resposta de rede fora de ordem, essa
+  // lista podia ficar mostrando por um instante os EPIs do colaborador
+  // ANTERIOR (mitigado agora no cliente, ver registrar-devolucao-button.tsx)
+  // — mas o servidor não pode depender só disso. Sem esta conferência aqui,
+  // a devolução seria gravada vinculada ao colaborador errado numa tabela
+  // imutável por design (CLAUDE.md, regra 3). Pelo mesmo motivo, epi_id e
+  // quantidade nunca vêm do formulário: usamos sempre o que está de fato
+  // gravado na entrega vinculada.
+  if (!entregaValida || entregaValida.colaborador_id !== colaboradorId) {
+    return {
+      error:
+        "Essa entrega não pertence (mais) ao colaborador selecionado. Feche e abra o formulário de novo.",
+    };
+  }
+
+  // Trava contra devolver a mesma entrega duas vezes (double-submit, ou o
+  // mesmo cenário de resposta fora de ordem citado acima) — cada entrega só
+  // pode ter uma devolução vinculada.
+  const { data: devolucaoExistente } = await supabase
+    .from("devolucoes")
+    .select("id")
+    .eq("entrega_vinculada_id", entregaVinculadaId)
+    .maybeSingle();
+  if (devolucaoExistente) {
+    return { error: "Esta entrega já foi devolvida anteriormente." };
+  }
+
+  const epi = entregaValida.epis as unknown as { nome: string } | null;
   if (!epi) return { error: "EPI não encontrado." };
+  const epiIdReal = entregaValida.epi_id;
+  const quantidadeReal = entregaValida.quantidade;
 
   const { data: nova, error } = await supabase
     .from("devolucoes")
     .insert({
       empresa_id: user.empresaId,
       colaborador_id: colaboradorId,
-      epi_id: epiId,
+      epi_id: epiIdReal,
       entrega_vinculada_id: entregaVinculadaId,
       data,
       motivo,
@@ -241,8 +279,7 @@ export async function registrarDevolucao(
   }
 
   if (devolvidoFisicamente && destino === "reaproveitamento") {
-    const creditoValido = Number.isInteger(quantidade) && quantidade > 0 ? quantidade : 1;
-    await ajustarEstoque(supabase, user.empresaId, epiId, creditoValido);
+    await ajustarEstoque(supabase, user.empresaId, epiIdReal, quantidadeReal);
   }
 
   await registrarLogAuditoria({
@@ -252,7 +289,10 @@ export async function registrarDevolucao(
     registroId: nova.id,
     acao: "criado",
     usuarioId: user.id,
-    detalhes: { nome: `${colaborador.nome} — ${epi.nome}`, quantidade },
+    detalhes: {
+      nome: `${colaborador.nome} — ${epi.nome}`,
+      quantidade: quantidadeReal,
+    },
   });
 
   revalidatePath("/movimentacoes");

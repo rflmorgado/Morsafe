@@ -400,3 +400,32 @@ export async function buscarEntregasEmPosse(
   if (!user?.empresaId || !colaboradorId) return [];
   return listEntregasEmPosse(colaboradorId);
 }
+
+/**
+ * Usado pelo formulário de entrega: ao escolher o EPI, busca o saldo atual
+ * em `estoque` pra avisar (sem bloquear — registrar a entrega é o que
+ * importa pra conformidade com a NR-06, ver CLAUDE.md regra 4) quando a
+ * quantidade digitada deixaria o saldo negativo. `null` aqui quer dizer
+ * "esse EPI ainda não teve nenhuma movimentação de estoque" (ver comentário
+ * em ajustarEstoque) — diferente de saldo zero, então o formulário não deve
+ * tratar como "sem estoque nenhum".
+ */
+export async function buscarSaldoEstoque(
+  epiId: string,
+): Promise<number | null> {
+  const user = await getCurrentUser();
+  if (!user?.empresaId || !epiId) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("estoque")
+    .select("saldo_atual")
+    .eq("epi_id", epiId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("buscarSaldoEstoque:", error.message);
+    return null;
+  }
+  return data?.saldo_atual ?? null;
+}

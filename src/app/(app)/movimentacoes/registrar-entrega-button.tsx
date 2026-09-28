@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Modal } from "@/components/ui/modal";
 import { SignaturePad } from "@/components/ui/signature-pad";
-import { registrarEntrega } from "./actions";
+import { registrarEntrega, buscarSaldoEstoque } from "./actions";
 import {
   criarSolicitacaoAssinatura,
   buscarStatusSolicitacao,
@@ -67,6 +67,32 @@ export function RegistrarEntregaButton({
     null,
   );
 
+  // Estoque atual do EPI selecionado — só pra avisar (não bloquear, ver
+  // comentário em buscarSaldoEstoque) quando a quantidade deixaria o saldo
+  // negativo. requestIdRef segue o mesmo raciocínio do guard de devolução:
+  // ignora resposta de rede atrasada de uma troca de EPI anterior.
+  const [epiId, setEpiId] = useState("");
+  const [quantidade, setQuantidade] = useState(1);
+  const [saldoAtual, setSaldoAtual] = useState<number | null>(null);
+  const saldoRequestIdRef = useRef(0);
+
+  function resetCamposEstoque() {
+    setEpiId("");
+    setQuantidade(1);
+    setSaldoAtual(null);
+    saldoRequestIdRef.current++;
+  }
+
+  async function handleEpiChange(id: string) {
+    setEpiId(id);
+    setSaldoAtual(null);
+    const requestId = ++saldoRequestIdRef.current;
+    if (!id) return;
+    const saldo = await buscarSaldoEstoque(id);
+    if (requestId !== saldoRequestIdRef.current) return;
+    setSaldoAtual(saldo);
+  }
+
   function fecharModal() {
     if (pedidoPendente) {
       cancelarSolicitacaoAssinatura(pedidoPendente.solicitacaoId);
@@ -74,6 +100,7 @@ export function RegistrarEntregaButton({
     setOpen(false);
     setPedidoPendente(null);
     setError(null);
+    resetCamposEstoque();
   }
 
   function handleSubmit(formData: FormData) {
@@ -81,12 +108,12 @@ export function RegistrarEntregaButton({
 
     if (modoAssinatura === "estacao") {
       const colaboradorId = String(formData.get("colaborador_id") ?? "");
-      const epiId = String(formData.get("epi_id") ?? "");
+      const epiIdForm = String(formData.get("epi_id") ?? "");
       const colaboradorNome =
         colaboradores.find((c) => c.id === colaboradorId)?.nome ?? "";
-      const epiNome = epis.find((e) => e.id === epiId)?.nome ?? "";
+      const epiNome = epis.find((e) => e.id === epiIdForm)?.nome ?? "";
 
-      if (!colaboradorId || !epiId || !estacaoId) {
+      if (!colaboradorId || !epiIdForm || !estacaoId) {
         setError("Selecione colaborador, EPI e a estação.");
         return;
       }
@@ -105,7 +132,7 @@ export function RegistrarEntregaButton({
           solicitacaoId: result.id,
           campos: {
             colaborador_id: colaboradorId,
-            epi_id: epiId,
+            epi_id: epiIdForm,
             motivo: String(formData.get("motivo") ?? ""),
             quantidade: String(formData.get("quantidade") ?? "1"),
             data: String(formData.get("data") ?? ""),
@@ -124,6 +151,7 @@ export function RegistrarEntregaButton({
       }
       setOpen(false);
       setFormKey((k) => k + 1);
+      resetCamposEstoque();
     });
   }
 
@@ -161,6 +189,7 @@ export function RegistrarEntregaButton({
         setOpen(false);
         setFormKey((k) => k + 1);
         setPedidoPendente(null);
+        resetCamposEstoque();
       } else if (result.status === "cancelado" || result.status === "expirado") {
         clearInterval(id);
         setError("O pedido de assinatura foi cancelado.");
@@ -250,7 +279,8 @@ export function RegistrarEntregaButton({
               id="entrega-epi"
               name="epi_id"
               required
-              defaultValue=""
+              value={epiId}
+              onChange={(e) => handleEpiChange(e.target.value)}
               className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             >
               <option value="" disabled>
@@ -304,11 +334,22 @@ export function RegistrarEntregaButton({
                 min={1}
                 step={1}
                 required
-                defaultValue={1}
+                value={quantidade}
+                onChange={(e) => setQuantidade(Number(e.target.value) || 1)}
                 className="w-20 rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
               />
             </div>
           </div>
+
+          {saldoAtual !== null && quantidade > saldoAtual && (
+            <p className="rounded-lg bg-warning-bg px-3.5 py-2.5 text-[12.5px] text-warning-text">
+              Estoque atual deste EPI: {saldoAtual}. Registrar{" "}
+              {quantidade} {quantidade > 1 ? "unidades" : "unidade"} deixa o
+              saldo negativo ({saldoAtual - quantidade}). A entrega pode ser
+              registrada mesmo assim — ajuste o estoque depois, se for o
+              caso.
+            </p>
+          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>

@@ -130,6 +130,7 @@ export default async function EstacoesPage() {
                         estacaoId={e.id}
                         estacaoNome={e.nome}
                         ativa={e.ativo}
+                        pareada={e.pareada}
                       />
                     </td>
                   </tr>

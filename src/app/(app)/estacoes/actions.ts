@@ -144,11 +144,18 @@ export async function desativarEstacaoAssinatura(
   }
 
   const supabase = await createClient();
-  const { data: estacao } = await supabase
+  const { data: estacao, error: buscaError } = await supabase
     .from("estacoes_assinatura")
-    .select("nome")
+    .select("nome, empresa_id")
     .eq("id", estacaoId)
     .maybeSingle();
+
+  // Mesma checagem que gerarNovoCodigoPareamento já faz — sem ela, um admin
+  // de uma empresa poderia desativar/reativar a estação de outra empresa
+  // cliente só sabendo (ou adivinhando) o id dela.
+  if (buscaError || !estacao || estacao.empresa_id !== user.empresaId) {
+    return { error: "Estação não encontrada." };
+  }
 
   const { error } = await supabase
     .from("estacoes_assinatura")
@@ -188,11 +195,15 @@ export async function reativarEstacaoAssinatura(
   }
 
   const supabase = await createClient();
-  const { data: estacao } = await supabase
+  const { data: estacao, error: buscaError } = await supabase
     .from("estacoes_assinatura")
-    .select("nome")
+    .select("nome, empresa_id")
     .eq("id", estacaoId)
     .maybeSingle();
+
+  if (buscaError || !estacao || estacao.empresa_id !== user.empresaId) {
+    return { error: "Estação não encontrada." };
+  }
 
   const { error } = await supabase
     .from("estacoes_assinatura")

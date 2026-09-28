@@ -30,7 +30,15 @@ export async function exchangeCodigoPareamento(
     return { error: "Código inválido." };
   }
 
-  const supabase = createAdminClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch (e) {
+    console.error("exchangeCodigoPareamento (admin client):", e);
+    return {
+      error: "Configuração do servidor incompleta. Avise o suporte do MorSafe.",
+    };
+  }
 
   const { data: estacao, error: buscaError } = await supabase
     .from("estacoes_assinatura")
@@ -105,7 +113,15 @@ export async function buscarSolicitacaoPendente(
 ): Promise<BuscarSolicitacaoResult> {
   if (!token) return { error: "Aparelho não pareado." };
 
-  const supabase = createAdminClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch (e) {
+    console.error("buscarSolicitacaoPendente (admin client):", e);
+    return {
+      error: "Configuração do servidor incompleta. Avise o suporte do MorSafe.",
+    };
+  }
 
   const { data: estacao, error: estacaoError } = await supabase
     .from("estacoes_assinatura")
@@ -162,7 +178,15 @@ export async function responderSolicitacaoAssinatura(
   if (!token) return { error: "Aparelho não pareado." };
   if (!assinaturaUrl) return { error: "Assinatura vazia." };
 
-  const supabase = createAdminClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch (e) {
+    console.error("responderSolicitacaoAssinatura (admin client):", e);
+    return {
+      error: "Configuração do servidor incompleta. Avise o suporte do MorSafe.",
+    };
+  }
 
   const { data: estacao, error: estacaoError } = await supabase
     .from("estacoes_assinatura")
@@ -174,7 +198,7 @@ export async function responderSolicitacaoAssinatura(
     return { error: "Aparelho não reconhecido ou desativado." };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("solicitacoes_assinatura")
     .update({
       status: "assinado",
@@ -183,11 +207,26 @@ export async function responderSolicitacaoAssinatura(
     })
     .eq("id", solicitacaoId)
     .eq("estacao_id", estacao.id)
-    .eq("status", "aguardando");
+    .eq("status", "aguardando")
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("responderSolicitacaoAssinatura:", error.message);
     return { error: "Não foi possível enviar a assinatura. Tente novamente." };
+  }
+
+  // Um .update() que não bate com nenhuma linha retorna error: null mesmo
+  // sem alterar nada (ver CLAUDE.md, regra 1) — e isso acontece de verdade
+  // aqui sempre que o pedido foi cancelado (ou já respondido) entre a
+  // estação carregar a tela de assinatura e o colaborador confirmar. Sem
+  // este check, a estação mostraria "✓ Assinatura enviada" pro colaborador
+  // com a assinatura nunca salva em lugar nenhum.
+  if (!data) {
+    return {
+      error:
+        "Este pedido não está mais aguardando assinatura (pode ter sido cancelado). Peça pro responsável registrar a entrega de novo.",
+    };
   }
 
   return { error: null };

@@ -243,7 +243,11 @@ export default async function ColaboradoresPage({
               </tr>
             ) : (
               colaboradores.map((c) => (
-                <ClickableRow key={c.id} href={`/colaboradores/${c.id}`}>
+                <ClickableRow
+                  key={c.id}
+                  href={`/colaboradores/${c.id}`}
+                  label={`Ver detalhes de ${c.nome}`}
+                >
                   <td className="px-4 py-3.5 text-[13.5px] font-medium text-foreground">
                     {c.nome}
                   </td>

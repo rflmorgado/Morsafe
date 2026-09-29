@@ -150,7 +150,26 @@ export async function updateEpi(
   void _exigeCaSemNumero;
 
   const supabase = await createClient();
-  const { error } = await supabase.from("epis").update(dados).eq("id", id);
+
+  // Confirma que o EPI é da MESMA empresa de quem está editando, antes de
+  // tentar o update — mesma checagem já usada em colaboradores/estacoes,
+  // pra não depender só do RLS pra recusar um id de outra empresa cliente.
+  const { data: epiAtual, error: buscaError } = await supabase
+    .from("epis")
+    .select("empresa_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (buscaError || !epiAtual || epiAtual.empresa_id !== user.empresaId) {
+    return { error: "EPI não encontrado." };
+  }
+
+  const { data, error } = await supabase
+    .from("epis")
+    .update(dados)
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("updateEpi:", error.message);
@@ -158,18 +177,25 @@ export async function updateEpi(
       error: "Não foi possível salvar as alterações. Tente novamente.",
     };
   }
-
-  if (user.empresaId) {
-    await registrarLogAuditoria({
-      supabase,
-      empresaId: user.empresaId,
-      tabela: "epis",
-      registroId: id,
-      acao: "atualizado",
-      usuarioId: user.id,
-      detalhes: { nome: dados.nome },
-    });
+  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
+  // nenhuma linha retorna error: null mesmo sem alterar nada.
+  if (!data) {
+    console.error("updateEpi: update não afetou nenhuma linha para id=", id);
+    return {
+      error:
+        "Não foi possível confirmar a alteração. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: epiAtual.empresa_id,
+    tabela: "epis",
+    registroId: id,
+    acao: "atualizado",
+    usuarioId: user.id,
+    detalhes: { nome: dados.nome },
+  });
 
   revalidatePath("/epis");
   return { error: null, success: true };
@@ -272,33 +298,49 @@ export async function desativarEpi(epiId: string): Promise<DesativarEpiState> {
   }
 
   const supabase = await createClient();
-  const { data: epi } = await supabase
+  const { data: epi, error: buscaError } = await supabase
     .from("epis")
-    .select("nome")
+    .select("nome, empresa_id")
     .eq("id", epiId)
     .maybeSingle();
 
-  const { error } = await supabase
+  if (buscaError || !epi || epi.empresa_id !== user.empresaId) {
+    return { error: "EPI não encontrado." };
+  }
+
+  const { data, error } = await supabase
     .from("epis")
     .update({ ativo: false })
-    .eq("id", epiId);
+    .eq("id", epiId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("desativarEpi:", error.message);
     return { error: "Não foi possível desativar o EPI. Tente novamente." };
   }
-
-  if (user.empresaId) {
-    await registrarLogAuditoria({
-      supabase,
-      empresaId: user.empresaId,
-      tabela: "epis",
-      registroId: epiId,
-      acao: "desativado",
-      usuarioId: user.id,
-      detalhes: epi ? { nome: epi.nome } : null,
-    });
+  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
+  // nenhuma linha retorna error: null mesmo sem desativar nada.
+  if (!data) {
+    console.error(
+      "desativarEpi: update não afetou nenhuma linha para epiId=",
+      epiId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a desativação. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: epi.empresa_id,
+    tabela: "epis",
+    registroId: epiId,
+    acao: "desativado",
+    usuarioId: user.id,
+    detalhes: { nome: epi.nome },
+  });
 
   revalidatePath("/epis");
   return { error: null, success: true };
@@ -352,11 +394,15 @@ export async function excluirEpiDefinitivamente(
 
   const { data: epi, error: epiError } = await supabase
     .from("epis")
-    .select("ativo, nome")
+    .select("ativo, nome, empresa_id")
     .eq("id", epiId)
     .maybeSingle();
 
-  if (epiError || !epi) {
+  // Mesma checagem de posse por empresa que desativarEpi/reativarEpi/
+  // updateEpi já fazem (ver desativarEpi acima) — faltava só aqui. Sem ela,
+  // um admin de uma empresa cliente poderia tentar excluir um EPI de OUTRA
+  // empresa só sabendo/adivinhando o id, dependendo só do RLS pra barrar.
+  if (epiError || !epi || epi.empresa_id !== user.empresaId) {
     return { error: "EPI não encontrado." };
   }
   if (epi.ativo) {
@@ -366,15 +412,39 @@ export async function excluirEpiDefinitivamente(
   }
 
   // Estado atual/controle de compra e estoque, não histórico de
-  // conformidade — pode sumir junto com o EPI.
-  await supabase.from("estoque").delete().eq("epi_id", epiId);
-  await supabase.from("setor_epi").delete().eq("epi_id", epiId);
-  await supabase.from("entradas_estoque").delete().eq("epi_id", epiId);
+  // conformidade — pode sumir junto com o EPI. Confere erro em cada uma
+  // (não linhas afetadas — zero é normal se o EPI nunca teve estoque/setor/
+  // compra) pra não deixar resíduo que depois faria o delete de `epis` lá
+  // embaixo esbarrar num 23503 e ser traduzido, errado, como "tem histórico
+  // de entrega vinculado".
+  const { error: estoqueError } = await supabase
+    .from("estoque")
+    .delete()
+    .eq("epi_id", epiId);
+  const { error: setorEpiError } = await supabase
+    .from("setor_epi")
+    .delete()
+    .eq("epi_id", epiId);
+  const { error: entradasError } = await supabase
+    .from("entradas_estoque")
+    .delete()
+    .eq("epi_id", epiId);
 
-  const { error: deleteError } = await supabase
+  if (estoqueError || setorEpiError || entradasError) {
+    console.error(
+      "excluirEpiDefinitivamente (limpeza de estoque):",
+      estoqueError?.message ??
+        setorEpiError?.message ??
+        entradasError?.message,
+    );
+    return { error: "Não foi possível excluir o EPI. Tente novamente." };
+  }
+
+  const { data: apagados, error: deleteError } = await supabase
     .from("epis")
     .delete()
-    .eq("id", epiId);
+    .eq("id", epiId)
+    .select("id");
 
   if (deleteError) {
     if (deleteError.code === "23503") {
@@ -386,18 +456,25 @@ export async function excluirEpiDefinitivamente(
     console.error("excluirEpiDefinitivamente:", deleteError.message);
     return { error: "Não foi possível excluir o EPI. Tente novamente." };
   }
-
-  if (user.empresaId) {
-    await registrarLogAuditoria({
-      supabase,
-      empresaId: user.empresaId,
-      tabela: "epis",
-      registroId: epiId,
-      acao: "excluido",
-      usuarioId: user.id,
-      detalhes: { nome: epi.nome },
-    });
+  // Mesma checagem da regra 1 do CLAUDE.md: um .delete() que não bate com
+  // nenhuma linha retorna error: null mesmo sem apagar nada.
+  if (!apagados || apagados.length === 0) {
+    console.error(
+      "excluirEpiDefinitivamente: delete não afetou nenhuma linha para epiId=",
+      epiId,
+    );
+    return { error: "Não foi possível excluir o EPI. Tente novamente." };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: epi.empresa_id,
+    tabela: "epis",
+    registroId: epiId,
+    acao: "excluido",
+    usuarioId: user.id,
+    detalhes: { nome: epi.nome },
+  });
 
   revalidatePath("/epis");
   return { error: null, success: true };
@@ -415,33 +492,49 @@ export async function reativarEpi(epiId: string): Promise<ReativarEpiState> {
   }
 
   const supabase = await createClient();
-  const { data: epi } = await supabase
+  const { data: epi, error: buscaError } = await supabase
     .from("epis")
-    .select("nome")
+    .select("nome, empresa_id")
     .eq("id", epiId)
     .maybeSingle();
 
-  const { error } = await supabase
+  if (buscaError || !epi || epi.empresa_id !== user.empresaId) {
+    return { error: "EPI não encontrado." };
+  }
+
+  const { data, error } = await supabase
     .from("epis")
     .update({ ativo: true })
-    .eq("id", epiId);
+    .eq("id", epiId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("reativarEpi:", error.message);
     return { error: "Não foi possível reativar o EPI. Tente novamente." };
   }
-
-  if (user.empresaId) {
-    await registrarLogAuditoria({
-      supabase,
-      empresaId: user.empresaId,
-      tabela: "epis",
-      registroId: epiId,
-      acao: "reativado",
-      usuarioId: user.id,
-      detalhes: epi ? { nome: epi.nome } : null,
-    });
+  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
+  // nenhuma linha retorna error: null mesmo sem reativar nada.
+  if (!data) {
+    console.error(
+      "reativarEpi: update não afetou nenhuma linha para epiId=",
+      epiId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a reativação. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: epi.empresa_id,
+    tabela: "epis",
+    registroId: epiId,
+    acao: "reativado",
+    usuarioId: user.id,
+    detalhes: { nome: epi.nome },
+  });
 
   revalidatePath("/epis");
   return { error: null, success: true };

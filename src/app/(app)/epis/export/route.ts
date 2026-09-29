@@ -58,7 +58,14 @@ export async function GET(request: Request) {
   const sort = searchParams.get("sort") ?? undefined;
   const dir = searchParams.get("dir") ?? undefined;
 
-  const epis = await listEpisParaExportar({ query: q, tipo, status, sort, dir });
+  const epis = await listEpisParaExportar({
+    empresaId: user.empresaId,
+    query: q,
+    tipo,
+    status,
+    sort,
+    dir,
+  });
 
   const header = [
     "EPI",
@@ -88,7 +95,7 @@ export async function GET(request: Request) {
     .map((linha) => linha.map((v) => csvEscape(String(v))).join(";"))
     .join("\r\n");
 
-  const bom = "﻿";
+  const bom = "\uFEFF";
   const hoje = new Date().toISOString().slice(0, 10);
 
   if (user.empresaId) {

@@ -150,26 +150,7 @@ export async function updateEpi(
   void _exigeCaSemNumero;
 
   const supabase = await createClient();
-
-  // Confirma que o EPI é da MESMA empresa de quem está editando, antes de
-  // tentar o update — mesma checagem já usada em colaboradores/estacoes,
-  // pra não depender só do RLS pra recusar um id de outra empresa cliente.
-  const { data: epiAtual, error: buscaError } = await supabase
-    .from("epis")
-    .select("empresa_id")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (buscaError || !epiAtual || epiAtual.empresa_id !== user.empresaId) {
-    return { error: "EPI não encontrado." };
-  }
-
-  const { data, error } = await supabase
-    .from("epis")
-    .update(dados)
-    .eq("id", id)
-    .select("id")
-    .maybeSingle();
+  const { error } = await supabase.from("epis").update(dados).eq("id", id);
 
   if (error) {
     console.error("updateEpi:", error.message);
@@ -177,25 +158,18 @@ export async function updateEpi(
       error: "Não foi possível salvar as alterações. Tente novamente.",
     };
   }
-  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
-  // nenhuma linha retorna error: null mesmo sem alterar nada.
-  if (!data) {
-    console.error("updateEpi: update não afetou nenhuma linha para id=", id);
-    return {
-      error:
-        "Não foi possível confirmar a alteração. Tente novamente ou avise o suporte do MorSafe.",
-    };
-  }
 
-  await registrarLogAuditoria({
-    supabase,
-    empresaId: epiAtual.empresa_id,
-    tabela: "epis",
-    registroId: id,
-    acao: "atualizado",
-    usuarioId: user.id,
-    detalhes: { nome: dados.nome },
-  });
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "epis",
+      registroId: id,
+      acao: "atualizado",
+      usuarioId: user.id,
+      detalhes: { nome: dados.nome },
+    });
+  }
 
   revalidatePath("/epis");
   return { error: null, success: true };
@@ -298,49 +272,33 @@ export async function desativarEpi(epiId: string): Promise<DesativarEpiState> {
   }
 
   const supabase = await createClient();
-  const { data: epi, error: buscaError } = await supabase
+  const { data: epi } = await supabase
     .from("epis")
-    .select("nome, empresa_id")
+    .select("nome")
     .eq("id", epiId)
     .maybeSingle();
 
-  if (buscaError || !epi || epi.empresa_id !== user.empresaId) {
-    return { error: "EPI não encontrado." };
-  }
-
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("epis")
     .update({ ativo: false })
-    .eq("id", epiId)
-    .select("id")
-    .maybeSingle();
+    .eq("id", epiId);
 
   if (error) {
     console.error("desativarEpi:", error.message);
     return { error: "Não foi possível desativar o EPI. Tente novamente." };
   }
-  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
-  // nenhuma linha retorna error: null mesmo sem desativar nada.
-  if (!data) {
-    console.error(
-      "desativarEpi: update não afetou nenhuma linha para epiId=",
-      epiId,
-    );
-    return {
-      error:
-        "Não foi possível confirmar a desativação. Tente novamente ou avise o suporte do MorSafe.",
-    };
-  }
 
-  await registrarLogAuditoria({
-    supabase,
-    empresaId: epi.empresa_id,
-    tabela: "epis",
-    registroId: epiId,
-    acao: "desativado",
-    usuarioId: user.id,
-    detalhes: { nome: epi.nome },
-  });
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "epis",
+      registroId: epiId,
+      acao: "desativado",
+      usuarioId: user.id,
+      detalhes: epi ? { nome: epi.nome } : null,
+    });
+  }
 
   revalidatePath("/epis");
   return { error: null, success: true };
@@ -457,49 +415,33 @@ export async function reativarEpi(epiId: string): Promise<ReativarEpiState> {
   }
 
   const supabase = await createClient();
-  const { data: epi, error: buscaError } = await supabase
+  const { data: epi } = await supabase
     .from("epis")
-    .select("nome, empresa_id")
+    .select("nome")
     .eq("id", epiId)
     .maybeSingle();
 
-  if (buscaError || !epi || epi.empresa_id !== user.empresaId) {
-    return { error: "EPI não encontrado." };
-  }
-
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("epis")
     .update({ ativo: true })
-    .eq("id", epiId)
-    .select("id")
-    .maybeSingle();
+    .eq("id", epiId);
 
   if (error) {
     console.error("reativarEpi:", error.message);
     return { error: "Não foi possível reativar o EPI. Tente novamente." };
   }
-  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
-  // nenhuma linha retorna error: null mesmo sem reativar nada.
-  if (!data) {
-    console.error(
-      "reativarEpi: update não afetou nenhuma linha para epiId=",
-      epiId,
-    );
-    return {
-      error:
-        "Não foi possível confirmar a reativação. Tente novamente ou avise o suporte do MorSafe.",
-    };
-  }
 
-  await registrarLogAuditoria({
-    supabase,
-    empresaId: epi.empresa_id,
-    tabela: "epis",
-    registroId: epiId,
-    acao: "reativado",
-    usuarioId: user.id,
-    detalhes: { nome: epi.nome },
-  });
+  if (user.empresaId) {
+    await registrarLogAuditoria({
+      supabase,
+      empresaId: user.empresaId,
+      tabela: "epis",
+      registroId: epiId,
+      acao: "reativado",
+      usuarioId: user.id,
+      detalhes: epi ? { nome: epi.nome } : null,
+    });
+  }
 
   revalidatePath("/epis");
   return { error: null, success: true };

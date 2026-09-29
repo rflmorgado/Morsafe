@@ -249,9 +249,24 @@ export function RegistrarDevolucaoButton({
             >
               Destino do EPI devolvido
             </label>
+            {/*
+              Quando extraviado, o select fica desabilitado só visualmente —
+              um <select> com `disabled` é excluído do FormData no submit,
+              então sem o input escondido abaixo o servidor nunca recebia
+              "destino" nesse caso e `registrarDevolucao` rejeitava sempre
+              com "Selecione o colaborador, o EPI entregue, o motivo, o
+              destino e a data", mesmo com tudo preenchido certo — o cenário
+              de EPI extraviado (um dos mais relevantes pra prova numa
+              fiscalização) nunca conseguia ser registrado. O input escondido
+              carrega o valor de verdade pro servidor; o select desabilitado
+              continua só pra mostrar "Não aplicável" visualmente.
+            */}
+            {extraviado && (
+              <input type="hidden" name="destino" value="nao_aplicavel" />
+            )}
             <select
               id="devolucao-destino"
-              name="destino"
+              name={extraviado ? undefined : "destino"}
               required
               disabled={extraviado}
               defaultValue=""

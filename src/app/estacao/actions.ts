@@ -161,7 +161,16 @@ export async function buscarSolicitacaoPendente(
   };
 }
 
-export type ResponderSolicitacaoState = { error: string | null };
+export type ResponderSolicitacaoState = {
+  error: string | null;
+  // Discriminam o motivo do erro pra quem chama (ver estacao/page.tsx)
+  // conseguir decidir se vale a pena insistir no MESMO pedido ou se é hora
+  // de desistir dele e voltar a aguardar o próximo — sem isso a estação
+  // ficava travada pra sempre numa tela de assinatura de um pedido que já
+  // não existe mais (ver Item 5 da revisão).
+  orfao?: boolean;
+  aparelhoInvalido?: boolean;
+};
 
 /**
  * Chamado pela estação depois que o colaborador assina na tela — só aceita
@@ -195,7 +204,10 @@ export async function responderSolicitacaoAssinatura(
     .maybeSingle();
 
   if (estacaoError || !estacao || !estacao.ativo) {
-    return { error: "Aparelho não reconhecido ou desativado." };
+    return {
+      error: "Aparelho não reconhecido ou desativado.",
+      aparelhoInvalido: true,
+    };
   }
 
   const { data, error } = await supabase
@@ -226,6 +238,7 @@ export async function responderSolicitacaoAssinatura(
     return {
       error:
         "Este pedido não está mais aguardando assinatura (pode ter sido cancelado). Peça pro responsável registrar a entrega de novo.",
+      orfao: true,
     };
   }
 

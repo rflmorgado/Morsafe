@@ -116,11 +116,23 @@ export default async function ColaboradoresPage({
   const sortAtual = sort ?? "nome";
   const dirAtual = dir ?? "asc";
 
-  const [{ colaboradores, total }, setores, user] = await Promise.all([
-    listColaboradores({ query: q, setorId: setor, status, sort, dir, page }),
+  const [setores, user] = await Promise.all([
     listSetoresComCargos(),
     getCurrentUser(),
   ]);
+
+  // listColaboradores agora filtra por empresa (ver colaboradores.ts) —
+  // precisa do usuário logado antes, então não dá mais pra buscar em
+  // paralelo com o Promise.all acima.
+  const { colaboradores, total } = await listColaboradores({
+    empresaId: user?.empresaId ?? null,
+    query: q,
+    setorId: setor,
+    status,
+    sort,
+    dir,
+    page,
+  });
 
   const totalPages = Math.max(1, Math.ceil(total / COLABORADORES_PAGE_SIZE));
 

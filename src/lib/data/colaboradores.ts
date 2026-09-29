@@ -7,6 +7,7 @@ import {
 export const COLABORADORES_PAGE_SIZE = 20;
 
 export type ListColaboradoresOptions = {
+  empresaId: string | null;
   query?: string;
   setorId?: string;
   status?: string;
@@ -77,22 +78,34 @@ function ordenarColaboradores<T extends ColaboradorOrdenavel>(
  * filtro, ordenamos em memória e só depois fatiamos a página — tranquilo para
  * o volume de colaboradores de uma empresa (dezenas a poucas centenas) e
  * evita ter que replicar a ordenação por "última entrega" dentro do SQL.
+ *
+ * `empresaId` filtra explicitamente — antes dependia só do RLS pra isolar
+ * os colaboradores de uma empresa cliente dos de outra, na contramão do
+ * padrão de defesa em profundidade do resto do projeto. `null` (usuário
+ * sem empresa) sempre retorna lista vazia, sem consultar o banco. A
+ * subconsulta de `entregas` abaixo não precisa do próprio filtro: já fica
+ * implicitamente restrita à mesma empresa porque só busca pelos `ids` desta
+ * lista, que já vieram filtrados.
  */
 export async function listColaboradores({
+  empresaId,
   query,
   setorId,
   status,
   sort,
   dir,
   page = 1,
-}: ListColaboradoresOptions = {}) {
+}: ListColaboradoresOptions) {
+  if (!empresaId) return { colaboradores: [], total: 0 };
+
   const supabase = await createClient();
 
   let request = supabase
     .from("colaboradores")
     .select(
       "id, nome, status, setor_id, cargo_id, cpf, telefone, data_integracao_seguranca, setores ( nome ), cargos ( nome )",
-    );
+    )
+    .eq("empresa_id", empresaId);
 
   if (query && query.trim()) {
     request = request.ilike("nome", `%${query.trim()}%`);
@@ -155,6 +168,7 @@ export async function listColaboradores({
 }
 
 export type ListColaboradoresExportOptions = {
+  empresaId: string | null;
   query?: string;
   setorId?: string;
   status?: string;
@@ -166,22 +180,27 @@ export type ListColaboradoresExportOptions = {
  * Mesma busca, os mesmos filtros e a mesma ordenação de listColaboradores,
  * mas sem paginação — usada pela exportação em CSV, que precisa trazer
  * todos os colaboradores que batem com o filtro atual da tela, não só os
- * 20 da página visível.
+ * 20 da página visível. Mesmo filtro explícito de empresa que
+ * listColaboradores — `null` retorna lista vazia sem consultar o banco.
  */
 export async function listColaboradoresParaExportar({
+  empresaId,
   query,
   setorId,
   status,
   sort,
   dir,
-}: ListColaboradoresExportOptions = {}) {
+}: ListColaboradoresExportOptions) {
+  if (!empresaId) return [];
+
   const supabase = await createClient();
 
   let request = supabase
     .from("colaboradores")
     .select(
       "id, nome, status, cpf, telefone, data_integracao_seguranca, setores ( nome ), cargos ( nome )",
-    );
+    )
+    .eq("empresa_id", empresaId);
 
   if (query && query.trim()) {
     request = request.ilike("nome", `%${query.trim()}%`);
@@ -230,18 +249,33 @@ export async function listColaboradoresParaExportar({
   return ordenarColaboradores(mapeados, sort, dir);
 }
 
-export async function getColaboradorDetalhe(id: string) {
+/**
+ * `empresaId` confere que o colaborador pertence à empresa de quem está
+ * pedindo a ficha, antes de buscar entregas/devoluções/recusas — mesmo
+ * padrão de defesa em profundidade usado em excluirEpiDefinitivamente
+ * (epis/actions.ts): sem essa checagem, bastava adivinhar/enumerar um id de
+ * colaborador de OUTRA empresa cliente pra ver o histórico de entrega de
+ * EPI dela, dependendo inteiramente do RLS pra bloquear isso.
+ */
+export async function getColaboradorDetalhe(
+  id: string,
+  empresaId: string | null,
+) {
+  if (!empresaId) return null;
+
   const supabase = await createClient();
 
   const { data: colaborador, error } = await supabase
     .from("colaboradores")
     .select(
-      "id, nome, status, criado_em, data_integracao_seguranca, setores ( nome ), cargos ( nome )",
+      "id, nome, status, criado_em, data_integracao_seguranca, empresa_id, setores ( nome ), cargos ( nome )",
     )
     .eq("id", id)
     .single();
 
-  if (error || !colaborador) return null;
+  if (error || !colaborador || colaborador.empresa_id !== empresaId) {
+    return null;
+  }
 
   // criado_em (timestamp do servidor, imutável) e o nome de quem registrou
   // (usuarios via criado_por) vão pra ficha em PDF — ver comentário em

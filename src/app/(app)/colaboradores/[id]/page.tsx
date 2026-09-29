@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getColaboradorDetalhe } from "@/lib/data/colaboradores";
+import { getCurrentUser } from "@/lib/data/current-user";
 
 const TIPO_LABEL: Record<string, string> = {
   entrega: "Entrega",
@@ -31,7 +32,11 @@ export default async function ColaboradorDetalhePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const colaborador = await getColaboradorDetalhe(id);
+  // getColaboradorDetalhe agora exige empresaId pra conferir que o
+  // colaborador pertence à mesma empresa de quem está pedindo a ficha
+  // (defesa em profundidade, além do RLS) — precisa do usuário logado antes.
+  const user = await getCurrentUser();
+  const colaborador = await getColaboradorDetalhe(id, user?.empresaId ?? null);
 
   if (!colaborador) notFound();
 

@@ -23,6 +23,7 @@ const SORT_DB_COLUMN: Record<SortColumn, string> = {
 };
 
 export type ListEpisOptions = {
+  empresaId: string | null;
   query?: string;
   tipo?: string;
   status?: string;
@@ -47,6 +48,7 @@ export type Epi = {
 function buildEpisQuery(
   supabase: Awaited<ReturnType<typeof createClient>>,
   {
+    empresaId,
     query,
     tipo,
     status,
@@ -54,6 +56,7 @@ function buildEpisQuery(
     dir,
     count,
   }: Pick<ListEpisOptions, "query" | "tipo" | "status" | "sort" | "dir"> & {
+    empresaId: string;
     count?: "exact";
   },
 ) {
@@ -62,7 +65,8 @@ function buildEpisQuery(
     .select(
       "id, nome, tipo, ca, exige_ca, ca_validade, vida_util_dias, fornecedor, custo_medio_atual, ativo",
       count ? { count } : undefined,
-    );
+    )
+    .eq("empresa_id", empresaId);
 
   if (query && query.trim()) {
     request = request.ilike("nome", `%${query.trim()}%`);
@@ -120,15 +124,23 @@ function mapEpi(e: {
  * existe coluna derivada (como "última entrega") — todas as colunas
  * ordenáveis são colunas reais da tabela — então a ordenação e a paginação
  * acontecem direto no banco em vez de em memória.
+ *
+ * `empresaId` filtra explicitamente — antes dependia só do RLS pra isolar o
+ * catálogo de uma empresa cliente do de outra, na contramão do padrão de
+ * defesa em profundidade do resto do projeto. `null` (usuário sem empresa)
+ * sempre retorna lista vazia, sem consultar o banco.
  */
 export async function listEpis({
+  empresaId,
   query,
   tipo,
   status,
   sort,
   dir,
   page = 1,
-}: ListEpisOptions = {}): Promise<{ epis: Epi[]; total: number }> {
+}: ListEpisOptions): Promise<{ epis: Epi[]; total: number }> {
+  if (!empresaId) return { epis: [], total: 0 };
+
   const supabase = await createClient();
 
   const currentPage = page > 0 ? page : 1;
@@ -136,6 +148,7 @@ export async function listEpis({
   const to = from + EPIS_PAGE_SIZE - 1;
 
   const { data, error, count } = await buildEpisQuery(supabase, {
+    empresaId,
     query,
     tipo,
     status,
@@ -156,6 +169,7 @@ export async function listEpis({
 }
 
 export type ListEpisExportOptions = {
+  empresaId: string | null;
   query?: string;
   tipo?: string;
   status?: string;
@@ -167,17 +181,23 @@ export type ListEpisExportOptions = {
  * Mesma busca, os mesmos filtros e a mesma ordenação de listEpis, mas sem
  * paginação — usada pela exportação em CSV, que precisa trazer todos os
  * EPIs que batem com o filtro atual da tela, não só os 20 da página visível.
+ * Mesmo filtro explícito de empresa que listEpis — `null` retorna lista
+ * vazia sem consultar o banco.
  */
 export async function listEpisParaExportar({
+  empresaId,
   query,
   tipo,
   status,
   sort,
   dir,
-}: ListEpisExportOptions = {}): Promise<Epi[]> {
+}: ListEpisExportOptions): Promise<Epi[]> {
+  if (!empresaId) return [];
+
   const supabase = await createClient();
 
   const { data, error } = await buildEpisQuery(supabase, {
+    empresaId,
     query,
     tipo,
     status,

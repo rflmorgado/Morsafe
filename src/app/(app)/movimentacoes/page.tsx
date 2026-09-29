@@ -109,7 +109,6 @@ export default async function MovimentacoesPage({
     colaboradoresFiltro,
     episFiltro,
     user,
-    estacoesAtivas,
   ] = await Promise.all([
     listMovimentacoes({
       tipo: tipoFiltro,
@@ -124,8 +123,12 @@ export default async function MovimentacoesPage({
     listColaboradoresParaFiltro(),
     listEpisParaFiltro(),
     getCurrentUser(),
-    listEstacoesAtivas(),
   ]);
+
+  // listEstacoesAtivas agora filtra por empresa (ver estacoes-assinatura.ts)
+  // — precisa do usuário logado antes, então não dá mais pra buscar em
+  // paralelo com o Promise.all acima.
+  const estacoesAtivas = await listEstacoesAtivas(user?.empresaId ?? null);
 
   const totalPages = Math.max(1, Math.ceil(total / MOVIMENTACOES_PAGE_SIZE));
 

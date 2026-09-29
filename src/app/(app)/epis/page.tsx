@@ -147,10 +147,19 @@ export default async function EpisPage({
   const sortAtual = sort ?? "nome";
   const dirAtual = dir ?? "asc";
 
-  const [{ epis, total }, user] = await Promise.all([
-    listEpis({ query: q, tipo, status, sort, dir, page }),
-    getCurrentUser(),
-  ]);
+  // Precisa da empresa do usuário logado ANTES de buscar os EPIs (listEpis
+  // agora filtra por empresa, ver lib/data/epis.ts) — não dá mais pra
+  // buscar os dois em paralelo com Promise.all como antes.
+  const user = await getCurrentUser();
+  const { epis, total } = await listEpis({
+    empresaId: user?.empresaId ?? null,
+    query: q,
+    tipo,
+    status,
+    sort,
+    dir,
+    page,
+  });
 
   const totalPages = Math.max(1, Math.ceil(total / EPIS_PAGE_SIZE));
 
@@ -295,64 +304,3 @@ export default async function EpisPage({
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {podeGerenciar && <EditarEpiButton epi={e} />}
-                        {podeGerenciar &&
-                          (e.ativo ? (
-                            <DesativarEpiButton
-                              epiId={e.id}
-                              epiNome={e.nome}
-                            />
-                          ) : (
-                            <ReativarEpiButton epiId={e.id} epiNome={e.nome} />
-                          ))}
-                        {podeExcluir && !e.ativo && (
-                          <ExcluirEpiButton epiId={e.id} epiNome={e.nome} />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {total > 0 && (
-        <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
-          <span className="text-[12.5px] text-text-secondary">
-            Página {page} de {totalPages} · {total} EPI
-            {total === 1 ? "" : "s"}
-          </span>
-          <div className="flex gap-2">
-            <Link
-              href={buildHref(q, tipo, status, sort, dir, page - 1)}
-              aria-disabled={page <= 1}
-              tabIndex={page <= 1 ? -1 : undefined}
-              className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
-                page <= 1
-                  ? "pointer-events-none opacity-40"
-                  : "hover:bg-surface-muted"
-              }`}
-            >
-              ← Anterior
-            </Link>
-            <Link
-              href={buildHref(q, tipo, status, sort, dir, page + 1)}
-              aria-disabled={page >= totalPages}
-              tabIndex={page >= totalPages ? -1 : undefined}
-              className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
-                page >= totalPages
-                  ? "pointer-events-none opacity-40"
-                  : "hover:bg-surface-muted"
-              }`}
-            >
-              Próxima →
-            </Link>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

@@ -162,14 +162,30 @@ export async function atualizarPapelUsuario(
     return { error: "Usuário não encontrado." };
   }
 
-  const { error } = await admin
+  const { data, error } = await admin
     .from("usuarios")
     .update({ papel: novoPapel })
-    .eq("id", usuarioId);
+    .eq("id", usuarioId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("atualizarPapelUsuario:", error.message);
     return { error: "Não foi possível atualizar o papel. Tente novamente." };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: sem ela, um .update() que não
+  // bate com nenhuma linha registraria "papel_alterado" no histórico e diria
+  // sucesso pro admin mesmo com o papel do usuário continuando o mesmo —
+  // grave numa ação que decide o nível de acesso de alguém no sistema.
+  if (!data) {
+    console.error(
+      "atualizarPapelUsuario: update não afetou nenhuma linha para usuarioId=",
+      usuarioId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a alteração do papel. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
 
   await registrarLogAuditoria({
@@ -230,14 +246,30 @@ export async function desativarUsuario(
     return { error: "Usuário não encontrado." };
   }
 
-  const { error } = await admin
+  const { data, error } = await admin
     .from("usuarios")
     .update({ ativo: false })
-    .eq("id", usuarioId);
+    .eq("id", usuarioId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("desativarUsuario:", error.message);
     return { error: "Não foi possível desativar o usuário. Tente novamente." };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: sem ela, um .update() que não
+  // bate com nenhuma linha registraria "desativado" no histórico e diria
+  // sucesso pro admin mesmo com o login da pessoa continuando ativo — grave
+  // justamente numa ação de revogar acesso (ex: desligamento).
+  if (!data) {
+    console.error(
+      "desativarUsuario: update não afetou nenhuma linha para usuarioId=",
+      usuarioId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a desativação. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
 
   await registrarLogAuditoria({
@@ -288,14 +320,29 @@ export async function reativarUsuario(
     return { error: "Usuário não encontrado." };
   }
 
-  const { error } = await admin
+  const { data, error } = await admin
     .from("usuarios")
     .update({ ativo: true })
-    .eq("id", usuarioId);
+    .eq("id", usuarioId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("reativarUsuario:", error.message);
     return { error: "Não foi possível reativar o usuário. Tente novamente." };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: sem ela, um .update() que não
+  // bate com nenhuma linha registraria "reativado" no histórico e diria
+  // sucesso pro admin mesmo com o login da pessoa continuando desativado.
+  if (!data) {
+    console.error(
+      "reativarUsuario: update não afetou nenhuma linha para usuarioId=",
+      usuarioId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a reativação. Tente novamente ou avise o suporte do MorSafe.",
+    };
   }
 
   await registrarLogAuditoria({

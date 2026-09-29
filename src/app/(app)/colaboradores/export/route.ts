@@ -53,6 +53,7 @@ export async function GET(request: Request) {
   const dir = searchParams.get("dir") ?? undefined;
 
   const colaboradores = await listColaboradoresParaExportar({
+    empresaId: user.empresaId,
     query: q,
     setorId: setor,
     status,
@@ -86,7 +87,7 @@ export async function GET(request: Request) {
     .map((linha) => linha.map((v) => csvEscape(String(v))).join(";"))
     .join("\r\n");
 
-  const bom = "﻿";
+  const bom = "\uFEFF";
   const hoje = new Date().toISOString().slice(0, 10);
 
   if (user.empresaId) {

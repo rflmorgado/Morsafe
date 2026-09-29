@@ -34,7 +34,7 @@ function formatDateTime(iso: string) {
 function sanitizeFileName(nome: string) {
   return nome
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]+/g, "-")
     .toLowerCase();
 }
@@ -53,22 +53,25 @@ export async function GET(
   // alguém, então força o download de verdade via ?download=1.
   const forcarDownload = new URL(request.url).searchParams.has("download");
 
-  const [colaborador, user] = await Promise.all([
-    getColaboradorDetalhe(id),
-    getCurrentUser(),
-  ]);
+  // Precisa do usuário logado ANTES de buscar o colaborador (ver
+  // getColaboradorDetalhe, que agora exige empresaId pra conferir que o
+  // colaborador pertence à mesma empresa de quem está pedindo a ficha) —
+  // não dá mais pra buscar os dois em paralelo com Promise.all como antes.
+  const user = await getCurrentUser();
 
   // O proxy (middleware) já bloqueia quem não está logado antes de chegar
   // aqui, mas confirmamos de novo — abrir/baixar a ficha é permitido pra
   // qualquer papel autenticado (inclusive "leitura"), então não há checagem
-  // de papel, só de sessão. O isolamento entre empresas fica por conta do
-  // RLS em getColaboradorDetalhe.
+  // de papel, só de sessão. O isolamento entre empresas agora é conferido
+  // explicitamente dentro de getColaboradorDetalhe, além do RLS.
   if (!user) {
     return NextResponse.json(
       { error: "Sessão expirada. Faça login novamente." },
       { status: 401 },
     );
   }
+
+  const colaborador = await getColaboradorDetalhe(id, user.empresaId);
 
   if (!colaborador) {
     return NextResponse.json(

@@ -243,6 +243,9 @@ export default async function ColaboradoresPage({
               </tr>
             ) : (
               colaboradores.map((c) => (
+                // label descreve a linha pro leitor de tela (ver
+                // ClickableRow) — todo o resto da linha (setor, cargo,
+                // status, última entrega) é só apoio visual do mesmo link.
                 <ClickableRow
                   key={c.id}
                   href={`/colaboradores/${c.id}`}

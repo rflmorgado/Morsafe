@@ -56,7 +56,7 @@ export default async function EstacoesPage() {
     );
   }
 
-  const estacoes = await listEstacoesAssinatura();
+  const estacoes = await listEstacoesAssinatura(user.empresaId);
 
   return (
     <div className="space-y-1">

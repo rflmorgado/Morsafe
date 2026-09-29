@@ -109,7 +109,7 @@ export async function gerarNovoCodigoPareamento(
     return { error: "Estação não encontrada." };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("estacoes_assinatura")
     .update({
       token: null,
@@ -117,12 +117,28 @@ export async function gerarNovoCodigoPareamento(
       codigo_expira_em: expiraEm,
       pareado_em: null,
     })
-    .eq("id", estacaoId);
+    .eq("id", estacaoId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("gerarNovoCodigoPareamento:", error.message);
     return {
       error: "Não foi possível gerar um novo código. Tente novamente.",
+    };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
+  // nenhuma linha retorna error: null mesmo sem gravar nada — sem este check
+  // a tela mostraria um QR válido pro admin escanear sem o código
+  // correspondente ter sido salvo no banco, e o pareamento falharia sempre.
+  if (!data) {
+    console.error(
+      "gerarNovoCodigoPareamento: update não afetou nenhuma linha para estacaoId=",
+      estacaoId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a geração do código. Tente novamente ou avise o suporte do MorSafe.",
     };
   }
 
@@ -157,15 +173,31 @@ export async function desativarEstacaoAssinatura(
     return { error: "Estação não encontrada." };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("estacoes_assinatura")
     .update({ ativo: false })
-    .eq("id", estacaoId);
+    .eq("id", estacaoId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("desativarEstacaoAssinatura:", error.message);
     return {
       error: "Não foi possível desativar a estação. Tente novamente.",
+    };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: sem ela, um .update() que não
+  // bate com nenhuma linha registraria "desativado" no histórico e diria
+  // sucesso pro admin mesmo com a estação continuando ativa (e continuando a
+  // aceitar pedidos de assinatura).
+  if (!data) {
+    console.error(
+      "desativarEstacaoAssinatura: update não afetou nenhuma linha para estacaoId=",
+      estacaoId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a desativação. Tente novamente ou avise o suporte do MorSafe.",
     };
   }
 
@@ -205,15 +237,30 @@ export async function reativarEstacaoAssinatura(
     return { error: "Estação não encontrada." };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("estacoes_assinatura")
     .update({ ativo: true })
-    .eq("id", estacaoId);
+    .eq("id", estacaoId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("reativarEstacaoAssinatura:", error.message);
     return {
       error: "Não foi possível reativar a estação. Tente novamente.",
+    };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: sem ela, um .update() que não
+  // bate com nenhuma linha registraria "reativado" no histórico e diria
+  // sucesso pro admin mesmo com a estação continuando desativada.
+  if (!data) {
+    console.error(
+      "reativarEstacaoAssinatura: update não afetou nenhuma linha para estacaoId=",
+      estacaoId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a reativação. Tente novamente ou avise o suporte do MorSafe.",
     };
   }
 

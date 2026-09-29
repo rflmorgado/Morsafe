@@ -99,10 +99,11 @@ const QUICK_ACTIONS = [
 ];
 
 export default async function DashboardPage() {
-  const [data, user] = await Promise.all([
-    getDashboardData(),
-    getCurrentUser(),
-  ]);
+  // Precisa da empresa do usuário logado ANTES de buscar os números do
+  // dashboard (ver getDashboardData) — não dá mais pra buscar os dois em
+  // paralelo com Promise.all como antes, já que agora um depende do outro.
+  const user = await getCurrentUser();
+  const data = await getDashboardData(user?.empresaId ?? null);
 
   const hoje = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",

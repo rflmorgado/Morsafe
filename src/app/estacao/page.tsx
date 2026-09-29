@@ -83,6 +83,12 @@ export default function EstacaoPage() {
     faseRef.current = fase;
   }, [fase]);
 
+  // Guarda o id do pedido atualmente em tela fora do estado React, pra
+  // poder ser lido e atualizado de forma síncrona dentro de poll() sem
+  // depender do timing de re-render/efeito (ver comentário abaixo sobre
+  // por que isso importa pra detectar pedido cancelado).
+  const solicitacaoIdRef = useRef<string | null>(null);
+
   const poll = useCallback(async (t: string) => {
     const result = await buscarSolicitacaoPendente(t);
     if (result.error !== null) {
@@ -91,18 +97,38 @@ export default function EstacaoPage() {
       return;
     }
     setEstacaoNomeAoVivo(result.estacaoNome);
-    // Só reage a um pedido novo se ainda estiver ocioso — evita trocar a
-    // tela de assinatura debaixo do colaborador se, por algum motivo, o
-    // poll disparar de novo antes do intervalo (aba voltando do segundo
-    // plano, por exemplo).
-    if (result.solicitacao && faseRef.current === "ocioso") {
-      setSolicitacao(result.solicitacao);
-      setFaseAssinatura("assinando");
+
+    if (faseRef.current === "ocioso") {
+      if (result.solicitacao) {
+        solicitacaoIdRef.current = result.solicitacao.id;
+        setSolicitacao(result.solicitacao);
+        setFaseAssinatura("assinando");
+      }
+      return;
+    }
+
+    // Continua consultando o servidor mesmo já mostrando a tela de
+    // assinatura (nunca durante "enviando" — o efeito abaixo pausa o
+    // polling sozinho nessa fase, pra não competir com o envio em
+    // andamento) só pra detectar se ESTE pedido foi cancelado pelo PC
+    // enquanto o colaborador ainda estava assinando. Sem isso, a estação
+    // ficava travada pra sempre nessa tela — sem novo poll e sem nenhum
+    // jeito de sair a não ser recarregar o aparelho manualmente (Item 5 da
+    // revisão: "estação de assinatura órfã trava").
+    if (
+      faseRef.current === "assinando" &&
+      solicitacaoIdRef.current &&
+      result.solicitacao?.id !== solicitacaoIdRef.current
+    ) {
+      solicitacaoIdRef.current = null;
+      setSolicitacao(null);
+      setErro("Este pedido foi cancelado. Aguardando o próximo registro…");
+      setFaseAssinatura("ocioso");
     }
   }, []);
 
   useEffect(() => {
-    if (!token || fase !== "ocioso") return;
+    if (!token || (fase !== "ocioso" && fase !== "assinando")) return;
     // Dispara a primeira consulta já no próximo tick (não direto aqui no
     // corpo do efeito) e depois entra no intervalo normal.
     const primeira = setTimeout(() => poll(token), 0);
@@ -128,11 +154,31 @@ export default function EstacaoPage() {
       .then((result) => {
         if (result.error) {
           setErro(result.error);
+          if (result.aparelhoInvalido) {
+            // Estação foi desativada pelo admin nesse meio-tempo — mesmo
+            // tratamento que o poll() já dá em qualquer outra hora.
+            solicitacaoIdRef.current = null;
+            setSolicitacao(null);
+            setFaseAssinatura("erro_aparelho");
+            return;
+          }
+          if (result.orfao) {
+            // Pedido não está mais "aguardando" (foi cancelado ou já
+            // respondido em outra aba) — insistir nele não adianta, melhor
+            // voltar a aguardar o próximo (ver Item 5 da revisão).
+            solicitacaoIdRef.current = null;
+            setSolicitacao(null);
+            setFaseAssinatura("ocioso");
+            return;
+          }
+          // Erro genérico (ex: falha momentânea no banco) — mantém a
+          // mesma tela de assinatura pra permitir tentar de novo.
           setFaseAssinatura("assinando");
           return;
         }
         setFaseAssinatura("enviado");
         setTimeout(() => {
+          solicitacaoIdRef.current = null;
           setSolicitacao(null);
           setFaseAssinatura("ocioso");
         }, 1800);

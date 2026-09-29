@@ -15,13 +15,24 @@ export type EstacaoAssinatura = {
  * não) — usada na tela de administração (src/app/(app)/estacoes). Nunca
  * expõe o token nem o código de pareamento pra fora deste arquivo: o token
  * é o "segredo" do aparelho, só a Server Action que gera o QR precisa dele.
+ *
+ * `empresaId` filtra explicitamente — antes dependia só do RLS pra isolar
+ * uma empresa cliente da outra, na contramão do padrão de defesa em
+ * profundidade já usado nas Server Actions deste mesmo módulo. `null`
+ * (usuário sem empresa, caso do super_admin) sempre retorna lista vazia,
+ * sem nem consultar o banco.
  */
-export async function listEstacoesAssinatura(): Promise<EstacaoAssinatura[]> {
+export async function listEstacoesAssinatura(
+  empresaId: string | null,
+): Promise<EstacaoAssinatura[]> {
+  if (!empresaId) return [];
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("estacoes_assinatura")
     .select("id, nome, token, ativo, criado_em, pareado_em, ultimo_ping")
+    .eq("empresa_id", empresaId)
     .order("criado_em", { ascending: false });
 
   if (error || !data) {
@@ -45,15 +56,24 @@ export async function listEstacoesAssinatura(): Promise<EstacaoAssinatura[]> {
  * que alimenta o seletor "Coletar assinatura na estação..." no formulário
  * de Registrar entrega. Uma estação criada mas ainda não pareada, ou
  * desativada pelo admin, não aparece pra quem está registrando a entrega.
+ *
+ * `empresaId` filtra explicitamente — mesmo racional de listEstacoesAssinatura
+ * acima: sem isso, o seletor de Registrar entrega podia oferecer a estação de
+ * OUTRA empresa cliente (bastava o RLS ter alguma brecha), fazendo a
+ * assinatura coletada nela vincular numa entrega da empresa errada. `null`
+ * (usuário sem empresa) sempre retorna lista vazia, sem consultar o banco.
  */
-export async function listEstacoesAtivas(): Promise<
-  { id: string; nome: string }[]
-> {
+export async function listEstacoesAtivas(
+  empresaId: string | null,
+): Promise<{ id: string; nome: string }[]> {
+  if (!empresaId) return [];
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("estacoes_assinatura")
     .select("id, nome, token, ativo")
+    .eq("empresa_id", empresaId)
     .eq("ativo", true)
     .not("token", "is", null)
     .order("nome", { ascending: true });

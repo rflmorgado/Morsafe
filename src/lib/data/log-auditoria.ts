@@ -19,6 +19,8 @@ export const ACAO_LABEL: Record<string, string> = {
   baixou_ficha: "Ficha de EPI baixada",
   login: "Login",
   logout: "Logout",
+  entrada_registrada: "Entrada de estoque registrada",
+  limite_atualizado: "Limite de alerta de estoque atualizado",
 };
 
 export const TABELA_LABEL: Record<string, string> = {
@@ -32,6 +34,8 @@ export const TABELA_LABEL: Record<string, string> = {
   recusas: "Recusa de EPI",
   estacoes_assinatura: "Estação de assinatura",
   empresas: "Empresa",
+  entradas_estoque: "Entrada de estoque",
+  estoque: "Estoque",
 };
 
 // Artigo + substantivo por tabela, usado nas frases do histórico ("Cadastrou
@@ -49,6 +53,8 @@ const ARTIGO_REGISTRO: Record<string, string> = {
   recusas: "a recusa de EPI",
   estacoes_assinatura: "a estação de assinatura",
   empresas: "a empresa",
+  entradas_estoque: "a entrada de estoque",
+  estoque: "o estoque",
 };
 
 type RegistrarLogParams = {
@@ -161,6 +167,18 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
       return "Fez login no MorSafe";
     case "logout":
       return "Fez logout do MorSafe";
+    case "entrada_registrada": {
+      const quantidade = item.detalhes?.quantidade as number | undefined;
+      return nome
+        ? `Registrou entrada de estoque de "${nome}"${quantidade ? ` (${quantidade} un.)` : ""}`
+        : "Registrou uma entrada de estoque";
+    }
+    case "limite_atualizado": {
+      const limite = item.detalhes?.limite as number | undefined;
+      return nome
+        ? `Atualizou o limite de alerta de estoque de "${nome}"${limite !== undefined ? ` para ${limite}` : ""}`
+        : "Atualizou um limite de alerta de estoque";
+    }
     default:
       return ACAO_LABEL[item.acao] ?? item.acao;
   }

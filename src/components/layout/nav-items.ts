@@ -46,7 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
     superAdminOnly: true,
     section: "sistema",
   },
-  { label: "Estoque", href: "/estoque", comingSoon: true, section: "em_breve" },
+  { label: "Estoque", href: "/estoque", section: "operacao" },
   {
     label: "Auditoria NR-06",
     href: "/auditoria",

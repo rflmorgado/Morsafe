@@ -5,6 +5,7 @@ import { ShieldIcon } from "@/components/brand/shield-icon";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import {
   buscarSolicitacaoPendente,
+  buscarLogoEstacao,
   responderSolicitacaoAssinatura,
   type SolicitacaoPendente,
 } from "./actions";
@@ -71,6 +72,22 @@ export default function EstacaoPage() {
     null,
   );
   const estacaoNome = estacaoNomeAoVivo ?? nomeArmazenado;
+
+  // Logo da empresa dona desta estação — buscado UMA VEZ quando o token
+  // aparece (nunca a cada poll de 2s, ver comentário em buscarLogoEstacao
+  // em actions.ts). `null` é um estado legítimo (empresa sem logo
+  // cadastrado) e nunca impede a tela de funcionar — é só decoração.
+  const [logoEmpresaUrl, setLogoEmpresaUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!token) return;
+    let cancelado = false;
+    buscarLogoEstacao(token).then((url) => {
+      if (!cancelado) setLogoEmpresaUrl(url);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [token]);
 
   const fase: Fase = carregandoCredencial
     ? "carregando"
@@ -212,11 +229,33 @@ export default function EstacaoPage() {
       className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 py-10 text-center"
       style={{ background: "var(--brand-950)" }}
     >
-      <div className="flex items-center gap-2.5">
-        <ShieldIcon className="h-8 w-8" />
-        <span className="text-xl font-bold tracking-tight text-brand-300">
-          Mor<span className="font-extrabold text-brand-500">Safe</span>
-        </span>
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <ShieldIcon className="h-8 w-8" />
+          <span className="text-xl font-bold tracking-tight text-brand-300">
+            Mor<span className="font-extrabold text-brand-500">Safe</span>
+          </span>
+        </div>
+
+        {/* Logo da empresa dona desta estação, abaixo do MorSafe (MorSafe
+            continua em destaque — é a marca do produto; o logo da empresa
+            aqui é só pra quem vai assinar reconhecer que é a própria
+            empresa que colocou este aparelho, não alguém de fora). Fundo
+            branco arredondado porque o logo de cada empresa cliente pode
+            ter qualquer cor/transparência — sem isso, um logo escuro
+            sumiria no fundo verde escuro da tela. */}
+        {logoEmpresaUrl && (
+          <div className="rounded-lg bg-white px-3.5 py-2 shadow-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element -- data
+                URL vindo do banco (ver empresas.logo_url); next/image não
+                otimiza data: URL, então a tag simples é a opção certa aqui. */}
+            <img
+              src={logoEmpresaUrl}
+              alt="Logo da empresa"
+              className="h-7 max-w-[140px] object-contain"
+            />
+          </div>
+        )}
       </div>
 
       {fase === "carregando" && (

@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { Modal } from "@/components/ui/modal";
-import { importarEpis } from "./actions";
+import { importarEpis, type ImportarEpiFalha } from "./actions";
 
 type RawRow = Record<string, unknown>;
 
@@ -139,6 +139,7 @@ export function ImportarEpisButton() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState<number | null>(null);
+  const [falhas, setFalhas] = useState<ImportarEpiFalha[]>([]);
   const [pending, startTransition] = useTransition();
 
   function resetAll() {
@@ -158,6 +159,7 @@ export function ImportarEpisButton() {
     setParseError(null);
     setSubmitError(null);
     setSuccessCount(null);
+    setFalhas([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -276,6 +278,7 @@ export function ImportarEpisButton() {
     setSubmitError(null);
     startTransition(async () => {
       const payload = validRows.map((r) => ({
+        linha: r.linha,
         nome: r.nome,
         tipo: r.tipo || null,
         exigeCa: !!r.ca,
@@ -293,7 +296,13 @@ export function ImportarEpisButton() {
         return;
       }
 
-      setSuccessCount(result.inserted ?? payload.length);
+      // Mesmo quando algumas linhas falham (ex: C.A./validade inconsistente
+      // com a constraint do banco — ver comentário em importarEpis), as
+      // outras já foram salvas: por isso isso não é tratado como
+      // result.error, e sim mostrado como sucesso parcial na tela seguinte,
+      // com a lista de quais linhas ficaram de fora e por quê.
+      setSuccessCount(result.inserted ?? 0);
+      setFalhas(result.falhas ?? []);
       router.refresh();
     });
   }
@@ -311,10 +320,33 @@ export function ImportarEpisButton() {
       <Modal open={open} onClose={handleClose} title="Importar EPIs">
         {successCount !== null ? (
           <div className="space-y-4">
-            <p className="rounded-lg bg-brand-50 px-3.5 py-3 text-[13.5px] font-medium text-brand-700">
-              ✓ {successCount} {successCount === 1 ? "EPI importado" : "EPIs importados"}{" "}
-              com sucesso.
-            </p>
+            {successCount > 0 && (
+              <p className="rounded-lg bg-brand-50 px-3.5 py-3 text-[13.5px] font-medium text-brand-700">
+                ✓ {successCount}{" "}
+                {successCount === 1 ? "EPI importado" : "EPIs importados"} com
+                sucesso.
+              </p>
+            )}
+
+            {falhas.length > 0 && (
+              <div className="space-y-1.5 rounded-lg bg-danger-bg px-3.5 py-3">
+                <p className="text-[13px] font-semibold text-danger-text">
+                  {falhas.length}{" "}
+                  {falhas.length === 1
+                    ? "linha não foi importada"
+                    : "linhas não foram importadas"}
+                  :
+                </p>
+                <ul className="max-h-40 space-y-0.5 overflow-y-auto text-[12.5px] text-danger-text">
+                  {falhas.map((f) => (
+                    <li key={f.linha}>
+                      Linha {f.linha} ({f.nome || "—"}): {f.erro}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="flex justify-end">
               <button
                 type="button"

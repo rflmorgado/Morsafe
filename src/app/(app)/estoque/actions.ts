@@ -192,3 +192,163 @@ export async function atualizarLimiteAlerta(
   revalidatePath("/dashboard");
   return { error: null, success: true };
 }
+
+export type ImportarEntradaEstoqueRow = {
+  // Número da linha na planilha original (cabeçalho = linha 1, ver
+  // resolvedRows em importar-estoque-button.tsx) — só pra poder apontar
+  // exatamente qual linha falhou, mesmo raciocínio de ImportarEpiRow.
+  linha: number;
+  epiId: string;
+  epiNome: string;
+  quantidade: number;
+  precoUnitario: number;
+  fornecedor: string | null;
+  notaFiscal: string | null;
+  // null = deixa o default `current_date` da coluna assumir a data de hoje.
+  dataCompra: string | null;
+};
+
+export type ImportarEntradaEstoqueFalha = {
+  linha: number;
+  epiNome: string;
+  erro: string;
+};
+
+export type ImportarEstoqueState = {
+  error: string | null;
+  inserted?: number;
+  falhas?: ImportarEntradaEstoqueFalha[];
+};
+
+/**
+ * Importação em massa de entradas de estoque — pensada pro onboarding de
+ * uma empresa nova: em vez de lançar item por item em "Registrar entrada de
+ * estoque", a empresa manda a planilha do estoque que já tem e cada linha
+ * vira uma entrada em `entradas_estoque`, exatamente como uma entrada
+ * manual — o saldo e o custo médio de cada EPI são recalculados sozinhos
+ * pelo mesmo trigger (fn_registrar_entrada_estoque, ver morsafe-schema.sql).
+ *
+ * Diferente de importarColaboradores (que cria setor/cargo novos na hora se
+ * não encontrar), aqui o EPI referido em cada linha PRECISA já existir no
+ * catálogo — a tela (importar-estoque-button.tsx) resolve o nome da
+ * planilha contra a lista de EPIs ativos e marca como erro quem não bate
+ * com nada. Por isso a ordem de onboarding de uma empresa nova é sempre:
+ * 1) importar o catálogo de EPI, 2) importar o estoque inicial.
+ *
+ * Confirma de novo aqui, no servidor, que cada epiId citado pertence MESMO
+ * a essa empresa e está ativo — numa única consulta (`in`), não uma por
+ * linha — antes de inserir qualquer coisa: o id veio do cliente (mesmo que
+ * a lista que ele escolheu já estivesse filtrada por empresa na tela), e o
+ * padrão deste projeto é nunca confiar só nisso.
+ *
+ * Insere UMA LINHA DE CADA VEZ, nunca tudo num `.insert(array)` só — mesmo
+ * raciocínio de importarEpis/importarColaboradores: uma linha problemática
+ * não pode derrubar o lote inteiro.
+ *
+ * Exige papel "admin" — mesmo nível de importarEpis/importarColaboradores
+ * (mais alto que uma entrada manual, "encarregado"): uma planilha ou um
+ * mapeamento de coluna errado bagunça o estoque em massa de uma vez só.
+ */
+export async function importarEntradasEstoque(
+  rows: ImportarEntradaEstoqueRow[],
+): Promise<ImportarEstoqueState> {
+  if (!rows.length) {
+    return { error: "Nenhuma linha válida para importar." };
+  }
+
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+  const empresaId = user.empresaId;
+
+  const { data: episValidos, error: episError } = await supabase
+    .from("epis")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .eq("ativo", true)
+    .in(
+      "id",
+      Array.from(new Set(rows.map((r) => r.epiId))),
+    );
+
+  if (episError) {
+    console.error(
+      "importarEntradasEstoque (checagem de EPIs):",
+      episError.message,
+    );
+    return { error: "Não foi possível validar os EPIs. Tente novamente." };
+  }
+
+  const idsValidos = new Set((episValidos ?? []).map((e) => e.id));
+  const falhas: ImportarEntradaEstoqueFalha[] = [];
+  let inserted = 0;
+
+  for (const r of rows) {
+    if (!idsValidos.has(r.epiId)) {
+      falhas.push({
+        linha: r.linha,
+        epiNome: r.epiNome,
+        erro: "EPI não encontrado ou desativado",
+      });
+      continue;
+    }
+
+    const { error } = await supabase.from("entradas_estoque").insert({
+      empresa_id: empresaId,
+      epi_id: r.epiId,
+      quantidade: r.quantidade,
+      preco_unitario: r.precoUnitario,
+      fornecedor: r.fornecedor,
+      nota_fiscal: r.notaFiscal,
+      criado_por: user.id,
+      ...(r.dataCompra ? { data_compra: r.dataCompra } : {}),
+    });
+
+    if (error) {
+      // 23514 = check_violation no Postgres — aqui é sempre quantidade > 0
+      // ou preco_unitario >= 0, mas essas duas já são validadas na tela
+      // antes de chegar aqui (ver importar-estoque-button.tsx); se ainda
+      // assim acontecer (ex: planilha reaberta e reenviada depois de
+      // editada por fora), a mensagem abaixo cobre o caso.
+      const mensagem =
+        error.code === "23514"
+          ? "Quantidade ou preço unitário inválido."
+          : "Não foi possível salvar esta linha.";
+      console.error(`importarEntradasEstoque (linha ${r.linha}):`, error.message);
+      falhas.push({ linha: r.linha, epiNome: r.epiNome, erro: mensagem });
+      continue;
+    }
+
+    inserted++;
+  }
+
+  if (inserted > 0) {
+    // "importado" já existe em ACAO_LABEL/descreverLogAuditoria (mesmo
+    // rótulo genérico usado por importarEpis/importarColaboradores) — não
+    // precisa de uma ação nova só pra isso.
+    await registrarLogAuditoria({
+      supabase,
+      empresaId,
+      tabela: "entradas_estoque",
+      registroId: empresaId,
+      acao: "importado",
+      usuarioId: user.id,
+      detalhes: { quantidade: inserted, falhas: falhas.length },
+    });
+    revalidatePath("/estoque");
+    revalidatePath("/epis"); // custo médio dos EPIs pode ter mudado
+    revalidatePath("/dashboard");
+  }
+
+  return {
+    error: null,
+    inserted,
+    falhas: falhas.length > 0 ? falhas : undefined,
+  };
+}

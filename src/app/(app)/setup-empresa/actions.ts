@@ -1,7 +1,8 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/data/current-user";
+import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
 export type CriarEmpresaState = {
   error: string | null;
@@ -13,6 +14,29 @@ export type CriarEmpresaState = {
  * ser executado por um usuário com papel "super_admin" (dono do MorSafe) —
  * checado aqui no servidor, além de o item de menu só aparecer para esse
  * papel (ver NAV_ITEMS / app-shell.tsx).
+ *
+ * Usa o cliente com service role (mesmo padrão de usuarios/actions.ts,
+ * ver lib/supabase/admin.ts) em vez do supabase.auth.signUp usado antes.
+ * Dois motivos, os dois causavam falha real neste fluxo:
+ *
+ * 1) A tabela `usuarios` hoje só tem política de RLS pra cada usuário ler a
+ *    própria linha, sem nenhuma política de inserção — o insert do passo 3
+ *    com o client comum (sujeito a RLS) falhava sempre, deixando uma
+ *    empresa órfã no banco e um login de autenticação "preso" (e-mail já
+ *    registrado, sem conseguir tentar de novo com ele).
+ * 2) auth.admin.createUser cria o usuário já com e-mail confirmado e sem
+ *    trocar, nos cookies do navegador atual, a sessão de quem está logado
+ *    — diferente do auth.signUp comum, que assumia a sessão do usuário
+ *    recém-criado e exigia um signOut logo em seguida. O super_admin agora
+ *    continua logado depois de cadastrar uma empresa nova.
+ *
+ * Cada passo que falha desfaz (best-effort) o que os passos anteriores já
+ * tinham criado, pra nunca sobrar empresa órfã nem login de auth preso.
+ *
+ * Mensagens de erro pro usuário são sempre genéricas em português (o
+ * detalhe técnico vai só pro log do servidor via console.error) — evita
+ * vazar texto cru do Postgres/Supabase Auth pra quem está usando o
+ * formulário, mesmo sendo um super_admin.
  */
 export async function criarEmpresa(
   _prev: CriarEmpresaState,
@@ -39,10 +63,19 @@ export async function criarEmpresa(
     return { error: "A senha do usuário admin deve ter ao menos 6 caracteres." };
   }
 
-  const supabase = await createClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error("criarEmpresa (admin client):", e);
+    return {
+      error:
+        "Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY ausente). Avise o suporte do MorSafe.",
+    };
+  }
 
   // 1) Cria a empresa primeiro (tabela sem RLS, insert sempre permitido).
-  const { data: empresa, error: empresaError } = await supabase
+  const { data: empresa, error: empresaError } = await admin
     .from("empresas")
     .insert({
       nome: empresaNome,
@@ -55,58 +88,61 @@ export async function criarEmpresa(
   if (empresaError || !empresa) {
     console.error("criarEmpresa (insert empresa):", empresaError?.message);
     return {
-      error: `Não foi possível criar a empresa. Detalhe: ${empresaError?.message ?? "erro desconhecido"}`,
+      error: "Não foi possível criar a empresa. Tente novamente ou avise o suporte do MorSafe.",
     };
   }
 
-  // 2) Cria o usuário no Supabase Auth. Isso substitui, nos cookies do
-  // navegador atual, a sessão do super_admin pela do usuário recém-criado —
-  // por isso, ao final, encerramos essa sessão nova (signOut) e o
-  // super_admin precisará entrar de novo depois de usar esta tela.
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
-    { email, password: senha },
+  // 2) Cria o usuário no Supabase Auth, já com e-mail confirmado.
+  const { data: created, error: createError } = await admin.auth.admin.createUser(
+    {
+      email,
+      password: senha,
+      email_confirm: true,
+    },
   );
 
-  if (signUpError || !signUpData.user) {
-    console.error("criarEmpresa (signUp):", signUpError?.message);
+  if (createError || !created.user) {
     // Best-effort: remove a empresa órfã já que o usuário não foi criado.
-    await supabase.from("empresas").delete().eq("id", empresa.id);
+    await admin.from("empresas").delete().eq("id", empresa.id);
+    const jaExiste =
+      createError?.code === "email_exists" ||
+      /already.*registered/i.test(createError?.message ?? "");
+    console.error("criarEmpresa (createUser):", createError?.message);
     return {
-      error:
-        signUpError?.message === "User already registered"
-          ? "Já existe um usuário com esse e-mail."
-          : `Não foi possível criar o usuário. Detalhe: ${signUpError?.message ?? "erro desconhecido"}`,
-    };
-  }
-
-  if (!signUpData.session) {
-    // Best-effort: remove a empresa órfã, já que sem sessão não dá pra
-    // seguir e vincular o usuário a ela.
-    await supabase.from("empresas").delete().eq("id", empresa.id);
-    return {
-      error:
-        "O usuário foi criado, mas a confirmação de e-mail está ativa no Supabase (Authentication > Providers > Email > 'Confirm email'). Desative essa opção, apague o usuário incompleto em Authentication > Users e tente novamente.",
+      error: jaExiste
+        ? "Já existe um usuário com esse e-mail."
+        : "Não foi possível criar o usuário. Tente novamente ou avise o suporte do MorSafe.",
     };
   }
 
   // 3) Vincula o usuário à empresa como admin.
-  const { error: usuarioError } = await supabase.from("usuarios").insert({
-    id: signUpData.user.id,
+  const { error: usuarioError } = await admin.from("usuarios").insert({
+    id: created.user.id,
     empresa_id: empresa.id,
     nome: adminNome,
     papel: "admin",
   });
 
-  // Sempre encerra a sessão do usuário recém-criado — o navegador do
-  // super_admin ficará deslogado e precisará entrar novamente.
-  await supabase.auth.signOut();
-
   if (usuarioError) {
+    // Best-effort: desfaz os dois passos anteriores, já que o cadastro como
+    // um todo falhou — sem isso, sobra empresa órfã e login de auth preso.
+    await admin.auth.admin.deleteUser(created.user.id);
+    await admin.from("empresas").delete().eq("id", empresa.id);
     console.error("criarEmpresa (insert usuario):", usuarioError.message);
     return {
-      error: `O usuário de autenticação foi criado, mas houve um erro ao vinculá-lo à empresa. Detalhe: ${usuarioError.message}`,
+      error: "Não foi possível vincular o usuário à empresa. Tente novamente ou avise o suporte do MorSafe.",
     };
   }
+
+  await registrarLogAuditoria({
+    supabase: admin,
+    empresaId: empresa.id,
+    tabela: "empresas",
+    registroId: empresa.id,
+    acao: "criado",
+    usuarioId: requester.id,
+    detalhes: { nome: empresaNome },
+  });
 
   return { error: null, success: true };
 }

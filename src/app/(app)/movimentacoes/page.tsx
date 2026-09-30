@@ -102,15 +102,21 @@ export default async function MovimentacoesPage({
   const page = Math.max(1, Number(pageParam) || 1);
   const tipoFiltro = isTipo(tipo) ? tipo : undefined;
 
+  // listMovimentacoes e as listas de apoio agora filtram por empresa (ver
+  // lib/data/movimentacoes.ts) — precisam do usuário logado antes, então
+  // buscamos ele primeiro e só então disparamos o resto em paralelo.
+  const user = await getCurrentUser();
+  const empresaId = user?.empresaId ?? null;
+
   const [
     { eventos, total },
     colaboradoresAtivos,
     episAtivos,
     colaboradoresFiltro,
     episFiltro,
-    user,
   ] = await Promise.all([
     listMovimentacoes({
+      empresaId,
       tipo: tipoFiltro,
       colaboradorId: colaborador,
       epiId: epi,
@@ -118,17 +124,14 @@ export default async function MovimentacoesPage({
       dataFim: ate,
       page,
     }),
-    listColaboradoresAtivos(),
-    listEpisAtivos(),
-    listColaboradoresParaFiltro(),
-    listEpisParaFiltro(),
-    getCurrentUser(),
+    listColaboradoresAtivos(empresaId),
+    listEpisAtivos(empresaId),
+    listColaboradoresParaFiltro(empresaId),
+    listEpisParaFiltro(empresaId),
   ]);
 
   // listEstacoesAtivas agora filtra por empresa (ver estacoes-assinatura.ts)
-  // — precisa do usuário logado antes, então não dá mais pra buscar em
-  // paralelo com o Promise.all acima.
-  const estacoesAtivas = await listEstacoesAtivas(user?.empresaId ?? null);
+  const estacoesAtivas = await listEstacoesAtivas(empresaId);
 
   const totalPages = Math.max(1, Math.ceil(total / MOVIMENTACOES_PAGE_SIZE));
 

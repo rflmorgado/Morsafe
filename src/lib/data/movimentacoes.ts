@@ -44,6 +44,11 @@ type ColaboradorEmbed = { id: string; nome: string } | null;
 type EntregaLigadaEmbed = { quantidade: number } | null;
 
 export type ListMovimentacoesOptions = {
+  // `empresaId` filtra explicitamente — antes dependia só do RLS pra
+  // isolar (mesmo raciocínio de listColaboradores/listEpis em
+  // colaboradores.ts/epis.ts): `null` quer dizer "sem empresa
+  // identificada" e retorna lista vazia direto, sem consultar o banco.
+  empresaId: string | null;
   tipo?: TipoMovimentacao;
   colaboradorId?: string;
   epiId?: string;
@@ -63,12 +68,18 @@ export type ListMovimentacoesOptions = {
 async function buscarEventos(
   supabase: Awaited<ReturnType<typeof createClient>>,
   {
+    empresaId,
     tipo,
     colaboradorId,
     epiId,
     dataInicio,
     dataFim,
-  }: Omit<ListMovimentacoesOptions, "page">,
+  }: Omit<ListMovimentacoesOptions, "page" | "empresaId"> & {
+    // Não-nulo aqui de propósito: os dois chamadores (listMovimentacoes,
+    // listMovimentacoesParaExportar) já retornam cedo com lista vazia
+    // quando empresaId é null, antes de chegar aqui.
+    empresaId: string;
+  },
 ): Promise<MovimentacaoEvento[]> {
   const eventos: MovimentacaoEvento[] = [];
 
@@ -77,7 +88,8 @@ async function buscarEventos(
       .from("entregas")
       .select(
         "id, data, hora, motivo, quantidade, criado_em, colaboradores ( id, nome ), epis ( nome, ca )",
-      );
+      )
+      .eq("empresa_id", empresaId);
     if (colaboradorId) q = q.eq("colaborador_id", colaboradorId);
     if (epiId) q = q.eq("epi_id", epiId);
     if (dataInicio) q = q.gte("data", dataInicio);
@@ -109,7 +121,8 @@ async function buscarEventos(
       .from("devolucoes")
       .select(
         "id, data, motivo, destino, devolvido_fisicamente, criado_em, colaboradores ( id, nome ), epis ( nome, ca ), entregas ( quantidade )",
-      );
+      )
+      .eq("empresa_id", empresaId);
     if (colaboradorId) q = q.eq("colaborador_id", colaboradorId);
     if (epiId) q = q.eq("epi_id", epiId);
     if (dataInicio) q = q.gte("data", dataInicio);
@@ -144,7 +157,8 @@ async function buscarEventos(
       .from("recusas")
       .select(
         "id, data, hora, testemunha, observacoes, criado_em, colaboradores ( id, nome ), epis ( nome, ca )",
-      );
+      )
+      .eq("empresa_id", empresaId);
     if (colaboradorId) q = q.eq("colaborador_id", colaboradorId);
     if (epiId) q = q.eq("epi_id", epiId);
     if (dataInicio) q = q.gte("data", dataInicio);
@@ -195,18 +209,22 @@ async function buscarEventos(
  * diferentes.
  */
 export async function listMovimentacoes({
+  empresaId,
   tipo,
   colaboradorId,
   epiId,
   dataInicio,
   dataFim,
   page = 1,
-}: ListMovimentacoesOptions = {}): Promise<{
+}: ListMovimentacoesOptions): Promise<{
   eventos: MovimentacaoEvento[];
   total: number;
 }> {
+  if (!empresaId) return { eventos: [], total: 0 };
+
   const supabase = await createClient();
   const eventos = await buscarEventos(supabase, {
+    empresaId,
     tipo,
     colaboradorId,
     epiId,
@@ -227,10 +245,12 @@ export async function listMovimentacoes({
  * usada pela exportação em CSV.
  */
 export async function listMovimentacoesParaExportar(
-  options: Omit<ListMovimentacoesOptions, "page"> = {},
+  options: Omit<ListMovimentacoesOptions, "page">,
 ): Promise<MovimentacaoEvento[]> {
+  const { empresaId } = options;
+  if (!empresaId) return [];
   const supabase = await createClient();
-  return buscarEventos(supabase, options);
+  return buscarEventos(supabase, { ...options, empresaId });
 }
 
 export type ColaboradorAtivo = { id: string; nome: string };
@@ -240,11 +260,16 @@ export type ColaboradorAtivo = { id: string; nome: string };
  * quem está ativo pode receber, devolver ou recusar um EPI; um colaborador
  * já desligado não aparece nessas opções.
  */
-export async function listColaboradoresAtivos(): Promise<ColaboradorAtivo[]> {
+export async function listColaboradoresAtivos(
+  empresaId: string | null,
+): Promise<ColaboradorAtivo[]> {
+  if (!empresaId) return [];
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("colaboradores")
     .select("id, nome")
+    .eq("empresa_id", empresaId)
     .eq("status", "ativo")
     .order("nome", { ascending: true });
 
@@ -267,11 +292,16 @@ export type EpiAtivo = {
  * raciocínio de listColaboradoresAtivos: um EPI desativado sai do catálogo
  * corrente e não deve mais ser oferecido em novas movimentações.
  */
-export async function listEpisAtivos(): Promise<EpiAtivo[]> {
+export async function listEpisAtivos(
+  empresaId: string | null,
+): Promise<EpiAtivo[]> {
+  if (!empresaId) return [];
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("epis")
     .select("id, nome, ca, custo_medio_atual")
+    .eq("empresa_id", empresaId)
     .eq("ativo", true)
     .order("nome", { ascending: true });
 
@@ -294,11 +324,16 @@ export async function listEpisAtivos(): Promise<EpiAtivo[]> {
  * movimentação antiga de um colaborador já desligado, ou de um EPI já
  * desativado, continua existindo no histórico e precisa continuar filtrável.
  */
-export async function listColaboradoresParaFiltro(): Promise<ColaboradorAtivo[]> {
+export async function listColaboradoresParaFiltro(
+  empresaId: string | null,
+): Promise<ColaboradorAtivo[]> {
+  if (!empresaId) return [];
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("colaboradores")
     .select("id, nome")
+    .eq("empresa_id", empresaId)
     .order("nome", { ascending: true });
 
   if (error || !data) {
@@ -310,11 +345,16 @@ export async function listColaboradoresParaFiltro(): Promise<ColaboradorAtivo[]>
 
 export type EpiParaFiltro = { id: string; nome: string };
 
-export async function listEpisParaFiltro(): Promise<EpiParaFiltro[]> {
+export async function listEpisParaFiltro(
+  empresaId: string | null,
+): Promise<EpiParaFiltro[]> {
+  if (!empresaId) return [];
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("epis")
     .select("id, nome")
+    .eq("empresa_id", empresaId)
     .order("nome", { ascending: true });
 
   if (error || !data) {
@@ -349,8 +389,9 @@ export type EntregaEmPosse = {
  */
 export async function listEntregasEmPosse(
   colaboradorId: string,
+  empresaId: string | null,
 ): Promise<EntregaEmPosse[]> {
-  if (!colaboradorId) return [];
+  if (!colaboradorId || !empresaId) return [];
   const supabase = await createClient();
 
   const [{ data: entregas, error: entregasError }, { data: devolucoes }] =
@@ -358,11 +399,13 @@ export async function listEntregasEmPosse(
       supabase
         .from("entregas")
         .select("id, data, motivo, epi_id, quantidade, epis ( nome, ca )")
+        .eq("empresa_id", empresaId)
         .eq("colaborador_id", colaboradorId)
         .order("data", { ascending: false }),
       supabase
         .from("devolucoes")
         .select("entrega_vinculada_id")
+        .eq("empresa_id", empresaId)
         .eq("colaborador_id", colaboradorId)
         .not("entrega_vinculada_id", "is", null),
     ]);

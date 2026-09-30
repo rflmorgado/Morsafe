@@ -61,6 +61,14 @@ export function EditarEpiButton({ epi }: { epi: Epi }) {
       <Modal open={open} onClose={handleClose} title="Editar EPI">
         <form action={handleSubmit} className="space-y-4">
           <input type="hidden" name="id" value={epi.id} />
+          {/* Valor de custo_medio_atual no momento em que esta tela abriu —
+              usado só pra updateEpi detectar se ele mudou em outro lugar
+              enquanto a tela estava aberta (ver comentário em actions.ts) */}
+          <input
+            type="hidden"
+            name="custo_medio_atual_original"
+            value={epi.custoMedioAtual}
+          />
           <EpiFormFields
             idPrefix={`edit-${epi.id}`}
             defaultValues={{

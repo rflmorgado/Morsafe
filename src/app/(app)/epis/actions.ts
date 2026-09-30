@@ -202,6 +202,10 @@ export async function updateEpi(
 }
 
 export type ImportarEpiRow = {
+  // Número da linha na planilha original (cabeçalho = linha 1, ver
+  // resolvedRows em importar-epis-button.tsx) — só pra poder apontar
+  // exatamente qual linha falhou, ver comentário abaixo.
+  linha: number;
   nome: string;
   tipo: string | null;
   exigeCa: boolean;
@@ -212,14 +216,32 @@ export type ImportarEpiRow = {
   vidaUtilDias: number | null;
 };
 
-export type ImportarEpisState = { error: string | null; inserted?: number };
+export type ImportarEpiFalha = {
+  linha: number;
+  nome: string;
+  erro: string;
+};
+
+export type ImportarEpisState = {
+  error: string | null;
+  inserted?: number;
+  falhas?: ImportarEpiFalha[];
+};
 
 /**
  * Importação em massa do catálogo de EPI. Diferente de colaboradores, não
  * existe FK pra resolver ou criar no meio do caminho (tipo é uma coluna de
  * texto livre, não uma tabela separada) — o componente cliente já leu e
- * validou a planilha inteira, então esta action só confere permissão e
- * insere tudo de uma vez.
+ * validou a planilha inteira.
+ *
+ * Insere UMA LINHA DE CADA VEZ, nunca tudo num `.insert(array)` só — mesmo
+ * raciocínio (e mesmo padrão) de importarColaboradores em
+ * colaboradores/actions.ts: um insert em lote é atômico, então uma única
+ * linha problemática (ex: C.A. marcado como exigido mas sem número, que
+ * viola a constraint `chk_ca_coerente` do banco) fazia a importação INTEIRA
+ * falhar, sem dizer qual linha. Inserindo uma por uma, essa linha vira uma
+ * falha reportada com o número dela e o motivo, e as outras continuam
+ * sendo importadas normalmente.
  *
  * Exige papel "admin" (um nível acima de criar/editar um único EPI, que pede
  * só "encarregado"): mesmo raciocínio de colaboradores — uma planilha ou um
@@ -242,40 +264,60 @@ export async function importarEpis(
   }
 
   const supabase = await createClient();
-  const payload = rows.map((r) => ({
-    empresa_id: user.empresaId as string,
-    nome: r.nome,
-    tipo: r.tipo,
-    exige_ca: r.exigeCa,
-    ca: r.ca,
-    ca_validade: r.caValidade,
-    custo_medio_atual: r.custoMedioAtual,
-    fornecedor: r.fornecedor,
-    vida_util_dias: r.vidaUtilDias,
-  }));
+  const empresaId = user.empresaId;
+  const falhas: ImportarEpiFalha[] = [];
+  let inserted = 0;
 
-  const { error, count } = await supabase
-    .from("epis")
-    .insert(payload, { count: "exact" });
+  for (const r of rows) {
+    const { error } = await supabase.from("epis").insert({
+      empresa_id: empresaId,
+      nome: r.nome,
+      tipo: r.tipo,
+      exige_ca: r.exigeCa,
+      ca: r.ca,
+      ca_validade: r.caValidade,
+      custo_medio_atual: r.custoMedioAtual,
+      fornecedor: r.fornecedor,
+      vida_util_dias: r.vidaUtilDias,
+    });
 
-  if (error) {
-    console.error("importarEpis:", error.message);
-    return { error: "Não foi possível importar os EPIs. Tente novamente." };
+    if (error) {
+      // 23514 = check_violation no Postgres — aqui é sempre a constraint
+      // chk_ca_coerente (exige C.A. mas ficou sem número, ou o contrário
+      // com validade preenchida): a única checagem de consistência que só
+      // o banco valida, o mapeamento de colunas no cliente não detecta.
+      const mensagem =
+        error.code === "23514"
+          ? "C.A. e validade inconsistentes com \"Exige C.A.\"."
+          : "Não foi possível salvar esta linha.";
+      console.error(`importarEpis (linha ${r.linha}):`, error.message);
+      falhas.push({ linha: r.linha, nome: r.nome, erro: mensagem });
+      continue;
+    }
+
+    inserted++;
   }
 
-  const inserted = count ?? payload.length;
-  await registrarLogAuditoria({
-    supabase,
-    empresaId: user.empresaId,
-    tabela: "epis",
-    registroId: user.empresaId,
-    acao: "importado",
-    usuarioId: user.id,
-    detalhes: { quantidade: inserted },
-  });
+  if (inserted > 0) {
+    // Um único registro de log pra importação inteira (não um por linha) —
+    // mesmo raciocínio de importarColaboradores.
+    await registrarLogAuditoria({
+      supabase,
+      empresaId,
+      tabela: "epis",
+      registroId: empresaId,
+      acao: "importado",
+      usuarioId: user.id,
+      detalhes: { quantidade: inserted, falhas: falhas.length },
+    });
+    revalidatePath("/epis");
+  }
 
-  revalidatePath("/epis");
-  return { error: null, inserted };
+  return {
+    error: null,
+    inserted,
+    falhas: falhas.length > 0 ? falhas : undefined,
+  };
 }
 
 export type DesativarEpiState = { error: string | null; success?: boolean };

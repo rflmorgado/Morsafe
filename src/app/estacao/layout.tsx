@@ -25,7 +25,13 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "MorSafe",
+    // Nome que aparece embaixo do ícone na tela de início do iPhone/iPad
+    // (equivalente ao "short_name" do manifest, que cobre Android) — de
+    // propósito diferente do "MorSafe" puro e simples: esse aparelho é a
+    // estação fixa de coleta de assinatura, não o app principal que um
+    // colaborador abriria no dia a dia. Ver mesmo raciocínio no
+    // "short_name" de public/manifest-estacao.webmanifest.
+    title: "MorSafe Estação",
   },
 };
 

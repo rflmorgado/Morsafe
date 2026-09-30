@@ -23,9 +23,19 @@ function formatDate(value: string) {
 // Usado só na linha "Registrado por" de cada evento (ver mais abaixo) —
 // diferente de formatDate, mostra também a hora, porque vem de criado_em
 // (timestamp do servidor), não do "data"/"hora" digitado no formulário.
+//
+// `criado_em` é gravado em UTC (timestamptz, ver morsafe-schema.sql). Sem o
+// `timeZone` abaixo, toLocaleDateString/toLocaleTimeString formatam usando o
+// fuso do processo Node — na Vercel isso é UTC, então o horário exibido
+// ficava 3h à frente do horário real de Brasília (mesmo bug já corrigido em
+// usuarios/[id]/historico/page.tsx). Fixando o fuso aqui, o horário bate com
+// o horário local de quem registrou o evento, não importa onde o servidor
+// está rodando.
 function formatDateTime(iso: string) {
   const d = new Date(iso);
-  return `${d.toLocaleDateString("pt-BR")} às ${d.toLocaleTimeString("pt-BR", {
+  const opcoes = { timeZone: "America/Sao_Paulo" } as const;
+  return `${d.toLocaleDateString("pt-BR", opcoes)} às ${d.toLocaleTimeString("pt-BR", {
+    ...opcoes,
     hour: "2-digit",
     minute: "2-digit",
   })}`;

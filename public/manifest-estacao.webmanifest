@@ -1,5 +1,5 @@
 {
-  "name": "MorSafe — Estação de Assinatura",
+  "name": "MorSafe",
   "short_name": "MorSafe",
   "description": "Estação de coleta de assinatura de EPI — mantenha este aparelho pareado e sempre aberto nesta tela.",
   "start_url": "/estacao",
@@ -14,12 +14,14 @@
     {
       "src": "/icon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/apple-icon.png",
       "sizes": "180x180",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

@@ -156,13 +156,27 @@ export async function deleteCargo(cargoId: string): Promise<DeleteCargoState> {
 
   const supabase = await createClient();
 
+  // Confirma que a função é da MESMA empresa de quem está excluindo, antes
+  // de tentar o delete — mesma checagem já usada em
+  // excluirColaboradorDefinitivamente/updateEpi, pra não depender só do
+  // RLS pra recusar um id de outra empresa cliente.
   const { data: cargo } = await supabase
     .from("cargos")
     .select("nome")
     .eq("id", cargoId)
+    .eq("empresa_id", user.empresaId)
     .maybeSingle();
 
-  const { error } = await supabase.from("cargos").delete().eq("id", cargoId);
+  if (!cargo) {
+    return { error: "Função não encontrada." };
+  }
+
+  const { data: excluido, error } = await supabase
+    .from("cargos")
+    .delete()
+    .eq("id", cargoId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     if (error.code === "23503") {
@@ -174,6 +188,12 @@ export async function deleteCargo(cargoId: string): Promise<DeleteCargoState> {
     console.error("deleteCargo:", error.message);
     return { error: "Não foi possível excluir a função. Tente novamente." };
   }
+  // Mesma checagem da regra 1 do CLAUDE.md: um .delete() que não bate com
+  // nenhuma linha retorna error: null mesmo sem apagar nada.
+  if (!excluido) {
+    console.error("deleteCargo: delete não afetou nenhuma linha para id=", cargoId);
+    return { error: "Não foi possível excluir a função. Tente novamente." };
+  }
 
   await registrarLogAuditoria({
     supabase,
@@ -182,7 +202,7 @@ export async function deleteCargo(cargoId: string): Promise<DeleteCargoState> {
     registroId: cargoId,
     acao: "excluido",
     usuarioId: user.id,
-    detalhes: { nome: cargo?.nome ?? null },
+    detalhes: { nome: cargo.nome },
   });
 
   revalidatePath("/colaboradores");
@@ -207,13 +227,27 @@ export async function deleteSetor(setorId: string): Promise<DeleteSetorState> {
 
   const supabase = await createClient();
 
+  // Confirma que o setor é da MESMA empresa de quem está excluindo, antes
+  // de tentar o delete — mesma checagem já usada em
+  // excluirColaboradorDefinitivamente/updateEpi, pra não depender só do
+  // RLS pra recusar um id de outra empresa cliente.
   const { data: setor } = await supabase
     .from("setores")
     .select("nome")
     .eq("id", setorId)
+    .eq("empresa_id", user.empresaId)
     .maybeSingle();
 
-  const { error } = await supabase.from("setores").delete().eq("id", setorId);
+  if (!setor) {
+    return { error: "Setor não encontrado." };
+  }
+
+  const { data: excluido, error } = await supabase
+    .from("setores")
+    .delete()
+    .eq("id", setorId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     if (error.code === "23503") {
@@ -225,6 +259,12 @@ export async function deleteSetor(setorId: string): Promise<DeleteSetorState> {
     console.error("deleteSetor:", error.message);
     return { error: "Não foi possível excluir o setor. Tente novamente." };
   }
+  // Mesma checagem da regra 1 do CLAUDE.md: um .delete() que não bate com
+  // nenhuma linha retorna error: null mesmo sem apagar nada.
+  if (!excluido) {
+    console.error("deleteSetor: delete não afetou nenhuma linha para id=", setorId);
+    return { error: "Não foi possível excluir o setor. Tente novamente." };
+  }
 
   await registrarLogAuditoria({
     supabase,
@@ -233,7 +273,7 @@ export async function deleteSetor(setorId: string): Promise<DeleteSetorState> {
     registroId: setorId,
     acao: "excluido",
     usuarioId: user.id,
-    detalhes: { nome: setor?.nome ?? null },
+    detalhes: { nome: setor.nome },
   });
 
   revalidatePath("/colaboradores");
@@ -643,13 +683,21 @@ export async function excluirColaboradorDefinitivamente(
 
   const supabase = await createClient();
 
+  // Confirma que o colaborador é da MESMA empresa de quem está excluindo,
+  // antes de tentar o delete — mesma checagem já usada em
+  // reativarColaborador/updateEpi, pra não depender só do RLS pra recusar
+  // um id de outra empresa cliente.
   const { data: colaborador, error: colaboradorError } = await supabase
     .from("colaboradores")
-    .select("status, nome")
+    .select("status, nome, empresa_id")
     .eq("id", colaboradorId)
     .maybeSingle();
 
-  if (colaboradorError || !colaborador) {
+  if (
+    colaboradorError ||
+    !colaborador ||
+    colaborador.empresa_id !== user.empresaId
+  ) {
     return { error: "Colaborador não encontrado." };
   }
   if (colaborador.status !== "inativo") {
@@ -659,10 +707,12 @@ export async function excluirColaboradorDefinitivamente(
     };
   }
 
-  const { error: deleteError } = await supabase
+  const { data: excluido, error: deleteError } = await supabase
     .from("colaboradores")
     .delete()
-    .eq("id", colaboradorId);
+    .eq("id", colaboradorId)
+    .select("id")
+    .maybeSingle();
 
   if (deleteError) {
     if (deleteError.code === "23503") {
@@ -676,18 +726,27 @@ export async function excluirColaboradorDefinitivamente(
       error: "Não foi possível excluir o colaborador. Tente novamente.",
     };
   }
-
-  if (user.empresaId) {
-    await registrarLogAuditoria({
-      supabase,
-      empresaId: user.empresaId,
-      tabela: "colaboradores",
-      registroId: colaboradorId,
-      acao: "excluido",
-      usuarioId: user.id,
-      detalhes: { nome: colaborador.nome },
-    });
+  // Mesma checagem da regra 1 do CLAUDE.md: um .delete() que não bate com
+  // nenhuma linha retorna error: null mesmo sem apagar nada.
+  if (!excluido) {
+    console.error(
+      "excluirColaboradorDefinitivamente: delete não afetou nenhuma linha para colaboradorId=",
+      colaboradorId,
+    );
+    return {
+      error: "Não foi possível excluir o colaborador. Tente novamente.",
+    };
   }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: colaborador.empresa_id,
+    tabela: "colaboradores",
+    registroId: colaboradorId,
+    acao: "excluido",
+    usuarioId: user.id,
+    detalhes: { nome: colaborador.nome },
+  });
 
   revalidatePath("/colaboradores");
   return { error: null, success: true };

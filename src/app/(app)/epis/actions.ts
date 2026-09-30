@@ -154,14 +154,43 @@ export async function updateEpi(
   // Confirma que o EPI é da MESMA empresa de quem está editando, antes de
   // tentar o update — mesma checagem já usada em colaboradores/estacoes,
   // pra não depender só do RLS pra recusar um id de outra empresa cliente.
+  // custo_medio_atual também vem nessa busca, pra checagem de "valor mudou
+  // enquanto a tela estava aberta" logo abaixo.
   const { data: epiAtual, error: buscaError } = await supabase
     .from("epis")
-    .select("empresa_id")
+    .select("empresa_id, custo_medio_atual")
     .eq("id", id)
     .maybeSingle();
 
   if (buscaError || !epiAtual || epiAtual.empresa_id !== user.empresaId) {
     return { error: "EPI não encontrado." };
+  }
+
+  // Trava de concorrência só pro custo médio: esse campo pode em breve
+  // passar a ser recalculado sozinho a partir de `entradas_estoque` (ver
+  // comentário no topo do arquivo) — quando isso existir, uma tela de
+  // edição aberta há um tempo (ou uma segunda aba) pode estar mostrando um
+  // valor já ultrapassado. Sem essa checagem, salvar QUALQUER campo deste
+  // formulário (ex.: só o nome) sobrescreveria silenciosamente esse valor
+  // de volta pro número antigo que estava na tela. custo_medio_atual_original
+  // vem escondido no form com o valor que estava lá quando a tela abriu
+  // (ver editar-epi-button.tsx); só compara e bloqueia se o campo existir
+  // no formulário (formulários antigos em cache não têm) e a diferença for
+  // real (não só arredondamento de ponto flutuante).
+  const custoMedioOriginalRaw = formData.get("custo_medio_atual_original");
+  if (custoMedioOriginalRaw !== null) {
+    const custoMedioOriginal = Number(
+      String(custoMedioOriginalRaw).replace(",", "."),
+    );
+    if (
+      Number.isFinite(custoMedioOriginal) &&
+      Math.abs(custoMedioOriginal - epiAtual.custo_medio_atual) > 0.001
+    ) {
+      return {
+        error:
+          "O custo médio deste EPI foi alterado em outra ação enquanto esta tela estava aberta. Feche e edite novamente para não sobrescrever o valor atualizado.",
+      };
+    }
   }
 
   const { data, error } = await supabase

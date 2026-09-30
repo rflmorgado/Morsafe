@@ -19,10 +19,8 @@ export function SetupEmpresaForm() {
   if (state.success) {
     return (
       <div className="rounded-lg bg-brand-50 px-4 py-3.5 text-sm text-brand-800">
-        Empresa e usuário admin criados com sucesso. Sua sessão foi encerrada
-        — o novo cliente já pode entrar em <strong>/login</strong> com o
-        e-mail e senha cadastrados. Você precisa entrar de novo para
-        continuar usando o MorSafe.
+        Empresa e usuário admin criados com sucesso. O novo cliente já pode
+        entrar em <strong>/login</strong> com o e-mail e senha cadastrados.
       </div>
     );
   }

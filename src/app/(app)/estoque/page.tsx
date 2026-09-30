@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { EstoqueFilters } from "./estoque-filters";
 import { RegistrarEntradaButton } from "./registrar-entrada-button";
+import { ImportarEstoqueButton } from "./importar-estoque-button";
 import { EditarLimiteButton } from "./editar-limite-button";
 
 function formatDate(value: string) {
@@ -136,6 +137,10 @@ export default async function EstoquePage({
   // ajusta limite de alerta — não é uma ação mais sensível que cadastrar um
   // EPI ou registrar uma entrega.
   const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
+  // Importação em massa exige "admin", mesmo nível de Importar EPIs/
+  // Importar colaboradores — um mapeamento de coluna errado bagunça o
+  // estoque inteiro de uma vez (ver comentário em actions.ts).
+  const podeImportar = temPapelMinimo(user?.papel, "admin");
 
   return (
     <div className="space-y-8">
@@ -148,7 +153,14 @@ export default async function EstoquePage({
         <ListToolbar
           filters={<EstoqueFilters />}
           actions={
-            podeGerenciar && <RegistrarEntradaButton epis={episAtivos} />
+            podeGerenciar && (
+              <>
+                {podeImportar && (
+                  <ImportarEstoqueButton epis={episAtivos} />
+                )}
+                <RegistrarEntradaButton epis={episAtivos} />
+              </>
+            )
           }
         />
 

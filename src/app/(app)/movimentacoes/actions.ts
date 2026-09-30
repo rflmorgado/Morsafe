@@ -398,7 +398,7 @@ export async function buscarEntregasEmPosse(
 ): Promise<EntregaEmPosse[]> {
   const user = await getCurrentUser();
   if (!user?.empresaId || !colaboradorId) return [];
-  return listEntregasEmPosse(colaboradorId);
+  return listEntregasEmPosse(colaboradorId, user.empresaId);
 }
 
 /**
@@ -420,6 +420,7 @@ export async function buscarSaldoEstoque(
   const { data, error } = await supabase
     .from("estoque")
     .select("saldo_atual")
+    .eq("empresa_id", user.empresaId)
     .eq("epi_id", epiId)
     .maybeSingle();
 

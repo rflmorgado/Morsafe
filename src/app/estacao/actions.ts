@@ -265,24 +265,6 @@ export async function responderSolicitacaoAssinatura(
     return { error: "Não foi possível enviar a assinatura. Tente novamente." };
   }
 
-  const { data, error } = await supabase
-    .from("solicitacoes_assinatura")
-    .update({
-      status: "assinado",
-      assinatura_url: assinaturaUrl,
-      respondido_em: new Date().toISOString(),
-    })
-    .eq("id", solicitacaoId)
-    .eq("estacao_id", estacao.id)
-    .eq("status", "aguardando")
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    console.error("responderSolicitacaoAssinatura:", error.message);
-    return { error: "Não foi possível enviar a assinatura. Tente novamente." };
-  }
-
   // Um .update() que não bate com nenhuma linha retorna error: null mesmo
   // sem alterar nada (ver CLAUDE.md, regra 1) — e isso acontece de verdade
   // aqui sempre que o pedido foi cancelado (ou já respondido) entre a

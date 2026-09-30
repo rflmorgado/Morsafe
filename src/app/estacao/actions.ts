@@ -161,6 +161,43 @@ export async function buscarSolicitacaoPendente(
   };
 }
 
+/**
+ * Logo da empresa dona desta estação — buscado UMA VEZ (ver useEffect em
+ * page.tsx), nunca a cada poll de buscarSolicitacaoPendente() (a cada 2s):
+ * o logo é um PNG em data URL, com dezenas de KB (ver comentário em
+ * lib/data/empresa.ts), e reenviar isso a cada 2 segundos pra sempre
+ * desperdiçaria dados do aparelho à toa. `null` cobre tanto "empresa sem
+ * logo cadastrado" quanto qualquer falha — funcionalidade acessória nunca
+ * pode travar a tela principal da estação (CLAUDE.md, regra 4).
+ */
+export async function buscarLogoEstacao(token: string): Promise<string | null> {
+  if (!token) return null;
+
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch (e) {
+    console.error("buscarLogoEstacao (admin client):", e);
+    return null;
+  }
+
+  const { data: estacao } = await supabase
+    .from("estacoes_assinatura")
+    .select("empresa_id")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (!estacao) return null;
+
+  const { data: empresa } = await supabase
+    .from("empresas")
+    .select("logo_url")
+    .eq("id", estacao.empresa_id)
+    .maybeSingle();
+
+  return empresa?.logo_url ?? null;
+}
+
 export type ResponderSolicitacaoState = {
   error: string | null;
   // Discriminam o motivo do erro pra quem chama (ver estacao/page.tsx)
@@ -208,6 +245,24 @@ export async function responderSolicitacaoAssinatura(
       error: "Aparelho não reconhecido ou desativado.",
       aparelhoInvalido: true,
     };
+  }
+
+  const { data, error } = await supabase
+    .from("solicitacoes_assinatura")
+    .update({
+      status: "assinado",
+      assinatura_url: assinaturaUrl,
+      respondido_em: new Date().toISOString(),
+    })
+    .eq("id", solicitacaoId)
+    .eq("estacao_id", estacao.id)
+    .eq("status", "aguardando")
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("responderSolicitacaoAssinatura:", error.message);
+    return { error: "Não foi possível enviar a assinatura. Tente novamente." };
   }
 
   const { data, error } = await supabase

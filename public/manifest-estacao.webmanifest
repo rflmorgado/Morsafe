@@ -1,6 +1,6 @@
 {
   "name": "MorSafe",
-  "short_name": "MorSafe",
+  "short_name": "MorSafe Estação",
   "description": "Estação de coleta de assinatura de EPI — mantenha este aparelho pareado e sempre aberto nesta tela.",
   "start_url": "/estacao",
   "scope": "/estacao",

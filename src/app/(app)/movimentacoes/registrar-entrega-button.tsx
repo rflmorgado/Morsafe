@@ -67,6 +67,16 @@ export function RegistrarEntregaButton({
     null,
   );
 
+  // Só é exigida quando a assinatura é coletada AQUI (modo "local", ver
+  // SignaturePad abaixo) — no modo "estacao" a confirmação vem depois, pelo
+  // polling. Sem essa checagem no botão, dava pra clicar "Registrar
+  // entrega" sem assinar nada: o servidor recusa (registrarEntrega em
+  // actions.ts), mas só depois do vai-e-volta, sem nenhum aviso antes.
+  const [assinaturaColetada, setAssinaturaColetada] = useState(false);
+  const precisaAssinaturaLocal = !(
+    modoAssinatura === "estacao" && estacoes.length > 0
+  );
+
   // Estoque atual do EPI selecionado — só pra avisar (não bloquear, ver
   // comentário em buscarSaldoEstoque) quando a quantidade deixaria o saldo
   // negativo. requestIdRef segue o mesmo raciocínio do guard de devolução:
@@ -100,6 +110,7 @@ export function RegistrarEntregaButton({
     setOpen(false);
     setPedidoPendente(null);
     setError(null);
+    setAssinaturaColetada(false);
     resetCamposEstoque();
   }
 
@@ -151,6 +162,7 @@ export function RegistrarEntregaButton({
       }
       setOpen(false);
       setFormKey((k) => k + 1);
+      setAssinaturaColetada(false);
       resetCamposEstoque();
     });
   }
@@ -189,6 +201,7 @@ export function RegistrarEntregaButton({
         setOpen(false);
         setFormKey((k) => k + 1);
         setPedidoPendente(null);
+        setAssinaturaColetada(false);
         resetCamposEstoque();
       } else if (result.status === "cancelado" || result.status === "expirado") {
         clearInterval(id);
@@ -395,7 +408,15 @@ export function RegistrarEntregaButton({
               <div className="mb-2.5 flex gap-1.5 rounded-lg bg-surface-muted p-1">
                 <button
                   type="button"
-                  onClick={() => setModoAssinatura("local")}
+                  onClick={() => {
+                    setModoAssinatura("local");
+                    // O SignaturePad remonta em branco ao voltar pra esse
+                    // modo (só é renderizado quando modoAssinatura ===
+                    // "local") — sem isso, assinaturaColetada ficava com o
+                    // valor de antes de trocar de aba, destravando o botão
+                    // de enviar mesmo com o campo vazio de novo.
+                    setAssinaturaColetada(false);
+                  }}
                   className={`flex-1 rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition ${
                     modoAssinatura === "local"
                       ? "bg-surface text-foreground shadow-sm"
@@ -433,7 +454,10 @@ export function RegistrarEntregaButton({
                 ))}
               </select>
             ) : (
-              <SignaturePad name="assinatura_url" />
+              <SignaturePad
+                name="assinatura_url"
+                onAssinaturaChange={setAssinaturaColetada}
+              />
             )}
           </div>
 
@@ -453,7 +477,7 @@ export function RegistrarEntregaButton({
             </button>
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || (precisaAssinaturaLocal && !assinaturaColetada)}
               className="rounded-lg bg-brand-700 px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending ? "Salvando..." : "Registrar entrega"}

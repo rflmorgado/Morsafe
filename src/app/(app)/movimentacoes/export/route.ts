@@ -64,6 +64,7 @@ export async function GET(request: Request) {
   const dataFim = searchParams.get("ate") ?? undefined;
 
   const eventos = await listMovimentacoesParaExportar({
+    empresaId: user.empresaId,
     tipo,
     colaboradorId,
     epiId,

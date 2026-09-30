@@ -9,14 +9,23 @@ export type SetorComCargos = {
 /**
  * Setores da empresa atual, cada um com seus cargos — usado para os
  * selects em cascata (Setor → Cargo) do formulário de novo colaborador.
- * O filtro por empresa é garantido pelo RLS.
+ *
+ * `empresaId` filtra explicitamente — antes dependia só do RLS pra isolar
+ * (mesmo raciocínio de listColaboradores/listEpis em colaboradores.ts/
+ * epis.ts): `null` quer dizer "sem empresa identificada" e retorna lista
+ * vazia direto, sem nem consultar o banco.
  */
-export async function listSetoresComCargos(): Promise<SetorComCargos[]> {
+export async function listSetoresComCargos(
+  empresaId: string | null,
+): Promise<SetorComCargos[]> {
+  if (!empresaId) return [];
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("setores")
     .select("id, nome, cargos ( id, nome )")
+    .eq("empresa_id", empresaId)
     .order("nome", { ascending: true });
 
   if (error || !data) {

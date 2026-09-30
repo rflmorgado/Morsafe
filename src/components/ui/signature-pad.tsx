@@ -18,10 +18,30 @@ const ALTURA = 140;
  * O input escondido (name="assinatura_url") é o que de fato viaja com o
  * FormData do form ao redor — mesmo padrão dos outros campos desta tela,
  * sem precisar de estado controlado no componente pai.
+ *
+ * onAssinaturaChange (opcional) avisa o componente pai se existe ou não um
+ * traço de verdade no canvas — pra ele poder desabilitar o botão de
+ * enviar até a assinatura ser coletada, em vez de deixar enviar em branco
+ * e só descobrir depois que o servidor recusou (ver comentário em
+ * registrar-entrega-button.tsx).
  */
-export function SignaturePad({ name = "assinatura_url" }: { name?: string }) {
+export function SignaturePad({
+  name = "assinatura_url",
+  onAssinaturaChange,
+}: {
+  name?: string;
+  onAssinaturaChange?: (assinada: boolean) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const desenhandoRef = useRef(false);
+  // Segue temAssinatura, mas em ref (não state) pra handlePointerUp — que
+  // roda logo em seguida a um handlePointerMove — nunca ler um valor de
+  // fechamento desatualizado. Sem essa ref, um clique/toque SEM arrastar
+  // (pointerDown seguido direto de pointerUp, sem nenhum pointerMove no
+  // meio) exportava o canvas em branco como se fosse uma assinatura válida
+  // — o quadradinho ficava sem nenhum traço, mas o campo escondido não
+  // ficava vazio, e o servidor aceitava.
+  const assinouRef = useRef(false);
   const [temAssinatura, setTemAssinatura] = useState(false);
   const [dataUrl, setDataUrl] = useState("");
 
@@ -73,19 +93,29 @@ export function SignaturePad({ name = "assinatura_url" }: { name?: string }) {
     ctx.strokeStyle = "#16321f";
     ctx.lineTo(x, y);
     ctx.stroke();
+    assinouRef.current = true;
     if (!temAssinatura) setTemAssinatura(true);
   }
 
   function handlePointerUp() {
     if (!desenhandoRef.current) return;
     desenhandoRef.current = false;
-    setDataUrl(canvasRef.current?.toDataURL("image/png") ?? "");
+    // Só exporta o canvas se realmente rolou um traço (assinouRef) — um
+    // clique/toque sem arrastar não conta, mesmo que o browser aceite o
+    // pointerDown+pointerUp. Ver comentário no topo do arquivo.
+    const url = assinouRef.current
+      ? (canvasRef.current?.toDataURL("image/png") ?? "")
+      : "";
+    setDataUrl(url);
+    onAssinaturaChange?.(url !== "");
   }
 
   function limpar() {
     preencherFundoBranco();
     setTemAssinatura(false);
     setDataUrl("");
+    assinouRef.current = false;
+    onAssinaturaChange?.(false);
   }
 
   return (

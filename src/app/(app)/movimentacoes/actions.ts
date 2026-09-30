@@ -17,44 +17,18 @@ import type {
 
 const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
-/**
- * Ajusta (soma ou subtrai) o saldo de estoque de um EPI — chamado ao
- * registrar uma entrega (baixa 1 unidade) ou uma devolução com destino
- * "reaproveitamento" (devolve 1 unidade). Best-effort: se falhar, só loga o
- * erro no servidor e não desfaz a movimentação principal (mesmo raciocínio
- * de registrarLogAuditoria) — o registro de entrega/devolução em si, que é
- * o que importa pra conformidade com a NR-06, já foi salvo com sucesso
- * antes desta chamada. Cria a linha em `estoque` na primeira movimentação
- * de um EPI que ainda não tinha nenhuma — a futura tela de Estoque só vai
- * gerenciar entradas de compra em cima do saldo que já existir aqui.
- */
-async function ajustarEstoque(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  empresaId: string,
-  epiId: string,
-  delta: number,
-) {
-  try {
-    const { data: atual } = await supabase
-      .from("estoque")
-      .select("saldo_atual")
-      .eq("epi_id", epiId)
-      .maybeSingle();
-
-    if (atual) {
-      await supabase
-        .from("estoque")
-        .update({ saldo_atual: atual.saldo_atual + delta })
-        .eq("epi_id", epiId);
-    } else {
-      await supabase
-        .from("estoque")
-        .insert({ epi_id: epiId, empresa_id: empresaId, saldo_atual: delta });
-    }
-  } catch (e) {
-    console.error("ajustarEstoque:", e);
-  }
-}
+// O ajuste de saldo de estoque (baixa na entrega, devolução no
+// reaproveitamento) NÃO é mais feito aqui no código do app — ver
+// fn_registrar_entrega() / fn_registrar_devolucao() no banco. O código
+// antigo (função ajustarEstoque, removida) fazia um select seguido de
+// update, em duas chamadas separadas: sujeito a race condition sob
+// concorrência (dois registros do mesmo EPI ao mesmo tempo liam o mesmo
+// saldo_atual e cada update sobrescrevia o do outro) e, pior, duplicava a
+// baixa/devolução em cima do que a trigger do banco já fazia sozinha
+// (trigger sempre rodou em todo insert em entregas/devolucoes — ver
+// checkup de 30/09/2026, item 1). A trigger, sendo um único UPDATE
+// atômico (ou INSERT ... ON CONFLICT), não tem essa race e agora é a
+// ÚNICA responsável por mexer em `estoque` — ver morsafe-fix-checkup-estoque.sql.
 
 export type RegistrarEntregaState = { error: string | null; success?: boolean };
 
@@ -137,8 +111,6 @@ export async function registrarEntrega(
     console.error("registrarEntrega:", error?.message);
     return { error: "Não foi possível registrar a entrega. Tente novamente." };
   }
-
-  await ajustarEstoque(supabase, user.empresaId, epiId, -quantidade);
 
   await registrarLogAuditoria({
     supabase,
@@ -278,10 +250,6 @@ export async function registrarDevolucao(
     };
   }
 
-  if (devolvidoFisicamente && destino === "reaproveitamento") {
-    await ajustarEstoque(supabase, user.empresaId, epiIdReal, quantidadeReal);
-  }
-
   await registrarLogAuditoria({
     supabase,
     empresaId: user.empresaId,
@@ -406,9 +374,11 @@ export async function buscarEntregasEmPosse(
  * em `estoque` pra avisar (sem bloquear — registrar a entrega é o que
  * importa pra conformidade com a NR-06, ver CLAUDE.md regra 4) quando a
  * quantidade digitada deixaria o saldo negativo. `null` aqui quer dizer
- * "esse EPI ainda não teve nenhuma movimentação de estoque" (ver comentário
- * em ajustarEstoque) — diferente de saldo zero, então o formulário não deve
- * tratar como "sem estoque nenhum".
+ * "esse EPI ainda não teve nenhuma movimentação de estoque" (a linha em
+ * `estoque` só passa a existir na primeira entrada de compra ou na primeira
+ * entrega — ver fn_registrar_entrega() em morsafe-fix-checkup-estoque.sql) —
+ * diferente de saldo zero, então o formulário não deve tratar como "sem
+ * estoque nenhum".
  */
 export async function buscarSaldoEstoque(
   epiId: string,

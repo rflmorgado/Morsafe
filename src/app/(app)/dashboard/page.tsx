@@ -1,7 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { getDashboardData } from "@/lib/data/dashboard";
+import { getDashboardSuperAdmin } from "@/lib/data/dashboard-super-admin";
 import { getCurrentUser } from "@/lib/data/current-user";
+import { DashboardSuperAdmin } from "./dashboard-super-admin";
 
 // Ícones dos 4 KPIs — cada um simples o bastante pra ler bem nos 20px do
 // "chip" colorido do KpiCard, sem depender de um pacote de ícones externo.
@@ -103,6 +105,17 @@ export default async function DashboardPage() {
   // dashboard (ver getDashboardData) — não dá mais pra buscar os dois em
   // paralelo com Promise.all como antes, já que agora um depende do outro.
   const user = await getCurrentUser();
+
+  // super_admin não pertence a nenhuma empresa — o Dashboard operacional
+  // abaixo (entregas, gasto, estoque, CA vencendo) não diz nada sobre o
+  // negócio dele, só sobre a operação de uma empresa cliente. Ver
+  // dashboard-super-admin.tsx pra visão própria (empresas, usuários na
+  // plataforma, pagamentos, atividade administrativa recente).
+  if (user?.papel === "super_admin") {
+    const dataSuperAdmin = await getDashboardSuperAdmin();
+    return <DashboardSuperAdmin data={dataSuperAdmin} nome={user.nome} />;
+  }
+
   const data = await getDashboardData(user?.empresaId ?? null);
 
   const hoje = new Date().toLocaleDateString("pt-BR", {

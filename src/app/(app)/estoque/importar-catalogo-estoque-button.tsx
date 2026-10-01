@@ -16,6 +16,7 @@ type RawRow = Record<string, unknown>;
 
 type FieldKey =
   | "epi"
+  | "tipo"
   | "ca"
   | "ca_validade"
   | "tamanho"
@@ -24,6 +25,7 @@ type FieldKey =
 
 const FIELD_LABEL: Record<FieldKey, string> = {
   epi: "EPI",
+  tipo: "Tipo",
   ca: "C.A.",
   ca_validade: "Validade do C.A.",
   tamanho: "Tamanho",
@@ -35,6 +37,7 @@ const CAMPOS_OBRIGATORIOS: FieldKey[] = ["epi", "custo_unitario", "saldo"];
 
 const GUESS_KEYWORDS: Record<FieldKey, string[]> = {
   epi: ["epi", "equipamento", "nome", "descricao", "descrição", "item"],
+  tipo: ["tipo", "categoria", "type"],
   ca: ["ca", "c.a", "certificado"],
   ca_validade: ["validade", "vencimento", "expira"],
   tamanho: ["tamanho", "numeracao", "numeração", "size", "tam"],
@@ -97,6 +100,7 @@ type ResolvedRow = {
   epiNomeBase: string;
   tamanho: string;
   nomeFinal: string;
+  tipo: string;
   ca: string;
   caValidade: string | null;
   custoUnitario: number | null;
@@ -138,13 +142,19 @@ function statusLinha(r: ResolvedRow): { texto: string; className: string } {
 
 /**
  * Importação combinada de catálogo de EPI + estoque inicial, a partir de UMA
- * planilha só (EPI, C.A., Validade do C.A., Tamanho, Custo unitário, Saldo —
- * mesmo formato do modelo em Excel entregue ao Rafael). Pensada pro
- * onboarding de uma empresa nova como alternativa às duas importações
- * separadas ("Importar EPIs" + "Importar estoque inicial"): em vez de montar
- * duas planilhas que podem divergir uma da outra, uma só alimenta as duas
- * coisas de uma vez, sem risco de um EPI ficar faltando catálogo ou faltando
- * estoque.
+ * planilha só (EPI, Tipo, C.A., Validade do C.A., Tamanho, Custo unitário,
+ * Saldo — Tipo é opcional, os demais seguem o modelo em Excel entregue ao
+ * Rafael). Pensada pro onboarding de uma empresa nova como alternativa às
+ * duas importações separadas ("Importar EPIs" + "Importar estoque inicial"):
+ * em vez de montar duas planilhas que podem divergir uma da outra, uma só
+ * alimenta as duas coisas de uma vez, sem risco de um EPI ficar faltando
+ * catálogo ou faltando estoque.
+ *
+ * Tipo segue a mesma lista fixa do cadastro manual (ver epi-tipos.ts) e a
+ * mesma detecção automática de coluna de importar-epis-button.tsx (procura
+ * um cabeçalho como "Tipo"/"Categoria"/"Type" na planilha) — sem essa coluna
+ * mapeada ou com a célula vazia, o EPI é criado sem tipo, igual ao cadastro
+ * manual sem selecionar nada.
  *
  * Tamanho (quando preenchido) vira parte do NOME do EPI no catálogo — ex.:
  * "Bota de Segurança Branca" + "Nº 38" = "Bota de Segurança Branca Nº 38" —
@@ -185,6 +195,7 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
   const [rawRows, setRawRows] = useState<RawRow[]>([]);
   const [mapping, setMapping] = useState<Record<FieldKey, string>>({
     epi: "",
+    tipo: "",
     ca: "",
     ca_validade: "",
     tamanho: "",
@@ -203,6 +214,7 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
     setRawRows([]);
     setMapping({
       epi: "",
+      tipo: "",
       ca: "",
       ca_validade: "",
       tamanho: "",
@@ -240,6 +252,7 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
       setRawRows(rows);
       setMapping({
         epi: guessColumn(detectedHeaders, "epi"),
+        tipo: guessColumn(detectedHeaders, "tipo"),
         ca: guessColumn(detectedHeaders, "ca"),
         ca_validade: guessColumn(detectedHeaders, "ca_validade"),
         tamanho: guessColumn(detectedHeaders, "tamanho"),
@@ -264,6 +277,7 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
       const tamanho = mapping.tamanho
         ? String(row[mapping.tamanho] ?? "").trim()
         : "";
+      const tipo = mapping.tipo ? String(row[mapping.tipo] ?? "").trim() : "";
       const ca = mapping.ca ? String(row[mapping.ca] ?? "").trim() : "";
       const nomeFinal = (tamanho ? `${epiNomeBase} ${tamanho}` : epiNomeBase).trim();
 
@@ -312,6 +326,7 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
         epiNomeBase,
         tamanho,
         nomeFinal,
+        tipo,
         ca,
         caValidade,
         custoUnitario,
@@ -351,6 +366,7 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
         if (!epiId) {
           const resultadoCriacao = await criarEpiCatalogo(
             r.nomeFinal,
+            r.tipo || null,
             r.ca || null,
             r.caValidade,
           );
@@ -489,10 +505,11 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
         ) : step === "upload" ? (
           <div className="space-y-4">
             <p className="text-[13.5px] text-text-secondary">
-              Envie uma planilha com EPI, C.A., Validade do C.A., Tamanho,
-              Custo unitário e Saldo — ela alimenta o catálogo de EPI e o
-              estoque inicial ao mesmo tempo, sem precisar das duas
-              importações separadas.
+              Envie uma planilha com EPI, Tipo, C.A., Validade do C.A.,
+              Tamanho, Custo unitário e Saldo — ela alimenta o catálogo de EPI
+              e o estoque inicial ao mesmo tempo, sem precisar das duas
+              importações separadas. Tipo é opcional, mas se a planilha tiver
+              essa coluna ela já aparece selecionada sozinha na próxima etapa.
             </p>
 
             <p className="rounded-lg bg-surface-muted px-3.5 py-2.5 text-[12.5px] text-text-secondary">
@@ -616,6 +633,9 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
                       EPI
                     </th>
                     <th className="px-3 py-2 font-semibold text-text-secondary">
+                      Tipo
+                    </th>
+                    <th className="px-3 py-2 font-semibold text-text-secondary">
                       Custo unit.
                     </th>
                     <th className="px-3 py-2 font-semibold text-text-secondary">
@@ -631,6 +651,9 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
                     <tr key={r.linha} className="border-t border-border-subtle">
                       <td className="px-3 py-2 text-foreground">
                         {r.nomeFinal || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {r.tipo || "—"}
                       </td>
                       <td className="px-3 py-2 text-foreground">
                         {r.custoUnitario ?? "—"}
@@ -660,7 +683,7 @@ export function ImportarCatalogoEstoqueButton({ epis }: { epis: EpiAtivo[] }) {
               <button
                 type="button"
                 onClick={() => setStep("mapear")}
-                className="rounded-lg px-4 py-2.5 text-[13.5px] font-semibold text-text-secondary transition hover:bg-surface-muted"
+                className="rounded-lg px-4 py-2.5 text-[13.5px] font-semibold text-text-secondary transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 ← Ajustar mapeamento
               </button>

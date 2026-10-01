@@ -21,6 +21,7 @@ export const ACAO_LABEL: Record<string, string> = {
   logout: "Logout",
   entrada_registrada: "Entrada de estoque registrada",
   limite_atualizado: "Limite de alerta de estoque atualizado",
+  dados_resetados: "Dados de teste resetados",
 };
 
 export const TABELA_LABEL: Record<string, string> = {
@@ -178,6 +179,14 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
       return nome
         ? `Atualizou o limite de alerta de estoque de "${nome}"${limite !== undefined ? ` para ${limite}` : ""}`
         : "Atualizou um limite de alerta de estoque";
+    }
+    case "dados_resetados": {
+      const d = item.detalhes ?? {};
+      const total = Object.values(d).reduce(
+        (soma: number, v) => soma + (typeof v === "number" ? v : 0),
+        0,
+      );
+      return `Resetou os dados de teste da empresa (${total} registro${total === 1 ? "" : "s"} apagados)`;
     }
     default:
       return ACAO_LABEL[item.acao] ?? item.acao;

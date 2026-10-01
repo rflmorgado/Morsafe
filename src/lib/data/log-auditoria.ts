@@ -15,6 +15,7 @@ export const ACAO_LABEL: Record<string, string> = {
   excluido: "Excluído definitivamente",
   papel_alterado: "Papel de acesso alterado",
   importado: "Importação em massa",
+  tipo_classificado_automaticamente: "Tipo classificado automaticamente",
   exportado: "Exportação em CSV",
   baixou_ficha: "Ficha de EPI baixada",
   login: "Login",
@@ -165,6 +166,10 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
     case "exportado": {
       const qtd = item.detalhes?.quantidade as number | undefined;
       return `Exportou ${qtd ?? "vários"} registro${qtd === 1 ? "" : "s"} de ${tabelaLabel} em CSV`;
+    }
+    case "tipo_classificado_automaticamente": {
+      const qtd = item.detalhes?.quantidade as number | undefined;
+      return `Classificou automaticamente o tipo de ${qtd ?? "vários"} EPI${qtd === 1 ? "" : "s"} que estava${qtd === 1 ? "" : "m"} sem tipo`;
     }
     case "baixou_ficha":
       return nome ? `Baixou a ficha de EPI de "${nome}"` : "Baixou a ficha de EPI de um colaborador";

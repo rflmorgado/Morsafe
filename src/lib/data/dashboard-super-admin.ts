@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResumoPagamentos } from "./pagamentos";
+import { contarEmpresasNoLimite } from "./empresas";
 import { descreverLogAuditoria } from "./log-auditoria";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -57,6 +58,7 @@ export type DashboardSuperAdminData = {
   empresasNovasNoMes: number;
   pagamentosAtrasados: number;
   pagamentosAVencer: number;
+  empresasNoLimiteColaboradores: number;
   atividadeRecente: AtividadeRecente[];
 };
 
@@ -76,6 +78,7 @@ export async function getDashboardSuperAdmin(): Promise<DashboardSuperAdminData>
     usuarios,
     empresasNovas,
     resumoPagamentos,
+    empresasNoLimiteColaboradores,
     atividadeRecente,
   ] = await Promise.all([
     admin.from("empresas").select("id", { count: "exact", head: true }).eq("ativo", true),
@@ -83,6 +86,7 @@ export async function getDashboardSuperAdmin(): Promise<DashboardSuperAdminData>
     admin.from("usuarios").select("id", { count: "exact", head: true }).eq("ativo", true),
     admin.from("empresas").select("id", { count: "exact", head: true }).gte("criado_em", mes),
     getResumoPagamentos(admin),
+    contarEmpresasNoLimite(),
     getAtividadeRecente(admin),
   ]);
 
@@ -93,6 +97,7 @@ export async function getDashboardSuperAdmin(): Promise<DashboardSuperAdminData>
     empresasNovasNoMes: empresasNovas.count ?? 0,
     pagamentosAtrasados: resumoPagamentos.atrasados,
     pagamentosAVencer: resumoPagamentos.aVencer,
+    empresasNoLimiteColaboradores,
     atividadeRecente,
   };
 }

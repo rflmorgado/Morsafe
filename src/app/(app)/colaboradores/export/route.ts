@@ -49,6 +49,7 @@ export async function GET(request: Request) {
   const q = searchParams.get("q") ?? undefined;
   const setor = searchParams.get("setor") ?? undefined;
   const status = searchParams.get("status") ?? undefined;
+  const nr06 = searchParams.get("nr06") ?? undefined;
   const sort = searchParams.get("sort") ?? undefined;
   const dir = searchParams.get("dir") ?? undefined;
 
@@ -57,6 +58,7 @@ export async function GET(request: Request) {
     query: q,
     setorId: setor,
     status,
+    nr06,
     sort,
     dir,
   });

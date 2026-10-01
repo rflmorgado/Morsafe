@@ -349,6 +349,94 @@ export async function importarEpis(
   };
 }
 
+export type CriarEpiCatalogoState = {
+  error: string | null;
+  id?: string;
+  nome?: string;
+};
+
+/**
+ * Cria um EPI novo "no percurso" durante a importação combinada de catálogo
+ * + estoque (ver estoque/importar-catalogo-estoque-button.tsx) — mesma ideia
+ * de createSetor/createCargo em colaboradores/actions.ts: quando o nome
+ * resolvido da planilha (EPI + tamanho, ex. "Bota de Segurança Branca Nº 38")
+ * não bate com nenhum item já cadastrado no catálogo, o componente cria o
+ * item na hora, uma chamada por nome novo, em vez de barrar a importação ou
+ * depender de um mapeamento manual.
+ *
+ * `ca`/`caValidade` nulificados juntos quando `ca` vem vazio — garante que
+ * uma planilha com "Validade do C.A." preenchida mas "C.A." vazio (erro de
+ * preenchimento, não suportado por este app) nunca chega a violar a
+ * constraint `chk_ca_coerente` do banco; é o mesmo par de campos, só que
+ * aqui resolvido antes do insert em vez de depender só do erro 23514 vindo
+ * do Postgres.
+ *
+ * Mesmo nível de permissão de criar um EPI manualmente ("encarregado"+, ver
+ * createEpi acima) — quem já pode cadastrar um EPI um a um também pode
+ * cadastrar um EPI individual vindo de uma planilha. A ação que DISPARA essa
+ * criação em série (a importação combinada em si) já exige "admin", mesmo
+ * nível de importarEpis/importarEntradasEstoque.
+ */
+export async function criarEpiCatalogo(
+  nome: string,
+  ca: string | null,
+  caValidade: string | null,
+): Promise<CriarEpiCatalogoState> {
+  const nomeTrim = nome.trim();
+  if (!nomeTrim) {
+    return { error: "Nome do EPI vazio." };
+  }
+
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const caTrim = (ca ?? "").trim();
+  const exigeCa = !!caTrim;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("epis")
+    .insert({
+      empresa_id: user.empresaId,
+      nome: nomeTrim,
+      exige_ca: exigeCa,
+      ca: exigeCa ? caTrim : null,
+      ca_validade: exigeCa ? caValidade : null,
+    })
+    .select("id, nome")
+    .single();
+
+  if (error || !data) {
+    // 23514 = check_violation (chk_ca_coerente) — não deveria mais acontecer
+    // dado o tratamento acima, mas mantido por segurança (ex: C.A. com
+    // formato que viole outra constraint futura).
+    const mensagem =
+      error?.code === "23514"
+        ? 'C.A. e validade inconsistentes com "Exige C.A.".'
+        : "Não foi possível criar este EPI no catálogo.";
+    console.error("criarEpiCatalogo:", error?.message);
+    return { error: mensagem };
+  }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "epis",
+    registroId: data.id,
+    acao: "criado",
+    usuarioId: user.id,
+    detalhes: { nome: data.nome },
+  });
+
+  revalidatePath("/epis");
+  return { error: null, id: data.id, nome: data.nome };
+}
+
 export type DesativarEpiState = { error: string | null; success?: boolean };
 
 /**

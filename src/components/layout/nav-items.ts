@@ -5,7 +5,10 @@ export type NavItem = {
   href: string;
   comingSoon?: boolean;
   // Só aparece para usuários com papel "super_admin" (dono do MorSafe).
-  // Usado pelo item de cadastrar novas empresas clientes.
+  // Usado pelo item "Empresas" — a visão de administração do sistema,
+  // separada da operação do dia a dia de uma empresa cliente (ver
+  // app-shell.tsx: super_admin nunca vê os itens "operacao", só os
+  // marcados aqui).
   superAdminOnly?: boolean;
   // Só aparece para o admin de uma empresa cliente (papel exatamente
   // "admin" — não super_admin, que não pertence a nenhuma empresa, nem
@@ -41,8 +44,8 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { label: "Usuários", href: "/usuarios", adminOnly: true, section: "sistema" },
   {
-    label: "Nova empresa",
-    href: "/setup-empresa",
+    label: "Empresas",
+    href: "/empresas",
     superAdminOnly: true,
     section: "sistema",
   },

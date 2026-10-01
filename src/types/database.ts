@@ -35,6 +35,15 @@ export type StatusSolicitacaoAssinatura =
   | "assinado"
   | "cancelado"
   | "expirado";
+// Distingue se a solicitação enviada pra estação é de confirmação de
+// RECEBIMENTO (entrega) ou de DEVOLUÇÃO de EPI — a estação usa isso só pra
+// escolher o texto certo na tela (ver src/app/estacao/page.tsx), o resto do
+// fluxo (SignaturePad, polling, etc.) é idêntico nos dois casos.
+export type TipoSolicitacaoAssinatura = "entrega" | "devolucao";
+// Só dois estados gravados — "atrasado"/"a vencer"/"em dia" são calculados
+// na aplicação a partir de data_vencimento + status (ver
+// lib/data/pagamentos.ts), nunca gravados no banco.
+export type StatusPagamentoEmpresa = "pendente" | "pago";
 
 type Relationship = {
   foreignKeyName: string;
@@ -77,6 +86,33 @@ export interface Database {
           criado_em: string;
         },
         "nome"
+      >;
+
+      // Mensalidade/pagamento de cada empresa cliente — controle manual do
+      // super_admin (ver app/(app)/pagamentos e a seção "Pagamentos" dentro
+      // de app/(app)/empresas/[id]). Ainda não aplicada no banco (ver
+      // morsafe-add-pagamentos-empresa.sql — pendente até o acesso ao
+      // Supabase ser recuperado).
+      pagamentos_empresa: TableDef<
+        {
+          id: string;
+          empresa_id: string;
+          valor: number;
+          data_vencimento: string;
+          status: StatusPagamentoEmpresa;
+          data_pagamento: string | null;
+          observacao: string | null;
+          criado_em: string;
+        },
+        "empresa_id" | "valor" | "data_vencimento",
+        [
+          {
+            foreignKeyName: "pagamentos_empresa_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ]
       >;
 
       unidades: TableDef<
@@ -401,6 +437,11 @@ export interface Database {
           motivo: MotivoDevolucao;
           destino: DestinoDevolucao;
           devolvido_fisicamente: boolean;
+          // Assinatura de confirmação da devolução, colhida por toque (igual
+          // à de entregas.assinatura_url) — coluna adicionada depois da
+          // tabela já existir (ver morsafe-add-assinatura-devolucao.sql),
+          // por isso nullable: registros antigos não têm.
+          assinatura_url: string | null;
           criado_em: string;
           criado_por: string | null;
         },
@@ -556,6 +597,11 @@ export interface Database {
           empresa_id: string;
           estacao_id: string;
           status: StatusSolicitacaoAssinatura;
+          // Confirmação de recebimento (entrega) ou de devolução — ver
+          // TipoSolicitacaoAssinatura. Coluna adicionada depois da tabela já
+          // existir (ver morsafe-add-assinatura-devolucao.sql), com default
+          // 'entrega' pra não quebrar pedidos antigos já em andamento.
+          tipo: TipoSolicitacaoAssinatura;
           // Snapshot do que está sendo assinado — não é FK pra colaborador/
           // EPI porque a estação (que só tem o token, sem acesso ao resto do
           // banco) precisa conseguir MOSTRAR isso na tela sem fazer join

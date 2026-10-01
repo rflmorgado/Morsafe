@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/data/current-user";
-import { getEmpresaComResumo } from "@/lib/data/empresas";
+import { getEmpresaComResumo, statusLimiteColaboradores } from "@/lib/data/empresas";
 import { listUsuariosDaEmpresa } from "@/lib/data/usuarios";
 import { listPagamentosDaEmpresa, formatStatusPagamento } from "@/lib/data/pagamentos";
 import { PageHeader } from "@/components/ui/page-header";
 import { AlternarAtivoButton } from "../ativar-empresa-button";
 import { ResetarEmpresaButton } from "../resetar-empresa-button";
+import { DefinirLimiteButton } from "../definir-limite-button";
 import { NovoPagamentoButton } from "../../pagamentos/novo-pagamento-button";
 import { MarcarPagoButton } from "../../pagamentos/marcar-pago-button";
 
@@ -95,9 +96,48 @@ export default async function EmpresaDetalhePage({
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-border-subtle bg-surface p-4 shadow-card">
+          <p className="text-[11.5px] font-semibold uppercase tracking-wide text-text-muted">
+            Status
+          </p>
+          <p className="mt-1 text-[19px] font-bold text-foreground">
+            {empresa.ativo ? "Ativa" : "Inativa"}
+          </p>
+        </div>
+
+        {/* Colaboradores é um card à parte (não um map genérico como os
+            outros) porque, diferente dos demais números, mostra o limite do
+            plano ao lado (quando definido) e um selo de alerta — ver
+            statusLimiteColaboradores em lib/data/empresas.ts. */}
+        <div className="rounded-xl border border-border-subtle bg-surface p-4 shadow-card">
+          <p className="text-[11.5px] font-semibold uppercase tracking-wide text-text-muted">
+            Colaboradores
+          </p>
+          <p className="mt-1 text-[19px] font-bold text-foreground">
+            {empresa.totalColaboradores}
+            {empresa.limiteColaboradores !== null && (
+              <span className="text-text-muted">
+                {" "}
+                / {empresa.limiteColaboradores}
+              </span>
+            )}
+          </p>
+          {(() => {
+            const badge = statusLimiteColaboradores(
+              empresa.totalColaboradores,
+              empresa.limiteColaboradores,
+            );
+            return badge ? (
+              <span
+                className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${badge.classe}`}
+              >
+                {badge.texto}
+              </span>
+            ) : null;
+          })()}
+        </div>
+
         {[
-          { label: "Status", valor: empresa.ativo ? "Ativa" : "Inativa" },
-          { label: "Colaboradores", valor: empresa.totalColaboradores },
           { label: "EPIs homologados", valor: empresa.totalEpis },
           { label: "Usuários", valor: empresa.totalUsuarios },
         ].map((item) => (
@@ -267,6 +307,10 @@ export default async function EmpresaDetalhePage({
           <ResetarEmpresaButton
             empresaId={empresa.id}
             empresaNome={empresa.nome}
+          />
+          <DefinirLimiteButton
+            empresaId={empresa.id}
+            limiteAtual={empresa.limiteColaboradores}
           />
         </div>
       </div>

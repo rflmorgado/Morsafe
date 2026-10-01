@@ -116,6 +116,68 @@ export async function listEstoquePorEpi({
   return { itens, total };
 }
 
+export type EstoqueStatusCounts = {
+  critico: number;
+  alerta: number;
+  ok: number;
+};
+
+/**
+ * Mesmo corte de 3 status de listEstoquePorEpi acima (critico/alerta/ok),
+ * mas só a contagem de cada um, pra todo EPI ativo da empresa — usado pelo
+ * gráfico-resumo "Situação do estoque" do Dashboard (ver getDashboardData,
+ * em dashboard.ts), que não precisa do nome/tipo/custo de cada EPI, só dos
+ * totais. Pedido do Rafael junto com os outros gráficos do Dashboard
+ * (conversa de 01/10/2026).
+ */
+export async function getEstoqueStatusCounts(
+  empresaId: string | null,
+): Promise<EstoqueStatusCounts> {
+  if (!empresaId) return { critico: 0, alerta: 0, ok: 0 };
+
+  const supabase = await createClient();
+
+  const { data: epis, error: episError } = await supabase
+    .from("epis")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .eq("ativo", true);
+
+  if (episError) {
+    console.error("getEstoqueStatusCounts (epis):", episError.message);
+  }
+  if (!epis || epis.length === 0) {
+    return { critico: 0, alerta: 0, ok: 0 };
+  }
+
+  const { data: linhasEstoque, error } = await supabase
+    .from("estoque")
+    .select("epi_id, saldo_atual, limite_alerta")
+    .eq("empresa_id", empresaId)
+    .in(
+      "epi_id",
+      epis.map((e) => e.id),
+    );
+
+  if (error) {
+    console.error("getEstoqueStatusCounts:", error.message);
+  }
+
+  const porEpiId = new Map((linhasEstoque ?? []).map((l) => [l.epi_id, l]));
+
+  const counts: EstoqueStatusCounts = { critico: 0, alerta: 0, ok: 0 };
+  for (const epi of epis) {
+    const linha = porEpiId.get(epi.id);
+    const saldoAtual = linha?.saldo_atual ?? SALDO_PADRAO;
+    const limiteAlerta = linha?.limite_alerta ?? LIMITE_ALERTA_PADRAO;
+    if (saldoAtual < limiteAlerta) counts.critico++;
+    else if (saldoAtual === limiteAlerta) counts.alerta++;
+    else counts.ok++;
+  }
+
+  return counts;
+}
+
 export type EntradaEstoque = {
   id: string;
   epiId: string;

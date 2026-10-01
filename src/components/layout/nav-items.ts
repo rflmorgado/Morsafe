@@ -49,6 +49,12 @@ export const NAV_ITEMS: NavItem[] = [
     superAdminOnly: true,
     section: "sistema",
   },
+  {
+    label: "Pagamentos",
+    href: "/pagamentos",
+    superAdminOnly: true,
+    section: "sistema",
+  },
   { label: "Estoque", href: "/estoque", section: "operacao" },
   {
     label: "Auditoria NR-06",

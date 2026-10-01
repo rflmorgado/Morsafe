@@ -552,4 +552,251 @@ export type DesativarEpiState = { error: string | null; success?: boolean };
 export async function desativarEpi(epiId: string): Promise<DesativarEpiState> {
   const user = await getCurrentUser();
   if (!user) {
-    return { error: "Sessão expirada.
+    return { error: "Sessão expirada. Faça login novamente." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+  const { data: epi, error: buscaError } = await supabase
+    .from("epis")
+    .select("nome, empresa_id")
+    .eq("id", epiId)
+    .maybeSingle();
+
+  if (buscaError || !epi || epi.empresa_id !== user.empresaId) {
+    return { error: "EPI não encontrado." };
+  }
+
+  const { data, error } = await supabase
+    .from("epis")
+    .update({ ativo: false })
+    .eq("id", epiId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("desativarEpi:", error.message);
+    return { error: "Não foi possível desativar o EPI. Tente novamente." };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
+  // nenhuma linha retorna error: null mesmo sem desativar nada.
+  if (!data) {
+    console.error(
+      "desativarEpi: update não afetou nenhuma linha para epiId=",
+      epiId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a desativação. Tente novamente ou avise o suporte do MorSafe.",
+    };
+  }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: epi.empresa_id,
+    tabela: "epis",
+    registroId: epiId,
+    acao: "desativado",
+    usuarioId: user.id,
+    detalhes: { nome: epi.nome },
+  });
+
+  revalidatePath("/epis");
+  return { error: null, success: true };
+}
+
+export type ExcluirEpiState = { error: string | null; success?: boolean };
+
+/**
+ * Exclusão DEFINITIVA (DELETE físico) — diferente de desativar, que é soft
+ * delete. Pensada pro EPI que foi substituído por outro e nunca mais vai
+ * ser usado, ou que foi cadastrado por engano, e não precisa mais ocupar o
+ * catálogo (mesmo desativado).
+ *
+ * Duas travas antes de excluir:
+ * 1) Só é permitido em cima de um EPI já desativado (ativo = false) — a
+ *    interface só oferece essa opção depois da desativação.
+ * 2) Se existir histórico de ENTREGA, DEVOLUÇÃO ou RECUSA vinculado, o
+ *    próprio banco recusa a exclusão via FK RESTRICT — aqui só traduzimos
+ *    esse erro (código Postgres 23503) numa mensagem clara. Essas três são
+ *    as únicas tabelas que realmente importam pra conformidade com a
+ *    NR-06, porque só elas ligam um trabalhador específico a um EPI
+ *    específico numa data específica — a prova de que o EPI foi (ou não)
+ *    entregue. Um EPI com qualquer uma dessas PRECISA continuar existindo
+ *    no banco; só é seguro excluir de verdade um EPI que nunca chegou a
+ *    ser entregue a ninguém.
+ *
+ * Antes dessa checagem, apaga de propósito `estoque` (saldo atual),
+ * `setor_epi` (obrigatoriedade por setor) e `entradas_estoque` (compras
+ * registradas) ligados a esse EPI. Nenhuma dessas é histórico de
+ * conformidade — são só estado atual/controle de compra e estoque, sem
+ * nenhum trabalhador vinculado — então não faz sentido travar a exclusão
+ * do catálogo por causa delas (foi exatamente uma compra de teste que
+ * travou um EPI duplicado que o Rafael queria limpar, sem nunca ter sido
+ * entregue a ninguém).
+ *
+ * Exige papel "admin" — mais alto que desativar/reativar ("encarregado"),
+ * porque, ao contrário daqueles, esta ação não tem volta.
+ */
+export async function excluirEpiDefinitivamente(
+  epiId: string,
+): Promise<ExcluirEpiState> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Sessão expirada. Faça login novamente." };
+  }
+  if (!temPapelMinimo(user.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+
+  const { data: epi, error: epiError } = await supabase
+    .from("epis")
+    .select("ativo, nome, empresa_id")
+    .eq("id", epiId)
+    .maybeSingle();
+
+  // Mesma checagem de posse por empresa que desativarEpi/reativarEpi/
+  // updateEpi já fazem (ver desativarEpi acima) — faltava só aqui. Sem ela,
+  // um admin de uma empresa cliente poderia tentar excluir um EPI de OUTRA
+  // empresa só sabendo/adivinhando o id, dependendo só do RLS pra barrar.
+  if (epiError || !epi || epi.empresa_id !== user.empresaId) {
+    return { error: "EPI não encontrado." };
+  }
+  if (epi.ativo) {
+    return {
+      error: "Só é possível excluir definitivamente um EPI que já está desativado.",
+    };
+  }
+
+  // Estado atual/controle de compra e estoque, não histórico de
+  // conformidade — pode sumir junto com o EPI. Confere erro em cada uma
+  // (não linhas afetadas — zero é normal se o EPI nunca teve estoque/setor/
+  // compra) pra não deixar resíduo que depois faria o delete de `epis` lá
+  // embaixo esbarrar num 23503 e ser traduzido, errado, como "tem histórico
+  // de entrega vinculado".
+  const { error: estoqueError } = await supabase
+    .from("estoque")
+    .delete()
+    .eq("epi_id", epiId);
+  const { error: setorEpiError } = await supabase
+    .from("setor_epi")
+    .delete()
+    .eq("epi_id", epiId);
+  const { error: entradasError } = await supabase
+    .from("entradas_estoque")
+    .delete()
+    .eq("epi_id", epiId);
+
+  if (estoqueError || setorEpiError || entradasError) {
+    console.error(
+      "excluirEpiDefinitivamente (limpeza de estoque):",
+      estoqueError?.message ??
+        setorEpiError?.message ??
+        entradasError?.message,
+    );
+    return { error: "Não foi possível excluir o EPI. Tente novamente." };
+  }
+
+  const { data: apagados, error: deleteError } = await supabase
+    .from("epis")
+    .delete()
+    .eq("id", epiId)
+    .select("id");
+
+  if (deleteError) {
+    if (deleteError.code === "23503") {
+      return {
+        error:
+          "Não é possível excluir: este EPI tem histórico de entrega, devolução ou recusa vinculado a um colaborador. Pra preservar a conformidade com a NR-06, mantenha-o desativado.",
+      };
+    }
+    console.error("excluirEpiDefinitivamente:", deleteError.message);
+    return { error: "Não foi possível excluir o EPI. Tente novamente." };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: um .delete() que não bate com
+  // nenhuma linha retorna error: null mesmo sem apagar nada.
+  if (!apagados || apagados.length === 0) {
+    console.error(
+      "excluirEpiDefinitivamente: delete não afetou nenhuma linha para epiId=",
+      epiId,
+    );
+    return { error: "Não foi possível excluir o EPI. Tente novamente." };
+  }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: epi.empresa_id,
+    tabela: "epis",
+    registroId: epiId,
+    acao: "excluido",
+    usuarioId: user.id,
+    detalhes: { nome: epi.nome },
+  });
+
+  revalidatePath("/epis");
+  return { error: null, success: true };
+}
+
+export type ReativarEpiState = { error: string | null; success?: boolean };
+
+export async function reativarEpi(epiId: string): Promise<ReativarEpiState> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Sessão expirada. Faça login novamente." };
+  }
+  if (!temPapelMinimo(user.papel, "encarregado")) {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const supabase = await createClient();
+  const { data: epi, error: buscaError } = await supabase
+    .from("epis")
+    .select("nome, empresa_id")
+    .eq("id", epiId)
+    .maybeSingle();
+
+  if (buscaError || !epi || epi.empresa_id !== user.empresaId) {
+    return { error: "EPI não encontrado." };
+  }
+
+  const { data, error } = await supabase
+    .from("epis")
+    .update({ ativo: true })
+    .eq("id", epiId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("reativarEpi:", error.message);
+    return { error: "Não foi possível reativar o EPI. Tente novamente." };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: um .update() que não bate com
+  // nenhuma linha retorna error: null mesmo sem reativar nada.
+  if (!data) {
+    console.error(
+      "reativarEpi: update não afetou nenhuma linha para epiId=",
+      epiId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar a reativação. Tente novamente ou avise o suporte do MorSafe.",
+    };
+  }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: epi.empresa_id,
+    tabela: "epis",
+    registroId: epiId,
+    acao: "reativado",
+    usuarioId: user.id,
+    detalhes: { nome: epi.nome },
+  });
+
+  revalidatePath("/epis");
+  return { error: null, success: true };
+}

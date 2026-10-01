@@ -1,5 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { DonutChart } from "@/components/ui/donut-chart";
+import { BarTrendChart } from "@/components/ui/bar-trend-chart";
 import { getDashboardData } from "@/lib/data/dashboard";
 import { getDashboardSuperAdmin } from "@/lib/data/dashboard-super-admin";
 import { getCurrentUser } from "@/lib/data/current-user";
@@ -98,6 +100,37 @@ function formatMoney(value: number) {
     maximumFractionDigits: 0,
   });
 }
+
+// Cores de STATUS (bom/alerta/crítico) dos dois donuts "Situação do NR-06" e
+// "Situação do estoque" — hexadecimais próprios, não os mesmos usados nos
+// badges de texto do resto do app (--brand-700/--warning-text/--danger-text,
+// otimizados pra TEXTO sobre um fundo claro de badge). Como preenchimento
+// sólido de uma fatia do donut, contra o fundo do Card (--surface) nos dois
+// temas, aqueles ficam baixo demais de contraste no tema escuro (~2.2–2.7:1
+// medido). Estes três garantem >= 3:1 nos dois temas (claro/escuro),
+// calculado com a mesma fórmula de contraste (WCAG) usada pelo validador da
+// skill de dataviz — por isso não precisam de uma variante por tema, ao
+// contrário da paleta categórica em globals.css (--chart-cat-*).
+const COR_BOM = "#2f9e5b";
+const COR_ALERTA = "#c9850e";
+const COR_CRITICO = "#d1453d";
+
+// Paleta categórica (identidade, não status) do donut "Gasto por setor" —
+// ver os tokens e o comentário completo em globals.css (--chart-cat-1..5).
+// Usada via var(), não hex direto, porque essa — ao contrário das 3 cores
+// de status acima — tem valores diferentes por tema (claro/escuro).
+const CORES_SETOR = [
+  "var(--chart-cat-1)",
+  "var(--chart-cat-2)",
+  "var(--chart-cat-3)",
+  "var(--chart-cat-4)",
+  "var(--chart-cat-5)",
+];
+// "Outros" (6º+ setor, quando existe) não é mais uma cor categórica — é
+// "o resto", por isso cinza neutro (mesmo tom de --text-muted), nunca uma
+// 6ª cor da escala (a skill de dataviz é explícita: identidade categórica
+// nunca cresce sem limite, o que sobra dobra em "Outros").
+const COR_OUTROS = "var(--text-muted)";
 
 export default async function DashboardPage() {
   // Precisa da empresa do usuário logado ANTES de buscar os números do
@@ -203,6 +236,90 @@ export default async function DashboardPage() {
           deltaTone={data.caVencendoTotal > 0 ? "warn" : "up"}
         />
       </div>
+
+      {/* Três donuts lado a lado — NR-06 e Estoque reaproveitam dado que já
+          existe (status calculado em getEstoqueStatusCounts/
+          getNr06StatusCounts); Gasto por setor substitui o que antes só
+          aparecia como texto solto no card "Gasto no mês" lá em cima (ver
+          `topSetor`, mantido ali pra não tirar aquele resumo rápido). Fica
+          numa seção própria, separada dos KPIs e dos Alertas/Ações rápidas
+          — pedido do Rafael pra não "amontoar" tudo numa tela só. */}
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+            Situação do NR-06
+          </h3>
+          <DonutChart
+            centerLabel={String(data.nr06.emDia + data.nr06.pendente)}
+            centerSublabel="colaboradores"
+            data={[
+              { label: "Em dia", value: data.nr06.emDia, color: COR_BOM },
+              { label: "Pendente", value: data.nr06.pendente, color: COR_ALERTA },
+            ]}
+          />
+        </Card>
+
+        <Card>
+          <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+            Situação do estoque
+          </h3>
+          <DonutChart
+            centerLabel={String(
+              data.estoqueStatus.ok +
+                data.estoqueStatus.alerta +
+                data.estoqueStatus.critico,
+            )}
+            centerSublabel="EPIs"
+            data={[
+              { label: "OK", value: data.estoqueStatus.ok, color: COR_BOM },
+              {
+                label: "No limite",
+                value: data.estoqueStatus.alerta,
+                color: COR_ALERTA,
+              },
+              {
+                label: "Crítico",
+                value: data.estoqueStatus.critico,
+                color: COR_CRITICO,
+              },
+            ]}
+          />
+        </Card>
+
+        <Card>
+          <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+            Gasto por setor no mês
+          </h3>
+          {data.gastoPorSetor.length === 0 ? (
+            <p className="text-sm text-text-muted">
+              Nenhum gasto registrado neste mês ainda.
+            </p>
+          ) : (
+            <DonutChart
+              centerLabel={formatMoney(data.gastoMesTotal)}
+              centerLabelClassName="text-[15px]"
+              centerSublabel="no mês"
+              data={data.gastoPorSetor.map((s, i) => ({
+                label: s.nome,
+                value: s.valor,
+                color: i < CORES_SETOR.length ? CORES_SETOR[i] : COR_OUTROS,
+              }))}
+            />
+          )}
+        </Card>
+      </div>
+
+      <Card>
+        <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+          Entregas nos últimos 6 meses
+        </h3>
+        <BarTrendChart
+          data={data.entregasPorMes.map((m) => ({
+            label: m.label,
+            value: m.total,
+          }))}
+        />
+      </Card>
 
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.4fr_1fr]">
         <Card>

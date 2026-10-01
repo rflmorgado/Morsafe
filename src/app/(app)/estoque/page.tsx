@@ -210,7 +210,11 @@ export default async function EstoquePage({
                   <tr
                     key={item.id}
                     className={`border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-muted/70 ${
-                      item.baixoEstoque ? "bg-danger-bg/30" : ""
+                      item.statusEstoque === "critico"
+                        ? "bg-danger-bg/30"
+                        : item.statusEstoque === "alerta"
+                          ? "bg-warning-bg/30"
+                          : ""
                     }`}
                   >
                     <td className="px-4 py-3.5 text-[13.5px] font-medium text-foreground">
@@ -224,15 +228,22 @@ export default async function EstoquePage({
                     </td>
                     <td
                       className={`px-4 py-3.5 text-[13.5px] ${
-                        item.baixoEstoque
+                        item.statusEstoque === "critico"
                           ? "font-semibold text-danger-text"
-                          : "text-foreground"
+                          : item.statusEstoque === "alerta"
+                            ? "font-semibold text-warning-text"
+                            : "text-brand-700"
                       }`}
                     >
                       {item.saldoAtual}
-                      {item.baixoEstoque && (
+                      {item.statusEstoque === "critico" && (
                         <span className="ml-1.5 rounded-full bg-danger-bg px-2 py-0.5 text-[10.5px] font-semibold text-danger-text">
-                          Estoque baixo
+                          Estoque crítico
+                        </span>
+                      )}
+                      {item.statusEstoque === "alerta" && (
+                        <span className="ml-1.5 rounded-full bg-warning-bg px-2 py-0.5 text-[10.5px] font-semibold text-warning-text">
+                          No limite mínimo
                         </span>
                       )}
                     </td>

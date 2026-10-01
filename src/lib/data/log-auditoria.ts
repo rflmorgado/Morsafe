@@ -24,6 +24,7 @@ export const ACAO_LABEL: Record<string, string> = {
   dados_resetados: "Dados de teste resetados",
   pagamento_criado: "Pagamento registrado",
   pagamento_recebido: "Pagamento recebido",
+  limite_colaboradores_atualizado: "Limite de colaboradores atualizado",
 };
 
 export const TABELA_LABEL: Record<string, string> = {
@@ -198,6 +199,10 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
     case "pagamento_recebido": {
       const valor = item.detalhes?.valor as number | undefined;
       return `Marcou pagamento${valor !== undefined ? ` de ${valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""} de "${nome ?? "empresa"}" como recebido`;
+    }
+    case "limite_colaboradores_atualizado": {
+      const limite = item.detalhes?.limite as number | null | undefined;
+      return `${limite ? `Definiu o limite de colaboradores de "${nome ?? "empresa"}" para ${limite}` : `Removeu o limite de colaboradores de "${nome ?? "empresa"}"`}`;
     }
     default:
       return ACAO_LABEL[item.acao] ?? item.acao;

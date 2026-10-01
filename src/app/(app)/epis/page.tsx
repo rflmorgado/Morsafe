@@ -24,9 +24,14 @@ function formatMoney(value: number) {
   });
 }
 
-// Abaixo desse limite de dias até o vencimento, o C.A. já aparece com aviso
-// (âmbar) em vez de esperar vencer de fato (vermelho) — dá tempo de agir.
-const LIMIAR_VENCIMENTO_DIAS = 60;
+// Abaixo desse limite de dias até o vencimento, o C.A. já aparece em alerta
+// (laranja) em vez de esperar vencer de fato (vermelho) — dá tempo de agir.
+// Mesmo prazo do card "CAs vencendo em 30 dias" do Dashboard (ver
+// vw_ca_vencendo) — pedido do Rafael pra bater com o mesmo critério em
+// toda a tela de EPIs: válido = verde, 30 dias ou menos = laranja, no dia
+// do vencimento OU depois = vermelho (nunca fica mais um dia em laranja
+// depois de vencido).
+const LIMIAR_VENCIMENTO_DIAS = 30;
 
 function statusCa(caValidade: string | null) {
   if (!caValidade) return null;
@@ -38,7 +43,7 @@ function statusCa(caValidade: string | null) {
     (validade.getTime() - hoje.getTime()) / 86_400_000,
   );
 
-  if (diffDias < 0) {
+  if (diffDias <= 0) {
     return {
       label: `Vencido em ${formatDate(caValidade)}`,
       className: "text-danger-text",
@@ -52,7 +57,7 @@ function statusCa(caValidade: string | null) {
   }
   return {
     label: `Válido até ${formatDate(caValidade)}`,
-    className: "text-text-muted",
+    className: "text-brand-700",
   };
 }
 

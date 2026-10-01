@@ -10,7 +10,18 @@ function hojeISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function RegistrarEntradaButton({ epis }: { epis: EpiAtivo[] }) {
+export function RegistrarEntradaButton({
+  epis,
+  variant = "solid",
+}: {
+  epis: EpiAtivo[];
+  // "solid" é o padrão (usado em Estoque, onde este é o único botão de ação
+  // da toolbar — merece destaque). "outline" é pro Dashboard, onde este
+  // botão divide o card "Ações rápidas" com Registrar devolução — dois
+  // botões sólidos lado a lado, ou um sólido do lado de um discreto,
+  // ficava inconsistente (ver conversa com Rafael, 01/10/2026).
+  variant?: "solid" | "outline";
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -39,7 +50,11 @@ export function RegistrarEntradaButton({ epis }: { epis: EpiAtivo[] }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-brand-700 px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-brand-800"
+        className={
+          variant === "outline"
+            ? "rounded-lg border border-border-strong px-4 py-2.5 text-[13.5px] font-semibold text-foreground transition hover:bg-surface-muted"
+            : "rounded-lg bg-brand-700 px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-brand-800"
+        }
       >
         + Registrar entrada de estoque
       </button>

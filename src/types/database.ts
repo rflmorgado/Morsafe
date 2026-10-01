@@ -83,6 +83,12 @@ export interface Database {
           // assinatura de entrega (entregas.assinatura_url).
           logo_url: string | null;
           ativo: boolean;
+          // Quantos colaboradores ATIVOS o plano contratado cobre — null
+          // significa "sem limite definido ainda" (nenhum alerta é
+          // disparado). Ver morsafe-add-limite-colaboradores.sql — coluna
+          // nova, pendente de aplicação (lib/data/empresas.ts já trata a
+          // ausência dela sem quebrar o resto da tela).
+          limite_colaboradores: number | null;
           criado_em: string;
         },
         "nome"

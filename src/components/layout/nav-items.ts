@@ -10,6 +10,14 @@ export type NavItem = {
   // app-shell.tsx: super_admin nunca vê os itens "operacao", só os
   // marcados aqui).
   superAdminOnly?: boolean;
+  // Além dos itens marcados superAdminOnly, o super_admin também vê os
+  // marcados aqui — usado só pelo Dashboard: é "operacao" (visível pra
+  // empresa cliente) mas faz sentido pros dois públicos, cada um com sua
+  // própria versão da tela (ver dashboard/page.tsx, que decide qual
+  // renderizar a partir do papel de quem está logado). Sem isto, o filtro
+  // abaixo escondia o Dashboard do super_admin mesmo depois de a tela ganhar
+  // uma versão própria pra ele — não tinha como voltar a ela pelo menu.
+  superAdminVisible?: boolean;
   // Só aparece para o admin de uma empresa cliente (papel exatamente
   // "admin" — não super_admin, que não pertence a nenhuma empresa, nem
   // encarregado/leitura). Usado pela gestão de usuários da própria empresa
@@ -26,7 +34,12 @@ export type NavItem = {
 // registro), depois o que é administração do sistema, por último o que
 // ainda está no roadmap.
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", section: "operacao" },
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    section: "operacao",
+    superAdminVisible: true,
+  },
   { label: "Colaboradores", href: "/colaboradores", section: "operacao" },
   { label: "EPIs homologados", href: "/epis", section: "operacao" },
   { label: "Movimentações", href: "/movimentacoes", section: "operacao" },

@@ -270,7 +270,7 @@ export default async function DashboardPage() {
             {podeGerenciar && (
               <>
                 <RegistrarDevolucaoButton colaboradores={colaboradoresAtivos} />
-                <RegistrarEntradaButton epis={episAtivos} />
+                <RegistrarEntradaButton epis={episAtivos} variant="outline" />
               </>
             )}
             <div

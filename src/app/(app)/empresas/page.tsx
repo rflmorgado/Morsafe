@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/data/current-user";
-import { listEmpresasComResumo } from "@/lib/data/empresas";
+import { listEmpresasComResumo, statusLimiteColaboradores } from "@/lib/data/empresas";
 import { PageHeader } from "@/components/ui/page-header";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 
@@ -118,7 +118,30 @@ export default async function EmpresasPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-[13px] text-foreground">
-                    {e.totalColaboradores}
+                    <div className="flex items-center gap-2">
+                      <span>
+                        {e.totalColaboradores}
+                        {e.limiteColaboradores !== null && (
+                          <span className="text-text-muted">
+                            {" "}
+                            / {e.limiteColaboradores}
+                          </span>
+                        )}
+                      </span>
+                      {(() => {
+                        const badge = statusLimiteColaboradores(
+                          e.totalColaboradores,
+                          e.limiteColaboradores,
+                        );
+                        return badge ? (
+                          <span
+                            className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${badge.classe}`}
+                          >
+                            {badge.texto}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-[13px] text-foreground">
                     {e.totalEpis}

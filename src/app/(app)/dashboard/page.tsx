@@ -3,7 +3,13 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { getDashboardData } from "@/lib/data/dashboard";
 import { getDashboardSuperAdmin } from "@/lib/data/dashboard-super-admin";
 import { getCurrentUser } from "@/lib/data/current-user";
+import { temPapelMinimo } from "@/lib/auth/permissoes";
+import { listColaboradoresAtivos, listEpisAtivos } from "@/lib/data/movimentacoes";
+import { listEstacoesAtivas } from "@/lib/data/estacoes-assinatura";
 import { DashboardSuperAdmin } from "./dashboard-super-admin";
+import { RegistrarEntregaButton } from "../movimentacoes/registrar-entrega-button";
+import { RegistrarDevolucaoButton } from "../movimentacoes/registrar-devolucao-button";
+import { RegistrarEntradaButton } from "../estoque/registrar-entrada-button";
 
 // Ícones dos 4 KPIs — cada um simples o bastante pra ler bem nos 20px do
 // "chip" colorido do KpiCard, sem depender de um pacote de ícones externo.
@@ -93,13 +99,6 @@ function formatMoney(value: number) {
   });
 }
 
-const QUICK_ACTIONS = [
-  "Registrar entrega de EPI",
-  "Registrar devolução",
-  "Dar entrada em estoque",
-  "Rodar auditoria NR-06",
-];
-
 export default async function DashboardPage() {
   // Precisa da empresa do usuário logado ANTES de buscar os números do
   // dashboard (ver getDashboardData) — não dá mais pra buscar os dois em
@@ -116,7 +115,21 @@ export default async function DashboardPage() {
     return <DashboardSuperAdmin data={dataSuperAdmin} nome={user.nome} />;
   }
 
-  const data = await getDashboardData(user?.empresaId ?? null);
+  const empresaId = user?.empresaId ?? null;
+  // Mesmo nível de colaboradores/EPIs/movimentações: "encarregado"+ registra
+  // entrega, devolução e entrada de estoque — ver mesma checagem em
+  // movimentacoes/page.tsx e estoque/page.tsx. Sem isso, um usuário
+  // "leitura" veria botões que a Server Action por trás ia recusar de
+  // qualquer forma.
+  const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
+
+  const [data, colaboradoresAtivos, episAtivos, estacoesAtivas] =
+    await Promise.all([
+      getDashboardData(empresaId),
+      listColaboradoresAtivos(empresaId),
+      listEpisAtivos(empresaId),
+      listEstacoesAtivas(empresaId),
+    ]);
 
   const hoje = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -135,14 +148,13 @@ export default async function DashboardPage() {
             {user?.empresaNome ?? "MorSafe"} · {hoje}
           </p>
         </div>
-        <button
-          type="button"
-          disabled
-          title="Em breve"
-          className="w-full rounded-lg border border-border-strong bg-surface-muted px-4 py-2.5 text-[13.5px] font-semibold text-text-muted sm:w-auto"
-        >
-          + Nova entrega
-        </button>
+        {podeGerenciar && (
+          <RegistrarEntregaButton
+            colaboradores={colaboradoresAtivos}
+            epis={episAtivos}
+            estacoes={estacoesAtivas}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
@@ -248,20 +260,37 @@ export default async function DashboardPage() {
           <h3 className="mb-3.5 text-sm font-semibold text-foreground">
             Ações rápidas
           </h3>
-          <div className="flex flex-col gap-2">
-            {QUICK_ACTIONS.map((label) => (
-              <div
-                key={label}
-                title="Em breve"
-                className="flex items-center justify-between gap-2.5 rounded-lg border border-border-strong bg-surface-muted px-3.5 py-2.5 text-[13px] font-medium text-text-muted"
-              >
-                {label}
-                <span className="rounded-full border border-border-strong px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-text-muted">
-                  Em breve
-                </span>
-              </div>
-            ))}
+          {/* "Registrar entrega" já está no botão de destaque lá em cima —
+              aqui ficam os outros atalhos, pra não duplicar o mesmo modal
+              em dois lugares da mesma tela. Auditoria NR-06 continua "Em
+              breve" de verdade (ver nav-items.ts) — as outras três não
+              eram: o recurso já existia em Movimentações/Estoque, só não
+              estava ligado aqui (ver conversa com Rafael, 01/10/2026). */}
+          <div className="flex flex-wrap gap-2">
+            {podeGerenciar && (
+              <>
+                <RegistrarDevolucaoButton
+                  colaboradores={colaboradoresAtivos}
+                  estacoes={estacoesAtivas}
+                />
+                <RegistrarEntradaButton epis={episAtivos} />
+              </>
+            )}
+            <div
+              title="Em breve"
+              className="flex items-center gap-2 rounded-lg border border-border-strong bg-surface-muted px-3.5 py-2.5 text-[13px] font-medium text-text-muted"
+            >
+              Rodar auditoria NR-06
+              <span className="rounded-full border border-border-strong px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-text-muted">
+                Em breve
+              </span>
+            </div>
           </div>
+          {!podeGerenciar && (
+            <p className="mt-2.5 text-[12px] text-text-muted">
+              Seu perfil de acesso não permite registrar movimentações.
+            </p>
+          )}
         </Card>
       </div>
     </div>

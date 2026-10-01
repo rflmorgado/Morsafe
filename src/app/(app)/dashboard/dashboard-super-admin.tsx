@@ -76,6 +76,24 @@ function IconWallet(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconAlertTriangle(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M12 3.5 21.5 20h-19z" />
+      <path d="M12 9.5v4.5" />
+      <circle cx="12" cy="17" r="0.15" fill="currentColor" />
+    </svg>
+  );
+}
+
 function formatDateHora(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", {
     timeZone: "America/Sao_Paulo",
@@ -126,7 +144,7 @@ export function DashboardSuperAdmin({
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           label="Empresas ativas"
           value={data.totalEmpresasAtivas}
@@ -158,6 +176,17 @@ export function DashboardSuperAdmin({
               : "Tudo em dia"
           }
           deltaTone={data.pagamentosAtrasados > 0 ? "warn" : "up"}
+        />
+        <KpiCard
+          label="Empresas no limite"
+          value={data.empresasNoLimiteColaboradores}
+          icon={<IconAlertTriangle className="h-5 w-5" />}
+          delta={
+            data.empresasNoLimiteColaboradores > 0
+              ? "Colaboradores no limite do plano"
+              : "Nenhuma no limite"
+          }
+          deltaTone={data.empresasNoLimiteColaboradores > 0 ? "warn" : "up"}
         />
       </div>
 

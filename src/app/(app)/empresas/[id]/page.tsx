@@ -2,9 +2,12 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { getEmpresaComResumo } from "@/lib/data/empresas";
 import { listUsuariosDaEmpresa } from "@/lib/data/usuarios";
+import { listPagamentosDaEmpresa, formatStatusPagamento } from "@/lib/data/pagamentos";
 import { PageHeader } from "@/components/ui/page-header";
 import { AlternarAtivoButton } from "../ativar-empresa-button";
 import { ResetarEmpresaButton } from "../resetar-empresa-button";
+import { NovoPagamentoButton } from "../../pagamentos/novo-pagamento-button";
+import { MarcarPagoButton } from "../../pagamentos/marcar-pago-button";
 
 const PAPEL_LABEL: Record<string, string> = {
   admin: "Admin",
@@ -16,6 +19,17 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", {
     timeZone: "America/Sao_Paulo",
   });
+}
+
+// `data_vencimento`/`data_pagamento` são `date` puro — mesmo motivo do
+// "T00:00:00" já usado em app/(app)/pagamentos/page.tsx (evita a data
+// aparecer um dia a menos no fuso do Brasil).
+function formatDateSemHora(iso: string) {
+  return new Date(iso + "T00:00:00").toLocaleDateString("pt-BR");
+}
+
+function formatMoney(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 /**
@@ -63,6 +77,7 @@ export default async function EmpresaDetalhePage({
   }
 
   const usuarios = await listUsuariosDaEmpresa(empresa.id);
+  const pagamentos = await listPagamentosDaEmpresa(empresa.id, empresa.nome);
 
   return (
     <div className="space-y-6">
@@ -159,6 +174,80 @@ export default async function EmpresaDetalhePage({
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="text-[15px] font-bold tracking-tight text-foreground">
+            Pagamentos
+          </h3>
+          <NovoPagamentoButton empresaIdFixo={empresa.id} />
+        </div>
+        {pagamentos.length === 0 ? (
+          <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
+            Nenhum pagamento registrado ainda.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card">
+            <table className="w-full min-w-[480px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-border-subtle">
+                  <th className="px-4 py-3 text-[12.5px] font-semibold text-text-secondary">
+                    Valor
+                  </th>
+                  <th className="px-4 py-3 text-[12.5px] font-semibold text-text-secondary">
+                    Vencimento
+                  </th>
+                  <th className="px-4 py-3 text-[12.5px] font-semibold text-text-secondary">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-[12.5px] font-semibold text-text-secondary">
+                    Ação
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagamentos.map((p) => {
+                  const status = formatStatusPagamento(p.statusComputado);
+                  return (
+                    <tr
+                      key={p.id}
+                      className="border-b border-border-subtle last:border-b-0"
+                    >
+                      <td className="px-4 py-3 text-[13.5px] font-medium text-foreground">
+                        {formatMoney(p.valor)}
+                      </td>
+                      <td className="px-4 py-3 text-[13px] text-text-secondary">
+                        {formatDateSemHora(p.dataVencimento)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${status.classe}`}
+                        >
+                          {status.texto}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {p.status === "pendente" ? (
+                          <MarcarPagoButton
+                            pagamentoId={p.id}
+                            empresaNome={p.empresaNome}
+                          />
+                        ) : (
+                          <span className="text-[12.5px] text-text-muted">
+                            {p.dataPagamento
+                              ? `Pago em ${formatDateSemHora(p.dataPagamento)}`
+                              : "Pago"}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

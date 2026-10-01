@@ -9,16 +9,48 @@ export type EmpresaResumo = {
   totalColaboradores: number;
   totalEpis: number;
   totalUsuarios: number;
+  // Colaboradores ativos cobertos pelo plano contratado — null = sem
+  // limite definido ainda (nenhum alerta é mostrado). Ver
+  // getLimiteColaboradores abaixo pro motivo de ser buscado à parte.
+  limiteColaboradores: number | null;
 };
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 type EmpresaRow = { id: string; nome: string; cnpj: string | null; ativo: boolean; criado_em: string };
 
+/**
+ * Busca limite_colaboradores EM UMA CONSULTA SEPARADA do resto do resumo —
+ * de propósito. Essa coluna é nova (ver
+ * morsafe-add-limite-colaboradores.sql) e ainda não existe em produção
+ * enquanto o acesso ao Supabase continuar bloqueado; se ela estivesse no
+ * mesmo .select() que busca id/nome/cnpj/ativo/criado_em, UM erro de
+ * "coluna não existe" faria a empresa inteira sumir da lista (comResumo/
+ * listEmpresasComResumo não teriam como separar "empresa não encontrada"
+ * de "essa coluna nova ainda não existe"). Isolada aqui, a mesma falha vira
+ * só "sem limite definido" (null), sem afetar nada mais da tela.
+ */
+async function getLimiteColaboradores(
+  admin: AdminClient,
+  empresaId: string,
+): Promise<number | null> {
+  try {
+    const { data, error } = await admin
+      .from("empresas")
+      .select("limite_colaboradores")
+      .eq("id", empresaId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data.limite_colaboradores;
+  } catch {
+    return null;
+  }
+}
+
 async function comResumo(
   admin: AdminClient,
   e: EmpresaRow,
 ): Promise<EmpresaResumo> {
-  const [colaboradores, epis, usuarios] = await Promise.all([
+  const [colaboradores, epis, usuarios, limiteColaboradores] = await Promise.all([
     admin
       .from("colaboradores")
       .select("id", { count: "exact", head: true })
@@ -34,6 +66,7 @@ async function comResumo(
       .select("id", { count: "exact", head: true })
       .eq("empresa_id", e.id)
       .eq("ativo", true),
+    getLimiteColaboradores(admin, e.id),
   ]);
 
   return {
@@ -45,7 +78,28 @@ async function comResumo(
     totalColaboradores: colaboradores.count ?? 0,
     totalEpis: epis.count ?? 0,
     totalUsuarios: usuarios.count ?? 0,
+    limiteColaboradores,
   };
+}
+
+/**
+ * Selo visual de alerta de limite de colaboradores — null quando não há
+ * limite definido ou quando a empresa está bem longe dele (sem poluir a
+ * tela com um selo pra toda empresa). Usado tanto na lista (/empresas)
+ * quanto no detalhe (/empresas/[id]).
+ */
+export function statusLimiteColaboradores(
+  totalColaboradores: number,
+  limiteColaboradores: number | null,
+): { texto: string; classe: string } | null {
+  if (limiteColaboradores === null) return null;
+  if (totalColaboradores >= limiteColaboradores) {
+    return { texto: "No limite do plano", classe: "bg-danger-bg text-danger-text" };
+  }
+  if (totalColaboradores >= limiteColaboradores * 0.9) {
+    return { texto: "Perto do limite", classe: "bg-warning-bg text-warning-text" };
+  }
+  return null;
 }
 
 /**
@@ -126,4 +180,25 @@ export async function getEmpresaComResumo(
   }
 
   return comResumo(admin, empresa);
+}
+
+/**
+ * Quantas empresas clientes já alcançaram ou passaram o limite de
+ * colaboradores ativos do plano contratado — alimenta o KPI "Empresas no
+ * limite" do Dashboard do super_admin (ver
+ * lib/data/dashboard-super-admin.ts). Empresa sem limite definido
+ * (limiteColaboradores null) nunca entra nessa contagem.
+ *
+ * Reaproveita listEmpresasComResumo() em vez de uma consulta própria —
+ * mesma lista que já alimenta a tela /empresas, e o volume de empresas
+ * clientes do MorSafe hoje (poucas dezenas) torna isso barato o bastante
+ * pra não precisar de uma versão otimizada só pra essa contagem.
+ */
+export async function contarEmpresasNoLimite(): Promise<number> {
+  const empresas = await listEmpresasComResumo();
+  return empresas.filter(
+    (e) =>
+      e.limiteColaboradores !== null &&
+      e.totalColaboradores >= e.limiteColaboradores,
+  ).length;
 }

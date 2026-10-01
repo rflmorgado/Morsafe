@@ -18,9 +18,16 @@ function NavLinks({
   isAdmin: boolean;
 }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter(
-    (item) =>
-      (!item.superAdminOnly || isSuperAdmin) && (!item.adminOnly || isAdmin),
+  // super_admin nunca pertence a uma empresa (não tem empresa_id), então
+  // as telas operacionais (Dashboard, Colaboradores, EPIs, Movimentações,
+  // Estoque, Estações...) não fazem sentido pra ele — mostram listas vazias
+  // à toa. Por isso o filtro é diferente dos dois papéis: super_admin vê
+  // SÓ os itens marcados superAdminOnly; todo o resto vê tudo que não é
+  // superAdminOnly, filtrado como antes por adminOnly.
+  const items = NAV_ITEMS.filter((item) =>
+    isSuperAdmin
+      ? Boolean(item.superAdminOnly)
+      : !item.superAdminOnly && (!item.adminOnly || isAdmin),
   );
 
   return (

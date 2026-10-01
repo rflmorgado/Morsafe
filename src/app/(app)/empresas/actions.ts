@@ -56,6 +56,77 @@ export async function alternarAtivoEmpresa(
   return { error: null };
 }
 
+export type DefinirLimiteColaboradoresState = { error: string | null };
+
+/**
+ * Define (ou remove, com limite = null) o limite de colaboradores ATIVOS
+ * incluído no plano contratado pela empresa — usado pro alerta visual na
+ * lista de empresas, no detalhe dela e no KPI "Empresas no limite" do
+ * Dashboard (ver statusLimiteColaboradores/contarEmpresasNoLimite em
+ * lib/data/empresas.ts). Sem limite definido, nenhum alerta é mostrado —
+ * por isso o campo em branco (limite null) é uma opção válida, não um erro.
+ *
+ * limite_colaboradores é uma coluna nova (ver
+ * morsafe-add-limite-colaboradores.sql), pendente de aplicação enquanto o
+ * acesso ao Supabase continuar bloqueado: até lá, um update aqui falha com
+ * o código Postgres 42703 (coluna inexistente), que traduzimos numa
+ * mensagem clara em vez de deixar vazar o erro técnico do banco.
+ */
+export async function definirLimiteColaboradores(
+  empresaId: string,
+  limite: number | null,
+): Promise<DefinirLimiteColaboradoresState> {
+  const user = await getCurrentUser();
+  if (!user || user.papel !== "super_admin") {
+    return { error: SEM_PERMISSAO };
+  }
+
+  if (limite !== null && (!Number.isInteger(limite) || limite < 1)) {
+    return {
+      error:
+        "O limite precisa ser um número inteiro maior que zero, ou em branco para remover o limite.",
+    };
+  }
+
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("empresas")
+    .update({ limite_colaboradores: limite })
+    .eq("id", empresaId)
+    .select("id, nome")
+    .maybeSingle();
+
+  if (error) {
+    console.error("definirLimiteColaboradores:", error.message);
+    if (error.code === "42703") {
+      return {
+        error:
+          "Essa função depende de uma coluna nova no banco que ainda não foi criada (acesso ao Supabase está bloqueado pelo chamado de suporte em aberto). Assim que o acesso voltar e a migração pendente rodar, isso passa a funcionar.",
+      };
+    }
+    return { error: "Não foi possível salvar o limite. Tente novamente." };
+  }
+  if (!data) {
+    return { error: "Empresa não encontrada." };
+  }
+
+  await registrarLogAuditoria({
+    supabase: admin,
+    empresaId: data.id,
+    tabela: "empresas",
+    registroId: data.id,
+    acao: "limite_colaboradores_atualizado",
+    usuarioId: user.id,
+    detalhes: { nome: data.nome, limite },
+  });
+
+  revalidatePath(`/empresas/${empresaId}`);
+  revalidatePath("/empresas");
+  revalidatePath("/dashboard");
+  return { error: null };
+}
+
 // Ordem pensada pra respeitar as dependências do banco — tudo que
 // referencia colaboradores ou epis precisa ser apagado antes deles.
 // `estoque` não entra na lista porque é apagado em cascata junto com

@@ -31,6 +31,22 @@
   --warning-bg: #fef6e0;
   --warning-text: #8a5a00;
 
+  /* Paleta categórica (identidade, não status) só pro donut "Gasto por
+     setor" do Dashboard — ordem fixa, nunca ciclada, validada contra
+     daltonismo e contra a cor do Card (--surface) nos dois temas com o
+     validador da skill de dataviz (scripts/validate_palette.js): passa em
+     todas as checagens duras nos dois modos; 2 das 5 cores no modo claro
+     ficam abaixo de 3:1 de contraste isoladas — por isso o donut sempre vem
+     com legenda/rótulo direto do lado, nunca só a cor. De propósito sem
+     verde/âmbar/vermelho (família de cor reservada pros indicadores de
+     status "bom/alerta/crítico" dos outros dois donuts, em
+     dashboard/page.tsx), pra nunca se confundir com eles lado a lado. */
+  --chart-cat-1: #2a78d6;
+  --chart-cat-2: #eb6834;
+  --chart-cat-3: #4a3aa7;
+  --chart-cat-4: #eda100;
+  --chart-cat-5: #e87ba4;
+
   /* Elevação — mesma cor de sombra (verde-escuro, rgb do --brand-900) já usada
      no shadow do shell (app-shell.tsx), só que graduada em duas intensidades:
      "card" pros painéis/tabelas em repouso, "btn" pros botões primários, que
@@ -58,6 +74,16 @@
     --brand-100: #1a3427;
     --danger-bg: #3a1a17;
     --warning-bg: #3a2e0f;
+
+    /* Mesmas 5 cores categóricas acima, com os passos mais claros validados
+       pro fundo escuro do Card nesse tema (ver comentário delas lá em
+       cima) — não é um ajuste de gosto, é outro valor validado pelo mesmo
+       script, pro mesmo --surface escuro deste bloco. */
+    --chart-cat-1: #3987e5;
+    --chart-cat-2: #d95926;
+    --chart-cat-3: #9085e9;
+    --chart-cat-4: #c98500;
+    --chart-cat-5: #d55181;
 
     /* Contra um fundo já escuro, uma sombra preta não aparece — ela só
        escurece o que já é escuro. Por isso: (1) o "card" (--surface) agora

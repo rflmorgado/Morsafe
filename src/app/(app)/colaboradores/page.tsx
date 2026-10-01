@@ -31,6 +31,7 @@ const COLUNAS: { label: string; sortKey: SortKey | null }[] = [
   { label: "Cargo", sortKey: "cargo" },
   { label: "Status", sortKey: "status" },
   { label: "Última entrega", sortKey: "ultima_entrega" },
+  { label: "NR-06", sortKey: null },
   { label: "", sortKey: null },
 ];
 
@@ -38,6 +39,7 @@ function buildHref(
   q: string | undefined,
   setor: string | undefined,
   status: string | undefined,
+  nr06: string | undefined,
   sort: string | undefined,
   dir: string | undefined,
   page: number,
@@ -46,6 +48,7 @@ function buildHref(
   if (q) params.set("q", q);
   if (setor) params.set("setor", setor);
   if (status) params.set("status", status);
+  if (nr06) params.set("nr06", nr06);
   if (sort) params.set("sort", sort);
   if (dir) params.set("dir", dir);
   if (page > 1) params.set("page", String(page));
@@ -63,6 +66,7 @@ function buildExportHref(
   q: string | undefined,
   setor: string | undefined,
   status: string | undefined,
+  nr06: string | undefined,
   sort: string | undefined,
   dir: string | undefined,
 ) {
@@ -70,6 +74,7 @@ function buildExportHref(
   if (q) params.set("q", q);
   if (setor) params.set("setor", setor);
   if (status) params.set("status", status);
+  if (nr06) params.set("nr06", nr06);
   if (sort) params.set("sort", sort);
   if (dir) params.set("dir", dir);
   const qs = params.toString();
@@ -85,6 +90,7 @@ function buildSortHref(
   q: string | undefined,
   setor: string | undefined,
   status: string | undefined,
+  nr06: string | undefined,
   sortAtual: string,
   dirAtual: string,
   coluna: SortKey,
@@ -93,6 +99,7 @@ function buildSortHref(
   if (q) params.set("q", q);
   if (setor) params.set("setor", setor);
   if (status) params.set("status", status);
+  if (nr06) params.set("nr06", nr06);
   const proximaDir = sortAtual === coluna && dirAtual !== "desc" ? "desc" : "asc";
   params.set("sort", coluna);
   params.set("dir", proximaDir);
@@ -106,12 +113,13 @@ export default async function ColaboradoresPage({
     q?: string;
     setor?: string;
     status?: string;
+    nr06?: string;
     sort?: string;
     dir?: string;
     page?: string;
   }>;
 }) {
-  const { q, setor, status, sort, dir, page: pageParam } = await searchParams;
+  const { q, setor, status, nr06, sort, dir, page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
   const sortAtual = sort ?? "nome";
   const dirAtual = dir ?? "asc";
@@ -127,6 +135,7 @@ export default async function ColaboradoresPage({
       query: q,
       setorId: setor,
       status,
+      nr06,
       sort,
       dir,
       page,
@@ -163,7 +172,7 @@ export default async function ColaboradoresPage({
           podeGerenciar && (
             <>
               <a
-                href={buildExportHref(q, setor, status, sort, dir)}
+                href={buildExportHref(q, setor, status, nr06, sort, dir)}
                 title="Exportar lista filtrada em CSV"
                 className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
               >
@@ -194,7 +203,7 @@ export default async function ColaboradoresPage({
       />
 
       <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card">
-        <table className="w-full min-w-[720px] border-collapse bg-surface text-left">
+        <table className="w-full min-w-[840px] border-collapse bg-surface text-left">
           <thead>
             <tr>
               {COLUNAS.map((coluna) => (
@@ -208,6 +217,7 @@ export default async function ColaboradoresPage({
                         q,
                         setor,
                         status,
+                        nr06,
                         sortAtual,
                         dirAtual,
                         coluna.sortKey,
@@ -234,7 +244,7 @@ export default async function ColaboradoresPage({
             {colaboradores.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-4 py-6 text-sm text-text-muted"
                 >
                   Nenhum colaborador encontrado.
@@ -272,6 +282,17 @@ export default async function ColaboradoresPage({
                   </td>
                   <td className="px-4 py-3.5 text-[13.5px] text-foreground">
                     {c.ultimaEntrega ? formatDate(c.ultimaEntrega) : "—"}
+                  </td>
+                  <td className="px-4 py-3.5 text-[13.5px]">
+                    {c.dataIntegracaoSeguranca ? (
+                      <span className="text-foreground">
+                        {formatDate(c.dataIntegracaoSeguranca)}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-warning-bg px-2.5 py-0.5 text-[11px] font-semibold text-warning-text">
+                        Pendente
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -330,7 +351,7 @@ export default async function ColaboradoresPage({
           </span>
           <div className="flex gap-2">
             <Link
-              href={buildHref(q, setor, status, sort, dir, page - 1)}
+              href={buildHref(q, setor, status, nr06, sort, dir, page - 1)}
               aria-disabled={page <= 1}
               tabIndex={page <= 1 ? -1 : undefined}
               className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
@@ -342,7 +363,7 @@ export default async function ColaboradoresPage({
               ← Anterior
             </Link>
             <Link
-              href={buildHref(q, setor, status, sort, dir, page + 1)}
+              href={buildHref(q, setor, status, nr06, sort, dir, page + 1)}
               aria-disabled={page >= totalPages}
               tabIndex={page >= totalPages ? -1 : undefined}
               className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${

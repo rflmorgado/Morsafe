@@ -13,6 +13,7 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 import { EstoqueFilters } from "./estoque-filters";
 import { RegistrarEntradaButton } from "./registrar-entrada-button";
 import { ImportarEstoqueButton } from "./importar-estoque-button";
+import { ImportarCatalogoEstoqueButton } from "./importar-catalogo-estoque-button";
 import { EditarLimiteButton } from "./editar-limite-button";
 
 function formatDate(value: string) {
@@ -156,7 +157,10 @@ export default async function EstoquePage({
             podeGerenciar && (
               <>
                 {podeImportar && (
-                  <ImportarEstoqueButton epis={episAtivos} />
+                  <>
+                    <ImportarCatalogoEstoqueButton epis={episAtivos} />
+                    <ImportarEstoqueButton epis={episAtivos} />
+                  </>
                 )}
                 <RegistrarEntradaButton epis={episAtivos} />
               </>

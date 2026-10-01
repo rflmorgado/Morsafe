@@ -364,6 +364,11 @@ export type CriarEpiCatalogoState = {
  * item na hora, uma chamada por nome novo, em vez de barrar a importação ou
  * depender de um mapeamento manual.
  *
+ * `tipo` é opcional (mesma coluna de texto livre do cadastro manual, ver
+ * epi-tipos.ts) — quando a planilha não tem uma coluna mapeada pra ele, ou a
+ * célula vem vazia, o EPI é criado sem tipo (igual ao cadastro manual sem
+ * selecionar nada), nunca bloqueia a criação.
+ *
  * `ca`/`caValidade` nulificados juntos quando `ca` vem vazio — garante que
  * uma planilha com "Validade do C.A." preenchida mas "C.A." vazio (erro de
  * preenchimento, não suportado por este app) nunca chega a violar a
@@ -379,6 +384,7 @@ export type CriarEpiCatalogoState = {
  */
 export async function criarEpiCatalogo(
   nome: string,
+  tipo: string | null,
   ca: string | null,
   caValidade: string | null,
 ): Promise<CriarEpiCatalogoState> {
@@ -395,6 +401,7 @@ export async function criarEpiCatalogo(
     return { error: SEM_PERMISSAO };
   }
 
+  const tipoTrim = (tipo ?? "").trim();
   const caTrim = (ca ?? "").trim();
   const exigeCa = !!caTrim;
 
@@ -404,6 +411,7 @@ export async function criarEpiCatalogo(
     .insert({
       empresa_id: user.empresaId,
       nome: nomeTrim,
+      tipo: tipoTrim || null,
       exige_ca: exigeCa,
       ca: exigeCa ? caTrim : null,
       ca_validade: exigeCa ? caValidade : null,

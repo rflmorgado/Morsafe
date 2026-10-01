@@ -22,6 +22,8 @@ export const ACAO_LABEL: Record<string, string> = {
   entrada_registrada: "Entrada de estoque registrada",
   limite_atualizado: "Limite de alerta de estoque atualizado",
   dados_resetados: "Dados de teste resetados",
+  pagamento_criado: "Pagamento registrado",
+  pagamento_recebido: "Pagamento recebido",
 };
 
 export const TABELA_LABEL: Record<string, string> = {
@@ -37,6 +39,7 @@ export const TABELA_LABEL: Record<string, string> = {
   empresas: "Empresa",
   entradas_estoque: "Entrada de estoque",
   estoque: "Estoque",
+  pagamentos_empresa: "Pagamento",
 };
 
 // Artigo + substantivo por tabela, usado nas frases do histórico ("Cadastrou
@@ -187,6 +190,14 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
         0,
       );
       return `Resetou os dados de teste da empresa (${total} registro${total === 1 ? "" : "s"} apagados)`;
+    }
+    case "pagamento_criado": {
+      const valor = item.detalhes?.valor as number | undefined;
+      return `Registrou pagamento${valor !== undefined ? ` de ${valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""} de "${nome ?? "empresa"}"`;
+    }
+    case "pagamento_recebido": {
+      const valor = item.detalhes?.valor as number | undefined;
+      return `Marcou pagamento${valor !== undefined ? ` de ${valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""} de "${nome ?? "empresa"}" como recebido`;
     }
     default:
       return ACAO_LABEL[item.acao] ?? item.acao;

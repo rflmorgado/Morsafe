@@ -19,6 +19,13 @@ const CIRCUNFERENCIA = 2 * Math.PI * RADIUS;
  * a 6): cada uma sempre junto de uma legenda com o rótulo e o valor, nunca
  * só a cor sozinha (ver skill de dataviz, references/anti-patterns.md).
  *
+ * Donut sempre EM CIMA da legenda, nunca lado a lado — os 3 donuts do
+ * Dashboard moram numa grade de 3 colunas (ver dashboard/page.tsx), então
+ * cada Card tem pouco mais de 200px de largura líquida; lado a lado, o SVG
+ * de 120px não deixava quase nada pra legenda e rótulos como "Pendente" e
+ * "No limite" vinham cortados ("Pen...", "No ..." — ver print do Rafael,
+ * 01/10/2026). Empilhado, a legenda ganha a largura inteira do Card.
+ *
  * `centerLabel`/`centerSublabel` ficam no meio do anel — normalmente o
  * total (ex.: "125" colaboradores) e uma legenda curta (ex.: "ativos").
  */
@@ -49,7 +56,7 @@ export function DonutChart({
     });
 
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+    <div className="flex flex-col items-center gap-3.5">
       <svg
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         width={SIZE}
@@ -111,7 +118,7 @@ export function DonutChart({
         )}
       </svg>
 
-      <ul className="w-full flex-1 space-y-1.5">
+      <ul className="w-full space-y-1.5">
         {data.map((d) => {
           const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
           return (

@@ -80,6 +80,31 @@ export async function listEmpresasComResumo(): Promise<EmpresaResumo[]> {
 }
 
 /**
+ * Lista enxuta (id + nome) de todas as empresas, só pra alimentar o
+ * seletor "Empresa" do formulário de novo pagamento (ver
+ * app/(app)/pagamentos/novo-pagamento-button.tsx) — sem as contagens de
+ * comResumo(), que seriam um desperdício de consultas só pra preencher um
+ * <select>.
+ */
+export async function listEmpresasParaSelect(): Promise<
+  { id: string; nome: string }[]
+> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("empresas")
+    .select("id, nome")
+    .order("nome", { ascending: true });
+
+  if (error || !data) {
+    console.error("listEmpresasParaSelect:", error?.message);
+    return [];
+  }
+
+  return data;
+}
+
+/**
  * Mesmo resumo de listEmpresasComResumo, mas só de uma empresa — pra tela
  * de detalhe (app/(app)/empresas/[id]/page.tsx). Retorna null se o id não
  * existir.

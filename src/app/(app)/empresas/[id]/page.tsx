@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/data/current-user";
 import { getEmpresaComResumo } from "@/lib/data/empresas";
 import { listUsuariosDaEmpresa } from "@/lib/data/usuarios";
 import { PageHeader } from "@/components/ui/page-header";
+import { AlternarAtivoButton } from "../ativar-empresa-button";
+import { ResetarEmpresaButton } from "../resetar-empresa-button";
 
 const PAPEL_LABEL: Record<string, string> = {
   admin: "Admin",
@@ -17,11 +19,10 @@ function formatDate(iso: string) {
 }
 
 /**
- * Detalhe de uma empresa cliente, visto pelo super_admin — ainda só
- * leitura (dados cadastrais, resumo operacional e os logins da empresa).
- * Ações administrativas (ativar/desativar, reset de dados) ficam pra uma
- * próxima etapa, combinada à parte — ver conversa sobre a regra 3 do
- * CLAUDE.md antes de adicionar qualquer ação que apague dado aqui.
+ * Detalhe de uma empresa cliente, visto pelo super_admin: dados
+ * cadastrais, resumo operacional, os logins da empresa e as ações
+ * administrativas (ativar/desativar acesso, resetar dados de teste — ver
+ * actions.ts e a exceção documentada na regra 3 do CLAUDE.md).
  */
 export default async function EmpresaDetalhePage({
   params,
@@ -162,6 +163,23 @@ export default async function EmpresaDetalhePage({
             </table>
           </div>
         )}
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-[15px] font-bold tracking-tight text-foreground">
+          Ações administrativas
+        </h3>
+        <div className="flex flex-wrap gap-3 rounded-2xl border border-border-subtle bg-surface p-5 shadow-card">
+          <AlternarAtivoButton
+            empresaId={empresa.id}
+            empresaNome={empresa.nome}
+            ativo={empresa.ativo}
+          />
+          <ResetarEmpresaButton
+            empresaId={empresa.id}
+            empresaNome={empresa.nome}
+          />
+        </div>
       </div>
     </div>
   );

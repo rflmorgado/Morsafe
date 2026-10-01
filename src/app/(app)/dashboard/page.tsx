@@ -269,10 +269,7 @@ export default async function DashboardPage() {
           <div className="flex flex-wrap gap-2">
             {podeGerenciar && (
               <>
-                <RegistrarDevolucaoButton
-                  colaboradores={colaboradoresAtivos}
-                  estacoes={estacoesAtivas}
-                />
+                <RegistrarDevolucaoButton colaboradores={colaboradoresAtivos} />
                 <RegistrarEntradaButton epis={episAtivos} />
               </>
             )}

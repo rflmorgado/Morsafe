@@ -56,6 +56,14 @@ export default async function LoginPage({
             </p>
           )}
 
+          {motivo === "empresa_desativada" && (
+            <p className="mb-5 rounded-lg bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-text">
+              O acesso da sua empresa ao MorSafe está temporariamente
+              desativado. Fale com o MorSafe se isso não deveria ter
+              acontecido.
+            </p>
+          )}
+
           <LoginForm />
 
           <div className="mt-6 text-center text-xs text-text-muted">

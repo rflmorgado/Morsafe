@@ -35,8 +35,17 @@ const EXTRAVIADO: MotivoDevolucao = "extraviado_nao_devolvido";
 
 export function RegistrarDevolucaoButton({
   colaboradores,
+  variant = "outline",
 }: {
   colaboradores: ColaboradorAtivo[];
+  // "outline" é o padrão (usado em Movimentações, onde já existe um botão
+  // sólido de destaque — Registrar entrega — na mesma toolbar; dois botões
+  // sólidos lado a lado ali competiriam pela atenção). "solid" é pro
+  // Dashboard, onde "Registrar entrega" já é um botão à parte lá em cima e os
+  // atalhos do card "Ações rápidas" devem parecer um conjunto único — ver
+  // mesmo raciocínio em registrar-entrada-button.tsx (conversa com Rafael,
+  // 01/10/2026).
+  variant?: "outline" | "solid";
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +125,11 @@ export function RegistrarDevolucaoButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-border-strong px-4 py-2.5 text-[13.5px] font-semibold text-foreground transition hover:bg-surface-muted"
+        className={
+          variant === "solid"
+            ? "rounded-lg bg-brand-700 px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-brand-800"
+            : "rounded-lg border border-border-strong px-4 py-2.5 text-[13.5px] font-semibold text-foreground transition hover:bg-surface-muted"
+        }
       >
         + Registrar devolução
       </button>

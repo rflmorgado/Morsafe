@@ -11,6 +11,12 @@ export type ListColaboradoresOptions = {
   query?: string;
   setorId?: string;
   status?: string;
+  // "pendente" isola quem está sem data_integracao_seguranca preenchida —
+  // pedido do Rafael depois de importar uma planilha com a coluna
+  // "Integração/NR 06" nova: ele precisa achar rápido, entre dezenas/
+  // centenas de colaboradores, só os que ficaram sem essa data pra
+  // completar manualmente (editar colaborador → campo Integração/NR-06).
+  nr06?: string;
   sort?: string;
   dir?: string;
   page?: number;
@@ -92,6 +98,7 @@ export async function listColaboradores({
   query,
   setorId,
   status,
+  nr06,
   sort,
   dir,
   page = 1,
@@ -115,6 +122,9 @@ export async function listColaboradores({
   }
   if (status === "ativo" || status === "inativo") {
     request = request.eq("status", status);
+  }
+  if (nr06 === "pendente") {
+    request = request.is("data_integracao_seguranca", null);
   }
 
   const { data, error } = await request;
@@ -172,6 +182,7 @@ export type ListColaboradoresExportOptions = {
   query?: string;
   setorId?: string;
   status?: string;
+  nr06?: string;
   sort?: string;
   dir?: string;
 };
@@ -188,6 +199,7 @@ export async function listColaboradoresParaExportar({
   query,
   setorId,
   status,
+  nr06,
   sort,
   dir,
 }: ListColaboradoresExportOptions) {
@@ -210,6 +222,9 @@ export async function listColaboradoresParaExportar({
   }
   if (status === "ativo" || status === "inativo") {
     request = request.eq("status", status);
+  }
+  if (nr06 === "pendente") {
+    request = request.is("data_integracao_seguranca", null);
   }
 
   const { data, error } = await request;
@@ -292,7 +307,7 @@ export async function getColaboradorDetalhe(
     supabase
       .from("devolucoes")
       .select(
-        "id, data, motivo, destino, devolvido_fisicamente, criado_em, epis ( nome, ca ), entregas ( quantidade ), usuarios ( nome )",
+        "id, data, motivo, destino, devolvido_fisicamente, assinatura_url, criado_em, epis ( nome, ca ), entregas ( quantidade ), usuarios ( nome )",
       )
       .eq("colaborador_id", id)
       .order("data", { ascending: false }),
@@ -312,9 +327,10 @@ export async function getColaboradorDetalhe(
     epi: string;
     ca: string | null;
     detalhe: string;
-    // Só entregas têm assinatura — usada na ficha em PDF (ver
-    // ficha/route.ts) pra mostrar a confirmação de recebimento junto de
-    // cada item do histórico.
+    // Entrega sempre tem; devolução tem a partir de quando a coluna
+    // devolucoes.assinatura_url passou a existir (registros antigos ficam
+    // null) — recusa nunca tem. Usada na ficha em PDF (ver ficha/route.ts)
+    // pra mostrar a confirmação junto de cada item do histórico.
     assinaturaUrl?: string | null;
     // Só entrega e devolução têm quantidade (na devolução, vem da entrega
     // vinculada — ver comentário em EntregaEmPosse, lib/data/movimentacoes.ts).
@@ -348,6 +364,7 @@ export async function getColaboradorDetalhe(
       detalhe: `${MOTIVO_DEVOLUCAO_LABEL[d.motivo] ?? d.motivo}${
         d.devolvido_fisicamente ? "" : " · não devolvido fisicamente"
       }`,
+      assinaturaUrl: d.assinatura_url,
       quantidade: (d.entregas as unknown as { quantidade: number } | null)?.quantidade,
       responsavelNome: (d.usuarios as unknown as { nome: string } | null)?.nome ?? null,
       criadoEm: d.criado_em,

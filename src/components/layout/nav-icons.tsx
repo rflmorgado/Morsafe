@@ -100,6 +100,17 @@ export function IconUsuarios({ className }: NavIconProps) {
   );
 }
 
+export function IconEmpresas({ className }: NavIconProps) {
+  return (
+    <IconBase className={className}>
+      <rect x="2.5" y="9" width="7" height="12" rx="1" />
+      <rect x="10.5" y="3" width="7" height="18" rx="1" />
+      <rect x="18.5" y="11" width="3" height="10" rx="0.8" />
+      <path d="M5 13h1.5M5 16.5h1.5M13 6.5h3M13 10h3M13 13.5h3M13 17h3" />
+    </IconBase>
+  );
+}
+
 export function IconNovaEmpresa({ className }: NavIconProps) {
   return (
     <IconBase className={className}>
@@ -152,6 +163,7 @@ export const NAV_ICON_BY_HREF: Record<string, ComponentType<NavIconProps>> = {
   "/movimentacoes": IconMovimentacoes,
   "/estacoes": IconEstacoes,
   "/empresa": IconEmpresa,
+  "/empresas": IconEmpresas,
   "/usuarios": IconUsuarios,
   "/setup-empresa": IconNovaEmpresa,
   "/estoque": IconEstoque,

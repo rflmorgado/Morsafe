@@ -11,6 +11,11 @@ export const ENTRADAS_ESTOQUE_PAGE_SIZE = 10;
 const SALDO_PADRAO = 0;
 const LIMITE_ALERTA_PADRAO = 5;
 
+// "critico" (abaixo do limite) = vermelho, "alerta" (exatamente no limite) =
+// laranja, "ok" (acima do limite) = verde — pedido do Rafael, mesma lógica
+// de 3 cores já usada pra validade de C.A. em epis/page.tsx (statusCa).
+export type StatusEstoque = "critico" | "alerta" | "ok";
+
 export type ItemEstoque = {
   id: string;
   nome: string;
@@ -19,7 +24,7 @@ export type ItemEstoque = {
   custoMedioAtual: number;
   saldoAtual: number;
   limiteAlerta: number;
-  baixoEstoque: boolean;
+  statusEstoque: StatusEstoque;
 };
 
 export type ListEstoqueOptions = {
@@ -90,6 +95,12 @@ export async function listEstoquePorEpi({
     const linha = porEpiId.get(e.id);
     const saldoAtual = linha?.saldo_atual ?? SALDO_PADRAO;
     const limiteAlerta = linha?.limite_alerta ?? LIMITE_ALERTA_PADRAO;
+    const statusEstoque: StatusEstoque =
+      saldoAtual < limiteAlerta
+        ? "critico"
+        : saldoAtual === limiteAlerta
+          ? "alerta"
+          : "ok";
     return {
       id: e.id,
       nome: e.nome,
@@ -98,7 +109,7 @@ export async function listEstoquePorEpi({
       custoMedioAtual: e.custoMedioAtual,
       saldoAtual,
       limiteAlerta,
-      baixoEstoque: saldoAtual <= limiteAlerta,
+      statusEstoque,
     };
   });
 

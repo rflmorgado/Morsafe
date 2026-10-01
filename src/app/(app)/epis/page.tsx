@@ -5,6 +5,7 @@ import { temPapelMinimo } from "@/lib/auth/permissoes";
 import { EpisFilters } from "./epis-filters";
 import { NovoEpiButton } from "./novo-epi-button";
 import { ImportarEpisButton } from "./importar-epis-button";
+import { ClassificarTiposButton } from "./classificar-tipos-button";
 import { EditarEpiButton } from "./editar-epi-button";
 import { DesativarEpiButton } from "./desativar-epi-button";
 import { ReativarEpiButton } from "./reativar-epi-button";
@@ -211,6 +212,7 @@ export default async function EpisPage({
                 Exportar CSV
               </a>
               {podeImportar && <ImportarEpisButton />}
+              {podeImportar && <ClassificarTiposButton />}
               <NovoEpiButton />
             </>
           )

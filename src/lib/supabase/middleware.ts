@@ -66,18 +66,38 @@ export async function updateSession(request: NextRequest) {
   // essa checagem, "ativo" na tabela `usuarios` não bloqueava nada de
   // verdade. Isso cobre o uso normal do app; não é o mesmo que revogar
   // acesso direto via API/RLS (fora do escopo desta checagem).
+  //
+  // Mesma lógica agora pra `empresas.ativo` (ver app/(app)/empresas) — sem
+  // isso, desativar uma empresa na tela de administração do super_admin só
+  // mudava um rótulo na tela, sem bloquear nada de verdade. O embed
+  // `empresas ( ativo )` funciona nesse sentido porque `usuarios.empresa_id`
+  // é quem declara a FK (ver comentário no topo de database.ts). Pra
+  // super_admin (sem empresa_id) o embed vem null, então empresaAtiva fica
+  // undefined — nunca bloqueia esse papel.
   if (user && !isPublicPath) {
     const { data: perfil } = await supabase
       .from("usuarios")
-      .select("ativo, ultima_atividade")
+      .select("ativo, ultima_atividade, empresas ( ativo )")
       .eq("id", user.id)
       .maybeSingle();
+
+    const empresaAtiva = (
+      perfil?.empresas as unknown as { ativo: boolean } | null
+    )?.ativo;
 
     if (perfil && perfil.ativo === false) {
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("motivo", "acesso_desativado");
+      return NextResponse.redirect(url);
+    }
+
+    if (perfil && empresaAtiva === false) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("motivo", "empresa_desativada");
       return NextResponse.redirect(url);
     }
 

@@ -91,6 +91,18 @@ export function ColaboradoresFilters({
         <option value="ativo">Somente ativos</option>
         <option value="inativo">Somente inativos</option>
       </select>
+
+      {/* Isola quem está sem a data de Integração/NR-06 preenchida — pedido
+          do Rafael pra achar rápido, numa planilha importada com dezenas de
+          linhas, só quem precisa de edição manual desse campo. */}
+      <select
+        defaultValue={searchParams.get("nr06") ?? ""}
+        onChange={(e) => updateParams({ nr06: e.target.value || undefined })}
+        className="min-w-[150px] max-w-[220px] flex-1 rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+      >
+        <option value="">NR-06: todos</option>
+        <option value="pendente">NR-06: só pendentes</option>
+      </select>
     </div>
   );
 }

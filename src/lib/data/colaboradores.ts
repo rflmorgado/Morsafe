@@ -177,6 +177,46 @@ export async function listColaboradores({
   };
 }
 
+export type Nr06StatusCounts = {
+  emDia: number;
+  pendente: number;
+};
+
+/**
+ * Conta colaboradores ATIVOS com e sem a data de Integração/NR-06 preenchida
+ * — usado pelo gráfico-resumo "Situação do NR-06" do Dashboard (ver
+ * getDashboardData, em dashboard.ts). Só ativos: colaborador desligado não
+ * precisa de treinamento em dia (mesmo filtro usado no filtro "NR-06: só
+ * pendentes" da listagem, mas aqui sem paginar — só os dois totais).
+ */
+export async function getNr06StatusCounts(
+  empresaId: string | null,
+): Promise<Nr06StatusCounts> {
+  if (!empresaId) return { emDia: 0, pendente: 0 };
+
+  const supabase = await createClient();
+
+  const [comData, semData] = await Promise.all([
+    supabase
+      .from("colaboradores")
+      .select("id", { count: "exact", head: true })
+      .eq("empresa_id", empresaId)
+      .eq("status", "ativo")
+      .not("data_integracao_seguranca", "is", null),
+    supabase
+      .from("colaboradores")
+      .select("id", { count: "exact", head: true })
+      .eq("empresa_id", empresaId)
+      .eq("status", "ativo")
+      .is("data_integracao_seguranca", null),
+  ]);
+
+  return {
+    emDia: comData.count ?? 0,
+    pendente: semData.count ?? 0,
+  };
+}
+
 export type ListColaboradoresExportOptions = {
   empresaId: string | null;
   query?: string;

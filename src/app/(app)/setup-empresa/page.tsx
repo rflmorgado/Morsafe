@@ -1,9 +1,10 @@
 import { getCurrentUser } from "@/lib/data/current-user";
 import { SetupEmpresaForm } from "./setup-empresa-form";
 
-// Só o(s) usuário(s) super_admin (dono do MorSafe) veem este item de menu
-// (ver NAV_ITEMS em nav-items.ts), mas a página também checa o papel aqui
-// como segunda camada — acesso direto pela URL não basta.
+// Sem item de menu próprio — chegada só pelo botão "+ Nova empresa" na
+// tela /empresas (ver NAV_ITEMS em nav-items.ts, que só lista "Empresas").
+// A página também checa o papel aqui como segunda camada — acesso direto
+// pela URL não basta.
 export default async function SetupEmpresaPage() {
   const user = await getCurrentUser();
 

@@ -25,9 +25,19 @@ ao mexer neste projeto (Claude ou qualquer outro desenvolvedor):
 
 3. Tabelas de histórico/auditoria (`entregas`, `devolucoes`, `recusas`,
    `log_auditoria`, `verificacoes_documento`) são imutáveis por design:
-   nenhum caminho de código deve ter `.update()` ou `.delete()` nelas.
-   Antes de mexer nessa área, confirmar isso com uma busca no código
-   (grep), não só de memória.
+   nenhum caminho de código deve ter `.update()` ou `.delete()` nelas —
+   com uma única exceção, estreita e deliberada: `resetarDadosEmpresa`
+   (em `src/app/(app)/empresas/actions.ts`), acessível só pelo
+   super_admin, usada para apagar dados de TESTE de uma empresa cliente
+   durante onboarding/depuração — nunca dado real de produção, e sempre
+   com o nome exato da empresa digitado como confirmação. Qualquer outro
+   caminho de código que precise apagar algo nessas tabelas deve
+   reaproveitar essa função, nunca duplicar um `.delete()` avulso em
+   outro lugar. `log_auditoria` continua imutável mesmo aqui — o reset
+   GRAVA uma linha nova nela (ação `dados_resetados`) contando que
+   aconteceu, nunca apaga nenhuma linha existente. Antes de mexer nessa
+   área, confirmar isso com uma busca no código (grep), não só de
+   memória.
 
 4. Funcionalidade acessória (ex: geração de QR code, código de
    verificação, logo da empresa) nunca pode travar a emissão do

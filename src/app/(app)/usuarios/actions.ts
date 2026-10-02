@@ -429,10 +429,11 @@ export async function excluirUsuarioDefinitivamente(
     };
   }
 
-  const { error: deleteError } = await admin
+  const { data: excluido, error: deleteError } = await admin
     .from("usuarios")
     .delete()
-    .eq("id", usuarioId);
+    .eq("id", usuarioId)
+    .select("id");
 
   if (deleteError) {
     if (deleteError.code === "23503") {
@@ -442,6 +443,20 @@ export async function excluirUsuarioDefinitivamente(
       };
     }
     console.error("excluirUsuarioDefinitivamente:", deleteError.message);
+    return { error: "Não foi possível excluir o usuário. Tente novamente." };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md (ver as outras actions deste
+  // arquivo): um .delete() que não bate com nenhuma linha retorna
+  // error: null mesmo sem apagar nada — faltava só aqui (ver checkup de
+  // 01/10/2026). Sem este check, um clique duplo ou uma corrida com outra
+  // aba excluiria só o login de autenticação logo abaixo, deixando o
+  // cadastro em `usuarios` pra trás e o histórico de ações registrando
+  // "excluído" sem o registro ter de fato saído do banco.
+  if (!excluido || excluido.length === 0) {
+    console.error(
+      "excluirUsuarioDefinitivamente: delete não afetou nenhuma linha para usuarioId=",
+      usuarioId,
+    );
     return { error: "Não foi possível excluir o usuário. Tente novamente." };
   }
 

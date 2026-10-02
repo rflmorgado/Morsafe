@@ -596,11 +596,25 @@ export async function desligarColaborador(
   }
 
   const supabase = await createClient();
-  const { data: colaborador } = await supabase
+
+  // Confirma que o colaborador é da MESMA empresa de quem está desligando,
+  // antes de tentar o update — mesma checagem que updateColaborador/
+  // reativarColaborador/excluirColaboradorDefinitivamente já fazem, que
+  // faltava só aqui (ver checkup de 01/10/2026): sem ela, essa ação ficava
+  // dependendo só do RLS pra recusar um id de outra empresa cliente.
+  const { data: colaborador, error: buscaError } = await supabase
     .from("colaboradores")
-    .select("nome")
+    .select("nome, empresa_id")
     .eq("id", colaboradorId)
     .maybeSingle();
+
+  if (
+    buscaError ||
+    !colaborador ||
+    colaborador.empresa_id !== user.empresaId
+  ) {
+    return { error: "Colaborador não encontrado." };
+  }
 
   const { data, error } = await supabase
     .from("colaboradores")

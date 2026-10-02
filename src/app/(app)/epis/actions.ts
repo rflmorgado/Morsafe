@@ -507,15 +507,21 @@ export async function classificarTiposFaltantes(): Promise<ClassificarTiposFalta
       continue;
     }
 
-    const { error: updateError } = await supabase
+    const { data: atualizado, error: updateError } = await supabase
       .from("epis")
       .update({ tipo })
-      .eq("id", epi.id);
+      .eq("id", epi.id)
+      .select("id")
+      .maybeSingle();
 
-    if (updateError) {
+    // Mesma checagem da regra 1 do CLAUDE.md (ver outras actions deste
+    // arquivo): sem ela, uma linha que não foi de fato atualizada ainda
+    // entrava na contagem de "atualizados" e no log de auditoria — faltava
+    // só aqui (ver checkup de 01/10/2026).
+    if (updateError || !atualizado) {
       console.error(
         `classificarTiposFaltantes (epiId=${epi.id}):`,
-        updateError.message,
+        updateError?.message ?? "update não afetou nenhuma linha",
       );
       semClassificacao++;
       continue;

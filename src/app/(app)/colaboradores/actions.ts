@@ -21,6 +21,18 @@ export type CreateSetorState = {
  * tela de gestão de unidades, usamos a unidade mais antiga da empresa como
  * padrão — hoje a grande maioria das empresas cadastradas tem uma única
  * unidade.
+ *
+ * Antes de criar, procura um setor já existente com o MESMO NOME na
+ * empresa (ignorando maiúsculas/acentuação de caixa e espaços) e reaproveita
+ * ele em vez de criar outro — bug real encontrado em 05/10/2026 (Rafael,
+ * ViniPlast/Vinitrade): como `setores` permite o mesmo nome em unidades
+ * diferentes (unique é por `unidade_id`, não por empresa — ver comentário
+ * no schema), e esta função sempre usava a unidade mais antiga como padrão,
+ * digitar de novo um setor que já existia (ex: "PCP") na opção "Outro"
+ * criava um SEGUNDO registro com o mesmo nome em vez de reaproveitar o
+ * primeiro — a causa dos setores duplicados que apareceram na aba
+ * Checklist de campo da Auditoria. Pra quem já tinha setor duplicado antes
+ * desse fix, ver `mesclarSetores` logo abaixo.
  */
 export async function createSetor(nome: string): Promise<CreateSetorState> {
   const nomeTrim = nome.trim();
@@ -37,6 +49,18 @@ export async function createSetor(nome: string): Promise<CreateSetorState> {
   }
 
   const supabase = await createClient();
+
+  const { data: setoresExistentes } = await supabase
+    .from("setores")
+    .select("id, nome")
+    .eq("empresa_id", user.empresaId);
+
+  const existente = setoresExistentes?.find(
+    (s) => s.nome.trim().toLowerCase() === nomeTrim.toLowerCase(),
+  );
+  if (existente) {
+    return { error: null, id: existente.id, nome: existente.nome };
+  }
 
   const { data: unidade, error: unidadeError } = await supabase
     .from("unidades")
@@ -277,6 +301,240 @@ export async function deleteSetor(setorId: string): Promise<DeleteSetorState> {
   });
 
   revalidatePath("/colaboradores");
+  return { error: null };
+}
+
+export type MesclarSetoresState = { error: string | null };
+
+/**
+ * Mescla um setor duplicado (origem) dentro de outro (destino) — limpeza
+ * pedida pelo Rafael, 05/10/2026, pra corrigir setores duplicados criados
+ * antes do fix em `createSetor` acima (mesmo setor, ex: "PCP", cadastrado
+ * duas vezes por causa da unidade padrão). Diferente de deleteSetor (que só
+ * funciona com o setor vazio), esta função MOVE tudo que está no setor de
+ * origem para o de destino antes de apagar a origem — nenhum colaborador,
+ * função ou EPI obrigatório se perde, só passam a apontar pro setor de
+ * destino:
+ *
+ * 1. Funções (cargos): uma função do setor origem com o MESMO NOME de uma
+ *    função já existente no destino é mesclada nela (colaboradores daquela
+ *    função passam pra função equivalente do destino, e a função duplicada
+ *    é excluída); sem nome igual, a função é só movida pro setor destino
+ *    (sem duplicar).
+ * 2. Colaboradores: todos os colaboradores do setor origem (mesmo quem já
+ *    teve a função movida no passo 1) passam a apontar pro setor destino —
+ *    `setor_id` é um campo independente de `cargo_id`.
+ * 3. EPIs obrigatórios (setor_epi): se um EPI é obrigatório em QUALQUER um
+ *    dos dois setores, fica obrigatório no destino depois da mescla (união,
+ *    nunca interseção) — é a opção mais segura pra conformidade: nunca
+ *    reduz uma exigência que já existia em algum dos dois lados.
+ * 4. Histórico de Checklist de campo (auditorias_nr06): auditorias já
+ *    registradas no setor origem passam a aparecer no destino — o conteúdo
+ *    de cada auditoria (respostas às 8 perguntas) não muda, só o setor ao
+ *    qual ela fica associada.
+ * 5. Só então o setor origem (já vazio) é excluído.
+ *
+ * Feito em chamadas sequenciais (o cliente do Supabase usado aqui não
+ * oferece transação entre tabelas — mesma limitação de
+ * resetarDadosEmpresa/excluirEmpresaPermanentemente em empresas/actions.ts),
+ * então a ordem importa: funções e EPIs primeiro (pra não esbarrar na
+ * constraint de nome único quando uma função for movida sem mesclar),
+ * colaboradores depois, setor origem por último — só quando já não há mais
+ * nada apontando pra ele.
+ *
+ * Exige papel "admin" (mais alto que criar/excluir um setor isolado,
+ * "encarregado") — mexe de uma vez em colaboradores, funções e exigências
+ * de EPI de toda a empresa, e não tem como desfazer com um clique.
+ */
+export async function mesclarSetores(
+  setorOrigemId: string,
+  setorDestinoId: string,
+): Promise<MesclarSetoresState> {
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "admin")) {
+    return { error: SEM_PERMISSAO };
+  }
+  if (setorOrigemId === setorDestinoId) {
+    return { error: "Escolha dois setores diferentes para mesclar." };
+  }
+  // Capturado numa const: `user.empresaId` já foi confirmado não-nulo acima,
+  // mas o TypeScript não carrega esse estreitamento pra dentro das closures
+  // mais abaixo (ex: o `Array.from` do passo 3) — por isso a variável à
+  // parte, em vez de `user.empresaId` repetido.
+  const empresaId = user.empresaId;
+
+  const supabase = await createClient();
+
+  // Confirma que os dois setores são da MESMA empresa de quem está
+  // mesclando — mesma checagem de posse já usada em deleteSetor/deleteCargo,
+  // pra não depender só do RLS pra recusar um id de outra empresa cliente.
+  const { data: setores } = await supabase
+    .from("setores")
+    .select("id, nome")
+    .eq("empresa_id", empresaId)
+    .in("id", [setorOrigemId, setorDestinoId]);
+
+  const origem = setores?.find((s) => s.id === setorOrigemId);
+  const destino = setores?.find((s) => s.id === setorDestinoId);
+  if (!origem || !destino) {
+    return { error: "Setor não encontrado." };
+  }
+
+  // ---- 1. Funções (cargos): mescla por nome igual, move o resto ----
+  const [{ data: cargosOrigem }, { data: cargosDestino }] = await Promise.all([
+    supabase.from("cargos").select("id, nome").eq("setor_id", setorOrigemId),
+    supabase.from("cargos").select("id, nome").eq("setor_id", setorDestinoId),
+  ]);
+
+  for (const cargoOrigem of cargosOrigem ?? []) {
+    const cargoDestinoEquivalente = (cargosDestino ?? []).find(
+      (c) => c.nome.trim().toLowerCase() === cargoOrigem.nome.trim().toLowerCase(),
+    );
+
+    if (cargoDestinoEquivalente) {
+      const { error: moverColaboradoresError } = await supabase
+        .from("colaboradores")
+        .update({ cargo_id: cargoDestinoEquivalente.id })
+        .eq("cargo_id", cargoOrigem.id);
+      if (moverColaboradoresError) {
+        console.error(
+          "mesclarSetores (mover colaboradores da função):",
+          moverColaboradoresError.message,
+        );
+        return { error: "Não foi possível mesclar os setores. Tente novamente." };
+      }
+
+      const { error: excluirCargoError } = await supabase
+        .from("cargos")
+        .delete()
+        .eq("id", cargoOrigem.id);
+      if (excluirCargoError) {
+        console.error("mesclarSetores (excluir função mesclada):", excluirCargoError.message);
+        return { error: "Não foi possível mesclar os setores. Tente novamente." };
+      }
+    } else {
+      const { error: moverCargoError } = await supabase
+        .from("cargos")
+        .update({ setor_id: setorDestinoId })
+        .eq("id", cargoOrigem.id);
+      if (moverCargoError) {
+        console.error("mesclarSetores (mover função):", moverCargoError.message);
+        return { error: "Não foi possível mesclar os setores. Tente novamente." };
+      }
+    }
+  }
+
+  // ---- 2. Colaboradores: todos passam a apontar pro setor destino ----
+  const { error: moverSetorColaboradoresError } = await supabase
+    .from("colaboradores")
+    .update({ setor_id: setorDestinoId })
+    .eq("setor_id", setorOrigemId);
+  if (moverSetorColaboradoresError) {
+    console.error(
+      "mesclarSetores (mover colaboradores):",
+      moverSetorColaboradoresError.message,
+    );
+    return { error: "Não foi possível mesclar os setores. Tente novamente." };
+  }
+
+  // ---- 3. EPIs obrigatórios: união (obrigatório num dos dois = obrigatório
+  // no destino depois) ----
+  const [{ data: epiOrigem }, { data: epiDestino }] = await Promise.all([
+    supabase
+      .from("setor_epi")
+      .select("epi_id, obrigatorio")
+      .eq("setor_id", setorOrigemId),
+    supabase
+      .from("setor_epi")
+      .select("epi_id, obrigatorio")
+      .eq("setor_id", setorDestinoId),
+  ]);
+
+  const obrigatoriedadeFinal = new Map<string, boolean>();
+  for (const linha of epiDestino ?? []) {
+    obrigatoriedadeFinal.set(linha.epi_id, linha.obrigatorio);
+  }
+  for (const linha of epiOrigem ?? []) {
+    obrigatoriedadeFinal.set(
+      linha.epi_id,
+      (obrigatoriedadeFinal.get(linha.epi_id) ?? false) || linha.obrigatorio,
+    );
+  }
+
+  if (obrigatoriedadeFinal.size > 0) {
+    const { error: upsertSetorEpiError } = await supabase.from("setor_epi").upsert(
+      Array.from(obrigatoriedadeFinal, ([epi_id, obrigatorio]) => ({
+        empresa_id: empresaId,
+        setor_id: setorDestinoId,
+        epi_id,
+        obrigatorio,
+      })),
+      { onConflict: "setor_id,epi_id" },
+    );
+    if (upsertSetorEpiError) {
+      console.error("mesclarSetores (EPIs obrigatórios):", upsertSetorEpiError.message);
+      return { error: "Não foi possível mesclar os setores. Tente novamente." };
+    }
+  }
+
+  const { error: limparSetorEpiOrigemError } = await supabase
+    .from("setor_epi")
+    .delete()
+    .eq("setor_id", setorOrigemId);
+  if (limparSetorEpiOrigemError) {
+    console.error(
+      "mesclarSetores (limpar EPIs obrigatórios da origem):",
+      limparSetorEpiOrigemError.message,
+    );
+    return { error: "Não foi possível mesclar os setores. Tente novamente." };
+  }
+
+  // ---- 4. Histórico de Checklist de campo: passa a aparecer no destino ----
+  const { error: moverAuditoriasError } = await supabase
+    .from("auditorias_nr06")
+    .update({ setor_id: setorDestinoId })
+    .eq("setor_id", setorOrigemId);
+  if (moverAuditoriasError) {
+    console.error("mesclarSetores (mover auditorias):", moverAuditoriasError.message);
+    return { error: "Não foi possível mesclar os setores. Tente novamente." };
+  }
+
+  // ---- 5. Setor origem, já vazio, pode ser excluído ----
+  const { data: setorExcluido, error: excluirSetorError } = await supabase
+    .from("setores")
+    .delete()
+    .eq("id", setorOrigemId)
+    .select("id")
+    .maybeSingle();
+  if (excluirSetorError) {
+    console.error("mesclarSetores (excluir setor origem):", excluirSetorError.message);
+    return { error: "Não foi possível mesclar os setores. Tente novamente." };
+  }
+  // Mesma checagem da regra 1 do CLAUDE.md: um .delete() que não bate com
+  // nenhuma linha retorna error: null mesmo sem apagar nada.
+  if (!setorExcluido) {
+    console.error(
+      "mesclarSetores: delete do setor origem não afetou nenhuma linha para id=",
+      setorOrigemId,
+    );
+    return { error: "Não foi possível mesclar os setores. Tente novamente." };
+  }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId,
+    tabela: "setores",
+    registroId: setorDestinoId,
+    acao: "mesclado",
+    usuarioId: user.id,
+    detalhes: { nome: destino.nome, nomeOrigem: origem.nome },
+  });
+
+  revalidatePath("/colaboradores");
+  revalidatePath("/auditoria");
   return { error: null };
 }
 

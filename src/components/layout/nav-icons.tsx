@@ -80,22 +80,34 @@ export function IconEstacoes({ className }: NavIconProps) {
   );
 }
 
+// Mesmo prédio (sede + anexo) do cabeçalho de "Dados da empresa" (ver
+// IconEmpresaHeader em empresa/page.tsx) e do selo de empresa sem logo na
+// barra lateral (ver EmpresaBadge em app-shell.tsx) — antes esse ícone do
+// menu usava um desenho diferente (prédio com porta/seta), sem bater com o
+// resto do app. Unificado, 05/10/2026.
 export function IconEmpresa({ className }: NavIconProps) {
   return (
     <IconBase className={className}>
-      <rect x="4" y="3" width="12" height="18" rx="1.2" />
-      <path d="M16 8h4v13" />
-      <path d="M4 21h16" />
-      <path d="M7.5 7h1.5M11 7h1.5M7.5 11h1.5M11 11h1.5M7.5 15h1.5M11 15h1.5" />
+      <rect x="4" y="3" width="10" height="18" rx="1" />
+      <rect x="14" y="9" width="6" height="12" rx="1" />
+      <path d="M7.5 7h3M7.5 11h3M7.5 15h3" />
+      <path d="M17 13h.01M17 17h.01" />
     </IconBase>
   );
 }
 
+// Mesmas duas pessoas do cabeçalho de "Usuários" (ver IconUsuariosHeader em
+// usuarios/page.tsx) — antes esse ícone do menu era um cadeado, que não
+// combinava com o resto do app (cadeado sugere "segurança/permissão", não
+// "pessoas com acesso ao sistema", que é do que a tela trata). Unificado,
+// 05/10/2026.
 export function IconUsuarios({ className }: NavIconProps) {
   return (
     <IconBase className={className}>
-      <rect x="5" y="11" width="14" height="10" rx="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19.5c0-3.6 2.5-6 5.5-6s5.5 2.4 5.5 6" />
+      <path d="M16 9.2a2.8 2.8 0 1 0 0-5.6" />
+      <path d="M15 13.3c2.6.4 4.5 2.6 4.5 6.2" />
     </IconBase>
   );
 }

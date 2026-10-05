@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { AlternarAtivoButton } from "../ativar-empresa-button";
 import { ResetarEmpresaButton } from "../resetar-empresa-button";
 import { DefinirLimiteButton } from "../definir-limite-button";
+import { ExcluirEmpresaButton } from "../excluir-empresa-button";
 import { NovoPagamentoButton } from "../../pagamentos/novo-pagamento-button";
 import { MarcarPagoButton } from "../../pagamentos/marcar-pago-button";
 import { ExcluirEntregaTesteButton } from "../../movimentacoes/excluir-entrega-teste-button";
@@ -354,6 +355,11 @@ export default async function EmpresaDetalhePage({
           <DefinirLimiteButton
             empresaId={empresa.id}
             limiteAtual={empresa.limiteColaboradores}
+          />
+          <ExcluirEmpresaButton
+            empresaId={empresa.id}
+            empresaNome={empresa.nome}
+            ativo={empresa.ativo}
           />
         </div>
       </div>

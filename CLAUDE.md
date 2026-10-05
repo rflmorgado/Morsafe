@@ -26,18 +26,27 @@ ao mexer neste projeto (Claude ou qualquer outro desenvolvedor):
 3. Tabelas de histórico/auditoria (`entregas`, `devolucoes`, `recusas`,
    `log_auditoria`, `verificacoes_documento`) são imutáveis por design:
    nenhum caminho de código deve ter `.update()` ou `.delete()` nelas —
-   com uma única exceção, estreita e deliberada: `resetarDadosEmpresa`
-   (em `src/app/(app)/empresas/actions.ts`), acessível só pelo
-   super_admin, usada para apagar dados de TESTE de uma empresa cliente
-   durante onboarding/depuração — nunca dado real de produção, e sempre
-   com o nome exato da empresa digitado como confirmação. Qualquer outro
-   caminho de código que precise apagar algo nessas tabelas deve
-   reaproveitar essa função, nunca duplicar um `.delete()` avulso em
-   outro lugar. `log_auditoria` continua imutável mesmo aqui — o reset
-   GRAVA uma linha nova nela (ação `dados_resetados`) contando que
-   aconteceu, nunca apaga nenhuma linha existente. Antes de mexer nessa
-   área, confirmar isso com uma busca no código (grep), não só de
-   memória.
+   com duas exceções, estreitas e deliberadas, ambas só super_admin e
+   ambas exigindo digitar um texto exato como confirmação:
+     a) `resetarDadosEmpresa` (em `src/app/(app)/empresas/actions.ts`),
+        usada para apagar TODOS os dados de TESTE de uma empresa cliente
+        inteira durante onboarding/depuração — nunca dado real de
+        produção. Confirmação: nome exato da empresa.
+     b) `excluirEntregaTeste` (em
+        `src/app/(app)/movimentacoes/actions.ts`), usada para apagar UMA
+        entrega específica lançada por engano como teste sobre um
+        colaborador que já tem dado real (cenário em que rodar (a)
+        destruiria tudo). Confirmação: nome exato do colaborador. Recusa
+        se já existir devolução vinculada, e repõe `estoque.saldo_atual`
+        manualmente antes de apagar (único lugar do app que escreve
+        direto nessa coluna — ver comentário na função).
+   Qualquer outro caminho de código que precise apagar algo nessas
+   tabelas deve reaproveitar uma destas duas, nunca duplicar um
+   `.delete()` avulso em outro lugar. `log_auditoria` continua imutável
+   mesmo aqui — as duas GRAVAM uma linha nova nela (`dados_resetados` /
+   `entrega_teste_excluida`) contando o que aconteceu, nunca apagam
+   nenhuma linha existente. Antes de mexer nessa área, confirmar isso com
+   uma busca no código (grep), não só de memória.
 
 4. Funcionalidade acessória (ex: geração de QR code, código de
    verificação, logo da empresa) nunca pode travar a emissão do

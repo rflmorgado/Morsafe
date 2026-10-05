@@ -672,14 +672,20 @@ export type ExcluirColaboradorState = {
  * Duas travas antes de excluir:
  * 1) Só é permitido em cima de um colaborador já desligado (status
  *    'inativo') — a interface só oferece essa opção depois do desligamento.
- * 2) Se existir qualquer histórico vinculado (entrega, devolução ou recusa
- *    de EPI), o próprio banco recusa a exclusão via FK RESTRICT — aqui só
- *    traduzimos esse erro (código Postgres 23503) numa mensagem clara, em
- *    vez de deixar vazar o erro técnico. Esse é o comportamento correto:
- *    um colaborador com qualquer histórico de EPI PRECISA continuar
- *    existindo no banco (mesmo que só desligado) pra manter a rastreabilidade
- *    exigida pela NR-06 — só é seguro excluir de verdade quem nunca chegou
- *    a ter nenhum registro.
+ * 2) Checamos EXPLICITAMENTE, antes de tentar o delete, se existe qualquer
+ *    linha vinculada a este colaborador em `entregas`, `devolucoes`,
+ *    `recusas` OU `verificacoes_documento` (todas têm FK RESTRICT pra
+ *    `colaboradores`). As três primeiras são o histórico de EPI de fato; a
+ *    quarta é a verificação/QR code gerado toda vez que alguém baixa a
+ *    "Ficha de Entrega de EPI" dele — mesmo sem nenhuma entrega real, baixar
+ *    a ficha uma vez já cria essa linha e, sem essa checagem, o banco recusa
+ *    o delete (23503) e o catch genérico antigo atribuía isso a "histórico
+ *    de entrega, devolução ou recusa", o que é enganoso quando a causa real
+ *    é só a ficha ter sido gerada. Checar as quatro tabelas por contagem (e
+ *    listar exatamente qual tem registro) dá um erro preciso em vez de um
+ *    chute. O catch de 23503 depois do delete continua existindo como rede
+ *    de segurança (ex.: linha criada entre a checagem e o delete), mas na
+ *    prática não deve mais ser o caminho normal.
  *
  * Exige papel "admin" (mesmo nível de desligar/reativar) e não tem volta —
  * ao contrário do desligamento, não existe "reativar" depois disso.
@@ -721,6 +727,89 @@ export async function excluirColaboradorDefinitivamente(
     };
   }
 
+  // Checagem proativa (ver comentário da função) — conta, em paralelo, cada
+  // tabela que tem FK RESTRICT pra colaboradores.
+  const [entregasCheck, devolucoesCheck, recusasCheck, verificacoesCheck] =
+    await Promise.all([
+      supabase
+        .from("entregas")
+        .select("id", { count: "exact", head: true })
+        .eq("colaborador_id", colaboradorId),
+      supabase
+        .from("devolucoes")
+        .select("id", { count: "exact", head: true })
+        .eq("colaborador_id", colaboradorId),
+      supabase
+        .from("recusas")
+        .select("id", { count: "exact", head: true })
+        .eq("colaborador_id", colaboradorId),
+      supabase
+        .from("verificacoes_documento")
+        .select("id", { count: "exact", head: true })
+        .eq("colaborador_id", colaboradorId),
+    ]);
+
+  if (
+    entregasCheck.error ||
+    devolucoesCheck.error ||
+    recusasCheck.error ||
+    verificacoesCheck.error
+  ) {
+    console.error(
+      "excluirColaboradorDefinitivamente (checagem de vínculos):",
+      entregasCheck.error?.message ??
+        devolucoesCheck.error?.message ??
+        recusasCheck.error?.message ??
+        verificacoesCheck.error?.message,
+    );
+    return {
+      error: "Não foi possível excluir o colaborador. Tente novamente.",
+    };
+  }
+
+  const countEntregas = entregasCheck.count ?? 0;
+  const countDevolucoes = devolucoesCheck.count ?? 0;
+  const countRecusas = recusasCheck.count ?? 0;
+  const countVerificacoes = verificacoesCheck.count ?? 0;
+
+  const pendencias: string[] = [];
+  if (countEntregas > 0) {
+    pendencias.push(
+      countEntregas === 1 ? "1 entrega" : `${countEntregas} entregas`,
+    );
+  }
+  if (countDevolucoes > 0) {
+    pendencias.push(
+      countDevolucoes === 1 ? "1 devolução" : `${countDevolucoes} devoluções`,
+    );
+  }
+  if (countRecusas > 0) {
+    pendencias.push(
+      countRecusas === 1 ? "1 recusa" : `${countRecusas} recusas`,
+    );
+  }
+  if (countVerificacoes > 0) {
+    pendencias.push(
+      countVerificacoes === 1
+        ? "1 verificação de documento (ficha com QR code já gerada)"
+        : `${countVerificacoes} verificações de documento (fichas com QR code já geradas)`,
+    );
+  }
+
+  if (pendencias.length > 0) {
+    const lista =
+      pendencias.length === 1
+        ? pendencias[0]
+        : `${pendencias.slice(0, -1).join(", ")} e ${pendencias[pendencias.length - 1]}`;
+    const totalItens =
+      countEntregas + countDevolucoes + countRecusas + countVerificacoes;
+    const vinculadaTexto =
+      totalItens === 1 ? "vinculada a ele" : "vinculadas a ele";
+    return {
+      error: `Não é possível excluir: este colaborador tem ${lista} ${vinculadaTexto}. Pra preservar a conformidade com a NR-06, ele precisa continuar existindo no sistema — mantenha-o desligado.`,
+    };
+  }
+
   const { data: excluido, error: deleteError } = await supabase
     .from("colaboradores")
     .delete()
@@ -729,10 +818,14 @@ export async function excluirColaboradorDefinitivamente(
     .maybeSingle();
 
   if (deleteError) {
+    // Rede de segurança: a checagem acima já deveria ter pego qualquer
+    // vínculo, mas se ainda assim o banco recusar por FK (ex.: uma linha
+    // criada bem entre a checagem e este delete), cai aqui com uma mensagem
+    // genérica em vez de vazar o erro técnico do Postgres.
     if (deleteError.code === "23503") {
       return {
         error:
-          "Não é possível excluir: este colaborador tem histórico de entrega, devolução ou recusa de EPI vinculado a ele. Pra preservar a conformidade com a NR-06, ele precisa continuar existindo no sistema — mantenha-o desligado.",
+          "Não é possível excluir: surgiu um novo registro vinculado a este colaborador (entrega, devolução, recusa ou verificação de documento) depois da checagem. Tente excluir novamente.",
       };
     }
     console.error("excluirColaboradorDefinitivamente:", deleteError.message);

@@ -70,10 +70,12 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { label: "Estoque", href: "/estoque", section: "operacao" },
   {
+    // Saiu de "Em breve" em 02/10/2026 — a tabela `auditorias_nr06` já
+    // existia desde a criação do schema, só faltava a tela/ações (ver
+    // comentário no topo de auditoria/actions.ts).
     label: "Auditoria NR-06",
     href: "/auditoria",
-    comingSoon: true,
-    section: "em_breve",
+    section: "operacao",
   },
   {
     label: "Relatórios",

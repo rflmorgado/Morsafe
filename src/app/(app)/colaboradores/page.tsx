@@ -308,19 +308,29 @@ export default async function ColaboradoresPage({
         }
       />
 
-      {/* Tabela — só a partir de `lg` (mesmo ponto em que o menu lateral
-          aparece). Abaixo disso, 6 colunas + ícones de ação não cabem sem
-          rolar de lado por mais que o texto diminua — por isso vira lista
-          de cartões (ver bloco `lg:hidden` logo abaixo), que mostra a mesma
-          informação sem nenhuma rolagem horizontal. */}
-      <div className="hidden overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card lg:block">
-        <table className="w-full min-w-[840px] border-collapse bg-surface text-left">
+      {/* Tabela — só a partir de `xl` (1280px). Fiz as contas: com o menu
+          lateral (236px) + as margens do card do app + os botões de ação
+          (até 3 por linha: editar/ver ficha/desligar, ou ver ficha/
+          reativar/excluir pra quem já foi desligado), a tabela só cabe
+          inteira, sem precisar rolar de lado, a partir desse tamanho de
+          tela — abaixo disso (inclusive em notebook com a janela não
+          maximizada) ela ficava sempre um pouco larga demais, daí a "seta
+          lateral" que o Rafael viu mesmo num desktop (05/10/2026: "não
+          resolveu", com prints mostrando a janela por volta de 830px de
+          largura de conteúdo). Por isso virou cartões (bloco `xl:hidden`
+          abaixo) em qualquer tela mais estreita que isso, não só em
+          celular — e também não tem mais `min-w` fixo aqui: quem define a
+          largura da tabela agora é o espaço disponível de verdade, com o
+          texto quebrando dentro da célula quando precisa (igual já
+          acontecia no nome e no cargo). */}
+      <div className="hidden overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card xl:block">
+        <table className="w-full border-collapse bg-surface text-left">
           <thead>
             <tr>
               {COLUNAS.map((coluna) => (
                 <th
                   key={coluna.label || "acoes"}
-                  className="border-b border-border-subtle bg-surface-muted px-4 py-3.5 text-[11px] font-semibold tracking-[0.04em] text-text-secondary uppercase"
+                  className="border-b border-border-subtle bg-surface-muted px-2.5 py-[9px] text-[10.5px] font-semibold tracking-[0.04em] text-text-secondary uppercase"
                 >
                   {coluna.sortKey ? (
                     <Link
@@ -371,27 +381,27 @@ export default async function ColaboradoresPage({
                   href={`/colaboradores/${c.id}`}
                   label={`Ver detalhes de ${c.nome}`}
                 >
-                  <td className="px-4 py-3.5 text-[13.5px] font-medium text-foreground">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar nome={c.nome} size="sm" />
+                  <td className="px-2.5 py-[9px] text-[12.5px] font-medium text-foreground">
+                    <div className="flex items-center gap-2">
+                      <Avatar nome={c.nome} size="xs" />
                       <span>{c.nome}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-[13.5px] text-foreground">
+                  <td className="px-2.5 py-[9px] text-[12.5px] text-foreground">
                     <span className="inline-flex items-center gap-1.5">
                       <IconLayers className="h-3.5 w-3.5 shrink-0 text-text-muted" />
                       {c.setor}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5 text-[13.5px] text-foreground">
+                  <td className="px-2.5 py-[9px] text-[12.5px] text-foreground">
                     <span className="inline-flex items-center gap-1.5">
                       <IconIdBadge className="h-3.5 w-3.5 shrink-0 text-text-muted" />
                       {c.cargo}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-2.5 py-[9px]">
                     <span
-                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                         c.status === "ativo"
                           ? "bg-brand-100 text-brand-700"
                           : "bg-danger-bg text-danger-text"
@@ -400,7 +410,7 @@ export default async function ColaboradoresPage({
                       {c.status === "ativo" ? "Ativo" : "Inativo"}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5 text-[13.5px] text-foreground">
+                  <td className="px-2.5 py-[9px] text-[12.5px] text-foreground">
                     {c.ultimaEntrega ? (
                       <span className="inline-flex items-center gap-1.5">
                         <IconCalendarSmall className="h-3.5 w-3.5 shrink-0 text-text-muted" />
@@ -410,18 +420,18 @@ export default async function ColaboradoresPage({
                       "—"
                     )}
                   </td>
-                  <td className="px-4 py-3.5 text-[13.5px]">
+                  <td className="px-2.5 py-[9px] text-[12.5px]">
                     {c.dataIntegracaoSeguranca ? (
                       <span className="text-foreground">
                         {formatDate(c.dataIntegracaoSeguranca)}
                       </span>
                     ) : (
-                      <span className="rounded-full bg-warning-bg px-2.5 py-0.5 text-[11px] font-semibold text-warning-text">
+                      <span className="rounded-full bg-warning-bg px-2 py-0.5 text-[10px] font-semibold text-warning-text">
                         Pendente
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3.5 text-right">
+                  <td className="px-2.5 py-[9px] text-right">
                     <div className="flex items-center justify-end gap-1">
                       {podeGerenciar && (
                         <EditarColaboradorButton
@@ -470,11 +480,11 @@ export default async function ColaboradoresPage({
         </table>
       </div>
 
-      {/* Lista de cartões — telas abaixo de `lg` (ver comentário acima da
+      {/* Lista de cartões — telas abaixo de `xl` (ver comentário acima da
           tabela). Mesmas informações e mesmas ações (Editar, Ver ficha,
           Desligar/Reativar, Excluir), só que empilhadas em vez de em
           colunas, pra caber na largura da tela sem rolar de lado. */}
-      <div className="space-y-2 lg:hidden">
+      <div className="space-y-2 xl:hidden">
         {colaboradores.length === 0 ? (
           <p className="rounded-2xl border border-border-subtle bg-surface px-4 py-6 text-center text-[13px] text-text-muted">
             Nenhum colaborador encontrado.

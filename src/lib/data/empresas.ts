@@ -203,16 +203,49 @@ export async function getEmpresaComResumo(
  * lib/data/dashboard-super-admin.ts). Empresa sem limite definido
  * (limiteColaboradores null) nunca entra nessa contagem.
  *
- * Reaproveita listEmpresasComResumo() em vez de uma consulta própria —
- * mesma lista que já alimenta a tela /empresas, e o volume de empresas
- * clientes do MorSafe hoje (poucas dezenas) torna isso barato o bastante
- * pra não precisar de uma versão otimizada só pra essa contagem.
+ * Consulta própria, enxuta — NÃO reaproveita listEmpresasComResumo().
+ * Essa lista roda, pra CADA empresa, 4 consultas em paralelo (colaboradores,
+ * EPIs, usuários e o limite isolado) só pra montar o resumo completo da
+ * tela /empresas; aqui precisamos só de 2 dessas 4 (colaboradores + limite),
+ * e só para as empresas que de fato têm um limite definido. Rodar o fan-out
+ * inteiro de listEmpresasComResumo() só pra somar um inteiro desperdiçava
+ * EPIs/usuários (nunca usados aqui) no Dashboard — a tela mais visitada do
+ * app, carregada em toda navegação pós-login — contribuindo pra lentidão
+ * percebida ao trocar de tela.
+ *
+ * Mesmo cuidado de getLimiteColaboradores acima: a coluna
+ * `limite_colaboradores` é nova (ver morsafe-add-limite-colaboradores.sql)
+ * e pode ainda não existir em produção — qualquer erro nessa primeira
+ * consulta degrada pra 0 (nenhum alerta), nunca quebra o Dashboard.
  */
 export async function contarEmpresasNoLimite(): Promise<number> {
-  const empresas = await listEmpresasComResumo();
-  return empresas.filter(
-    (e) =>
-      e.limiteColaboradores !== null &&
-      e.totalColaboradores >= e.limiteColaboradores,
+  const admin = createAdminClient();
+
+  let comLimite: { id: string; limite_colaboradores: number }[];
+  try {
+    const { data, error } = await admin
+      .from("empresas")
+      .select("id, limite_colaboradores")
+      .not("limite_colaboradores", "is", null);
+    if (error || !data) return 0;
+    comLimite = data as { id: string; limite_colaboradores: number }[];
+  } catch {
+    return 0;
+  }
+
+  if (comLimite.length === 0) return 0;
+
+  const contagens = await Promise.all(
+    comLimite.map((e) =>
+      admin
+        .from("colaboradores")
+        .select("id", { count: "exact", head: true })
+        .eq("empresa_id", e.id)
+        .eq("status", "ativo"),
+    ),
+  );
+
+  return contagens.filter(
+    (c, i) => (c.count ?? 0) >= comLimite[i].limite_colaboradores,
   ).length;
 }

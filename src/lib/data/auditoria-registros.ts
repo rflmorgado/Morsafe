@@ -64,9 +64,13 @@ export type ApuracaoAuditoriaRegistros = {
   pendencias: GrupoPendencia[];
   colaboradoresDetalhe: ColaboradorAuditoria[];
   episDetalhe: EpiAuditoria[];
+  // Mensagens técnicas de qualquer consulta que falhou (ver extrairDados
+  // abaixo) — propositalmente exposto no retorno, não só no console.error
+  // do servidor, que o Rafael não tem como ver. Vazio = nenhum problema.
+  avisos: string[];
 };
 
-function vazio(): ApuracaoAuditoriaRegistros {
+function vazio(avisos: string[] = []): ApuracaoAuditoriaRegistros {
   return {
     indiceControle: 100,
     registrosAnalisados: 0,
@@ -77,6 +81,7 @@ function vazio(): ApuracaoAuditoriaRegistros {
     pendencias: [],
     colaboradoresDetalhe: [],
     episDetalhe: [],
+    avisos,
   };
 }
 
@@ -128,11 +133,11 @@ export async function apurarAuditoriaRegistros(
   const supabase = await createClient();
 
   const [
-    { data: colaboradores, error: colaboradoresError },
-    { data: epis, error: episError },
-    { data: entregas, error: entregasError },
-    { data: devolucoes, error: devolucoesError },
-    { data: setorEpiObrigatorio, error: setorEpiError },
+    colaboradoresResultado,
+    episResultado,
+    entregasResultado,
+    devolucoesResultado,
+    setorEpiResultado,
   ] = await Promise.all([
     supabase
       .from("colaboradores")
@@ -157,32 +162,49 @@ export async function apurarAuditoriaRegistros(
       .eq("obrigatorio", true),
   ]);
 
-  if (
-    colaboradoresError ||
-    episError ||
-    entregasError ||
-    devolucoesError ||
-    setorEpiError
-  ) {
-    console.error(
-      "apurarAuditoriaRegistros:",
-      colaboradoresError?.message ??
-        episError?.message ??
-        entregasError?.message ??
-        devolucoesError?.message ??
-        setorEpiError?.message,
-    );
-    return vazio();
+  // Cada consulta é tratada de forma independente — se UMA tabela falhar
+  // (ex: coluna/migração que ainda não foi aplicada em produção, caso já
+  // visto neste projeto com pagamentos_empresa/limite_colaboradores), as
+  // outras continuam normalmente em vez de apagar a aba inteira. O detalhe
+  // técnico do erro vai pro array `avisos`, devolvido pra tela mostrar — sem
+  // isso, só ficava no log do servidor (Vercel), que o Rafael não acessa, e
+  // a Auditoria parecia simplesmente "sem dados" (ver CLAUDE.md regra 1:
+  // nunca deixar uma falha de consulta silenciosa).
+  const avisos: string[] = [];
+  function extrairDados<T>(
+    resultado: { data: T[] | null; error: { message: string } | null },
+    nomeTabela: string,
+  ): T[] {
+    if (resultado.error) {
+      avisos.push(`${nomeTabela}: ${resultado.error.message}`);
+      console.error(`apurarAuditoriaRegistros (${nomeTabela}):`, resultado.error.message);
+      return [];
+    }
+    return resultado.data ?? [];
   }
 
-  const colaboradoresAtivos = (colaboradores ?? []).filter(
-    (c) => c.status === "ativo",
-  );
-  const episAtivos = (epis ?? []).filter((e) => e.ativo);
-  const epiNome = new Map((epis ?? []).map((e) => [e.id, e.nome]));
-  const colaboradorNome = new Map(
-    (colaboradores ?? []).map((c) => [c.id, c.nome]),
-  );
+  const colaboradores = extrairDados(colaboradoresResultado, "colaboradores");
+  const epis = extrairDados(episResultado, "epis");
+  const entregas = extrairDados(entregasResultado, "entregas");
+  const devolucoes = extrairDados(devolucoesResultado, "devoluções");
+  const setorEpiObrigatorio = extrairDados(setorEpiResultado, "setor_epi");
+
+  if (
+    colaboradores.length === 0 &&
+    epis.length === 0 &&
+    entregas.length === 0 &&
+    devolucoes.length === 0 &&
+    avisos.length > 0
+  ) {
+    // Tudo falhou — não tem nada pra apurar mesmo, devolve os avisos pra
+    // tela explicar o motivo em vez de um "sem dados" genérico.
+    return vazio(avisos);
+  }
+
+  const colaboradoresAtivos = colaboradores.filter((c) => c.status === "ativo");
+  const episAtivos = epis.filter((e) => e.ativo);
+  const epiNome = new Map(epis.map((e) => [e.id, e.nome]));
+  const colaboradorNome = new Map(colaboradores.map((c) => [c.id, c.nome]));
 
   // Último evento (entrega OU devolução) de cada par colaborador×EPI — pra
   // saber se o colaborador está DE POSSE do EPI hoje. Em empate de data,
@@ -208,17 +230,17 @@ export async function apurarAuditoriaRegistros(
       ultimoEvento.set(key, { tipo, data });
     }
   }
-  for (const e of entregas ?? []) {
+  for (const e of entregas) {
     registrarEvento(e.colaborador_id, e.epi_id, "entrega", e.data);
   }
-  for (const d of devolucoes ?? []) {
+  for (const d of devolucoes) {
     registrarEvento(d.colaborador_id, d.epi_id, "devolucao", d.data);
   }
 
   // Última entrega (qualquer EPI) de cada colaborador — pra "sem
   // movimentação recente".
   const ultimaEntregaPorColaborador = new Map<string, string>();
-  for (const e of entregas ?? []) {
+  for (const e of entregas) {
     const atual = ultimaEntregaPorColaborador.get(e.colaborador_id);
     if (!atual || e.data > atual) {
       ultimaEntregaPorColaborador.set(e.colaborador_id, e.data);
@@ -227,7 +249,7 @@ export async function apurarAuditoriaRegistros(
 
   // EPIs obrigatórios por setor, já resolvidos pro nome do EPI.
   const obrigatoriosPorSetor = new Map<string, string[]>();
-  for (const v of setorEpiObrigatorio ?? []) {
+  for (const v of setorEpiObrigatorio) {
     const lista = obrigatoriosPorSetor.get(v.setor_id) ?? [];
     lista.push(v.epi_id);
     obrigatoriosPorSetor.set(v.setor_id, lista);
@@ -238,7 +260,7 @@ export async function apurarAuditoriaRegistros(
   // como existir uma entrega sem assinatura. Devoluções ganharam o campo
   // depois (ver morsafe-add-assinatura-devolucao.sql), nullable, então
   // devoluções antigas podem estar sem.
-  const devolucoesSemAssinatura = (devolucoes ?? []).filter(
+  const devolucoesSemAssinatura = devolucoes.filter(
     (d) => !d.assinatura_url,
   );
 
@@ -328,8 +350,8 @@ export async function apurarAuditoriaRegistros(
     atencaoSet.add(`colaborador:${c.id}`);
 
   const registrosAnalisados =
-    (entregas?.length ?? 0) +
-    (devolucoes?.length ?? 0) +
+    entregas.length +
+    devolucoes.length +
     episAtivos.length +
     colaboradoresAtivos.length;
   const criticoTotal = criticosSet.size;
@@ -577,5 +599,6 @@ export async function apurarAuditoriaRegistros(
     pendencias,
     colaboradoresDetalhe,
     episDetalhe,
+    avisos,
   };
 }

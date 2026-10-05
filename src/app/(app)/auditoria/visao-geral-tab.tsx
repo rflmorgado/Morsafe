@@ -2,6 +2,7 @@ import Link from "next/link";
 import { apurarAuditoriaRegistros } from "@/lib/data/auditoria-registros";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card } from "@/components/ui/card";
+import { AvisosBanner } from "./avisos-banner";
 
 function IconIndice(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -70,15 +71,20 @@ export async function VisaoGeralTab({
 
   if (apuracao.registrosAnalisados === 0) {
     return (
-      <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
-        Ainda não há entregas, devoluções, EPIs ou colaboradores cadastrados
-        suficientes para calcular um diagnóstico.
-      </p>
+      <div>
+        <AvisosBanner avisos={apuracao.avisos} />
+        <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
+          Ainda não há entregas, devoluções, EPIs ou colaboradores cadastrados
+          suficientes para calcular um diagnóstico.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="space-y-5">
+      <AvisosBanner avisos={apuracao.avisos} />
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Índice de controle dos registros"

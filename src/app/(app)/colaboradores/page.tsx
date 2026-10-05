@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ClickableRow } from "@/components/ui/clickable-row";
+import { Avatar } from "@/components/ui/avatar";
 import {
   listColaboradores,
   COLABORADORES_PAGE_SIZE,
@@ -21,6 +22,86 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
+}
+
+// Ícones pequenos e neutros (text-text-muted, sem bloco colorido) usados
+// dentro das células da tabela — diferente do IconBadge vibrante do
+// cabeçalho/Dashboard, de propósito: um bloco colorido sólido repetido em
+// toda célula de toda linha (20 por página × 3 colunas) ficaria "confete",
+// não premium. Aqui o ganho é só ícone + texto, discreto, igual Linear/
+// Notion. IconUsers (cabeçalho da página) é o único vibrante desta tela,
+// mesmo desenho de dashboard-super-admin.tsx, pra manter consistência.
+function IconUsers(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <circle cx="9" cy="7" r="3.5" />
+      <path d="M2.5 20.5c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5" />
+      <path d="M16 3.7a3.5 3.5 0 0 1 0 6.8" />
+      <path d="M21.5 20.5c0-2.9-1.9-5.3-4.5-6.2" />
+    </svg>
+  );
+}
+
+function IconLayers(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M12 3 3 8l9 5 9-5-9-5Z" />
+      <path d="M3 12l9 5 9-5" />
+      <path d="M3 16l9 5 9-5" />
+    </svg>
+  );
+}
+
+function IconIdBadge(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <circle cx="12" cy="10" r="2.2" />
+      <path d="M8 16.5c.6-2 2-3 4-3s3.4 1 4 3" />
+    </svg>
+  );
+}
+
+function IconCalendarSmall(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M3.5 10h17" />
+      <path d="M8 3v4M16 3v4" />
+    </svg>
+  );
 }
 
 type SortKey = "nome" | "setor" | "cargo" | "status" | "ultima_entrega";
@@ -174,6 +255,7 @@ export default async function ColaboradoresPage({
       <PageHeader
         title="Colaboradores"
         description="Lista com busca rápida e filtro por setor."
+        icon={<IconUsers className="h-5 w-5" />}
       />
 
       {statusAtual !== "todos" && (
@@ -284,13 +366,22 @@ export default async function ColaboradoresPage({
                   label={`Ver detalhes de ${c.nome}`}
                 >
                   <td className="px-4 py-3.5 text-[13.5px] font-medium text-foreground">
-                    {c.nome}
+                    <div className="flex items-center gap-2.5">
+                      <Avatar nome={c.nome} size="sm" />
+                      <span>{c.nome}</span>
+                    </div>
                   </td>
                   <td className="px-4 py-3.5 text-[13.5px] text-foreground">
-                    {c.setor}
+                    <span className="inline-flex items-center gap-1.5">
+                      <IconLayers className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                      {c.setor}
+                    </span>
                   </td>
                   <td className="px-4 py-3.5 text-[13.5px] text-foreground">
-                    {c.cargo}
+                    <span className="inline-flex items-center gap-1.5">
+                      <IconIdBadge className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                      {c.cargo}
+                    </span>
                   </td>
                   <td className="px-4 py-3.5">
                     <span
@@ -304,7 +395,14 @@ export default async function ColaboradoresPage({
                     </span>
                   </td>
                   <td className="px-4 py-3.5 text-[13.5px] text-foreground">
-                    {c.ultimaEntrega ? formatDate(c.ultimaEntrega) : "—"}
+                    {c.ultimaEntrega ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <IconCalendarSmall className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                        {formatDate(c.ultimaEntrega)}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-4 py-3.5 text-[13.5px]">
                     {c.dataIntegracaoSeguranca ? (

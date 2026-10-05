@@ -50,9 +50,9 @@ function IconEpiHeader(props: React.SVGProps<SVGSVGElement>) {
 function IconCapacete(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M4 15c0-4.5 3.5-8 8-8s8 3.5 8 8" />
-      <path d="M2.5 15h19" />
-      <path d="M11 7V4.5" />
+      <path d="M4 15.2c0-4.5 3.5-8 8-8s8 3.5 8 8" />
+      <ellipse cx="12" cy="15.2" rx="9.7" ry="1.9" />
+      <path d="M12 7.2V5" />
     </svg>
   );
 }
@@ -60,9 +60,9 @@ function IconCapacete(props: React.SVGProps<SVGSVGElement>) {
 function IconAuricular(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M4 13a8 8 0 0 1 16 0" />
-      <rect x="2.5" y="13" width="4" height="6" rx="1.5" />
-      <rect x="17.5" y="13" width="4" height="6" rx="1.5" />
+      <path d="M4.5 13.6v-1.8a7.5 7.5 0 0 1 15 0v1.8" />
+      <rect x="2.3" y="12.6" width="4.4" height="7.4" rx="2.2" />
+      <rect x="17.3" y="12.6" width="4.4" height="7.4" rx="2.2" />
     </svg>
   );
 }
@@ -70,19 +70,24 @@ function IconAuricular(props: React.SVGProps<SVGSVGElement>) {
 function IconOculos(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="6.5" cy="13" r="3.5" />
-      <circle cx="17.5" cy="13" r="3.5" />
-      <path d="M10 13h4" />
-      <path d="M3 11.5 1.5 10M21 11.5 22.5 10" />
+      <path d="M3 10.8c0-1.1.9-1.8 2-1.8h14c1.1 0 2 .7 2 1.8v2.4c0 2.3-2.2 3.8-5.3 3.8-2.1 0-3.6-1-4.2-2.6-.6 1.6-2.1 2.6-4.2 2.6-3.1 0-5.3-1.5-5.3-3.8Z" />
+      <path d="M9.3 11.8h5.4" />
     </svg>
   );
 }
 
+// v3 "bico de pato": a v1 original (abaulado, com "boquinha" sorrindo)
+// lia como uma tigela de sopa a 16px (feedback do Rafael, 05/10/2026 —
+// "esses ícones ficaram bem feios"). O contorno certo de um respirador
+// tipo concha é o oposto: mais largo em cima (nariz) e afunilando pra um
+// bico/ponta embaixo (queixo) — é essa silhueta "bico de pato" que o
+// olho reconhece como máscara PFF2, não um oval genérico.
 function IconRespirador(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M3.5 12c0-2.5 2-4 8.5-4s8.5 1.5 8.5 4-2 5-8.5 5-8.5-2.5-8.5-5Z" />
-      <path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" />
+      <path d="M4.5 9.5c0-.9.6-1.6 1.6-1.9C8.3 7 10 6.7 12 6.7s3.7.3 5.9 1c1 .3 1.6 1 1.6 1.9 0 3.6-1.3 6.4-3.3 8.1-1.5 1.3-3 1.9-4.2 1.9s-2.7-.6-4.2-1.9c-2-1.7-3.3-4.5-3.3-8.1Z" />
+      <path d="M6.7 10.3c2.3-.9 8.3-.9 10.6 0M6.7 12.6c2.3-.9 8.3-.9 10.6 0" />
+      <path d="M4.7 9.2 2.1 7.8M19.3 9.2l2.6-1.4" />
     </svg>
   );
 }
@@ -90,8 +95,9 @@ function IconRespirador(props: React.SVGProps<SVGSVGElement>) {
 function IconLuva(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M6 10.5V5a1.5 1.5 0 0 1 3 0v4.5M9 9V4a1.5 1.5 0 0 1 3 0v5M12 9.2V4.5a1.5 1.5 0 0 1 3 0V10" />
-      <path d="M15 8.7a1.5 1.5 0 0 1 3 0V13c0 4-2.5 7-6.5 7S4 17 4 13v-2.5a1.5 1.5 0 0 1 3-.3" />
+      <path d="M8 20v-8.6a1.6 1.6 0 0 1 3.2 0v-2a1.6 1.6 0 0 1 3.2 0v1.8a1.6 1.6 0 0 1 3.2 0V15c0 2.8-2 5-5 5Z" />
+      <path d="M8 13.4c-1.6-.2-2.8-1.3-2.8-2.9V9a1.6 1.6 0 0 1 3.2 0v2.6" />
+      <path d="M8 20h7.6" />
     </svg>
   );
 }
@@ -99,8 +105,9 @@ function IconLuva(props: React.SVGProps<SVGSVGElement>) {
 function IconBota(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M8.5 3v8.5L4 15a2.5 2.5 0 0 0-1 2v1.5h17c0-2-1-3-3-3.5l-5-1.3V3Z" />
-      <path d="M8.5 7h3" />
+      <path d="M9.5 3v7.6L5 13.3a3 3 0 0 0-1.5 2.6v1.6h17c0-2.5-1.7-3.9-4.2-4.5l-4.3-1V3Z" />
+      <path d="M9.5 6.8h3.5" />
+      <path d="M3.3 17.5h17.4" />
     </svg>
   );
 }
@@ -108,17 +115,25 @@ function IconBota(props: React.SVGProps<SVGSVGElement>) {
 function IconColete(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M8 3 5 5.5V20h4.5l1-11 1 11h4.5V5.5L13 3" />
-      <path d="M8 3c1.3 1.3 2.7 2 4 2s2.7-.7 4-2" />
+      <path d="M9 4 6.3 6.2v13.3h4.2l.8-9.3h1.4l.8 9.3h4.2V6.2L14.8 4" />
+      <path d="M9 4c.9 1.3 1.9 2 3 2s2.1-.7 3-2" />
+      <path d="M7.2 13.5h2.6M14.2 13.5h2.6" />
     </svg>
   );
 }
 
+// v3 "X no peito": a v1 (mosquetão solto) lia como um balão numa
+// vareta, e a v2 (pessoa com tiras retas nas pernas) ainda não deixava
+// claro que era um arnês. Essa versão desenha a pessoa inteira com as
+// tiras do talabarte cruzando em X sobre o peito — é essa faixa
+// diagonal cruzada que identifica "proteção contra quedas" de cara.
 function IconQuedas(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="12" cy="5" r="2" />
-      <path d="M12 7v6M7 10l5 3 5-3M9 13l-3 7M15 13l3 7" />
+      <circle cx="12" cy="4.2" r="2" />
+      <path d="M8 8.2 12 6.2l4 2" />
+      <path d="M9 7l6 7M15 7l-6 7" />
+      <path d="M9.5 20l1-6M14.5 20l-1-6" />
     </svg>
   );
 }
@@ -126,7 +141,7 @@ function IconQuedas(props: React.SVGProps<SVGSVGElement>) {
 function IconTermica(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M12 3c2 3-2 3.5-2 6.5a2 2 0 0 0 4 0c1 1.2 1.5 2.3 1.5 3.5a3.5 3.5 0 1 1-7 0C8.5 9.5 10.5 7.5 12 3Z" />
+      <path d="M12 2.8c2.3 3 .3 4-1 6.4-1 2 .3 4 1.8 4 1.8 0 2.8-1.5 2.4-3.4 1.4 1.5 2.3 3.2 2.3 5a5.5 5.5 0 1 1-11 0c0-3.6 2.3-6.2 5.5-12Z" />
     </svg>
   );
 }

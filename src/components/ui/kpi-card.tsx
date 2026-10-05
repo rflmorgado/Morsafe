@@ -12,6 +12,14 @@ const TONE = {
     pill: "bg-warning-bg text-warning-text",
     badgeTone: "warn",
   },
+  // Terceiro tom, pra KPI que não é "bom" nem "atenção leve" — ex.: um total
+  // de registros críticos na Auditoria NR-06 (ver visao-geral-tab.tsx).
+  // Primeiro uso: Auditoria, 06/10/2026.
+  danger: {
+    bar: "bg-danger-text",
+    pill: "bg-danger-bg text-danger-text",
+    badgeTone: "danger",
+  },
 } as const;
 
 export function KpiCard({
@@ -24,7 +32,7 @@ export function KpiCard({
   label: string;
   value: number | string;
   delta?: string;
-  deltaTone?: "up" | "warn";
+  deltaTone?: "up" | "warn" | "danger";
   icon?: React.ReactNode;
 }) {
   const tone = TONE[deltaTone];

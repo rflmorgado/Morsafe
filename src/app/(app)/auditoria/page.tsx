@@ -86,9 +86,16 @@ function TabsNav({ atual }: { atual: Aba }) {
 export default async function AuditoriaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; pagina?: string }>;
+  // Índice livre (além de `aba`/`pagina`): a aba Pendências usa uma chave
+  // de paginação por grupo (`p_<tipo>`, ver pendencias-tab.tsx), que varia
+  // conforme os tipos de pendência encontrados — por isso não dá pra listar
+  // essas chaves aqui uma a uma.
+  searchParams: Promise<
+    { aba?: string; pagina?: string } & Record<string, string | undefined>
+  >;
 }) {
-  const { aba: abaParam, pagina: paginaParam } = await searchParams;
+  const resolvedSearchParams = await searchParams;
+  const { aba: abaParam, pagina: paginaParam } = resolvedSearchParams;
   const aba: Aba = isAba(abaParam) ? abaParam : "geral";
   // Página das abas Colaboradores/EPIs (20 por página — ver
   // COLABORADORES_TAB_PAGE_SIZE em colaboradores-tab.tsx e EPIS_TAB_PAGE_SIZE
@@ -116,7 +123,12 @@ export default async function AuditoriaPage({
       <TabsNav atual={aba} />
 
       {aba === "geral" && <VisaoGeralTab empresaId={empresaId} />}
-      {aba === "pendencias" && <PendenciasTab empresaId={empresaId} />}
+      {aba === "pendencias" && (
+        <PendenciasTab
+          empresaId={empresaId}
+          searchParams={resolvedSearchParams}
+        />
+      )}
       {aba === "checklist" && <ChecklistCampoTab user={user} empresaId={empresaId} />}
       {aba === "colaboradores" && (
         <ColaboradoresTab empresaId={empresaId} pagina={pagina} />

@@ -24,6 +24,36 @@ export type RaioXItem = {
   detalhe: string;
 };
 
+// Status de cada colaborador em relação aos EPIs obrigatórios do setor dele
+// — "sem_exigencia" não é problema (setor sem nenhum EPI marcado como
+// obrigatório em setor_epi), é só um terceiro estado pra não confundir com
+// "completo" (tem exigência e está em dia).
+export type StatusColaboradorAuditoria = "completo" | "pendente" | "sem_exigencia";
+
+export type ColaboradorAuditoria = {
+  id: string;
+  nome: string;
+  setorNome: string;
+  status: StatusColaboradorAuditoria;
+  episObrigatorios: number;
+  episFaltando: string[];
+  ultimaEntrega: string | null;
+};
+
+// Mesmos limiares/nomes de epis/page.tsx (statusCa) — "vencendo" a 30 dias,
+// pra bater com o mesmo número já usado no Raio-X e na Visão Geral.
+export type StatusCaEpi = "ok" | "vencendo" | "vencido" | "sem_ca" | "nao_exige";
+
+export type EpiAuditoria = {
+  id: string;
+  nome: string;
+  tipo: string | null;
+  ca: string | null;
+  caValidade: string | null;
+  statusCa: StatusCaEpi;
+  colaboradoresComPosse: number;
+};
+
 export type ApuracaoAuditoriaRegistros = {
   indiceControle: number;
   registrosAnalisados: number;
@@ -32,6 +62,8 @@ export type ApuracaoAuditoriaRegistros = {
   criticoTotal: number;
   raioX: RaioXItem[];
   pendencias: GrupoPendencia[];
+  colaboradoresDetalhe: ColaboradorAuditoria[];
+  episDetalhe: EpiAuditoria[];
 };
 
 function vazio(): ApuracaoAuditoriaRegistros {
@@ -43,6 +75,8 @@ function vazio(): ApuracaoAuditoriaRegistros {
     criticoTotal: 0,
     raioX: [],
     pendencias: [],
+    colaboradoresDetalhe: [],
+    episDetalhe: [],
   };
 }
 
@@ -51,6 +85,22 @@ function formatDate(value: string) {
 }
 
 const DIA_MS = 24 * 60 * 60 * 1000;
+const LIMIAR_VENCIMENTO_DIAS = 30;
+
+function calcularStatusCa(epi: {
+  exige_ca: boolean;
+  ca: string | null;
+  ca_validade: string | null;
+}): StatusCaEpi {
+  if (!epi.exige_ca) return "nao_exige";
+  if (!epi.ca || !epi.ca_validade) return "sem_ca";
+  const diffDias = Math.ceil(
+    (new Date(epi.ca_validade + "T00:00:00").getTime() - Date.now()) / DIA_MS,
+  );
+  if (diffDias <= 0) return "vencido";
+  if (diffDias <= LIMIAR_VENCIMENTO_DIAS) return "vencendo";
+  return "ok";
+}
 
 /**
  * Auditoria de REGISTROS (diferente do checklist de campo em
@@ -445,6 +495,78 @@ export async function apurarAuditoriaRegistros(
     });
   }
 
+  // ---- Detalhe por colaborador (aba Colaboradores) — reaproveita
+  // obrigatoriosPorSetor e ultimoEvento já calculados acima, nada de
+  // recalcular ou buscar de novo. ----
+  const PESO_STATUS_COLABORADOR: Record<StatusColaboradorAuditoria, number> = {
+    pendente: 0,
+    sem_exigencia: 1,
+    completo: 2,
+  };
+  const colaboradoresDetalhe: ColaboradorAuditoria[] = colaboradoresAtivos
+    .map((c) => {
+      const obrigatorios = obrigatoriosPorSetor.get(c.setor_id) ?? [];
+      const faltando = obrigatorios.filter((epiId) => {
+        const evento = ultimoEvento.get(`${c.id}:${epiId}`);
+        return !evento || evento.tipo !== "entrega";
+      });
+      const status: StatusColaboradorAuditoria =
+        obrigatorios.length === 0
+          ? "sem_exigencia"
+          : faltando.length === 0
+            ? "completo"
+            : "pendente";
+      return {
+        id: c.id,
+        nome: c.nome,
+        setorNome:
+          (c.setores as unknown as { nome: string } | null)?.nome ??
+          "Sem setor",
+        status,
+        episObrigatorios: obrigatorios.length,
+        episFaltando: faltando.map((id) => epiNome.get(id) ?? "EPI"),
+        ultimaEntrega: ultimaEntregaPorColaborador.get(c.id) ?? null,
+      };
+    })
+    .sort((a, b) => {
+      const peso = PESO_STATUS_COLABORADOR[a.status] - PESO_STATUS_COLABORADOR[b.status];
+      return peso !== 0 ? peso : a.nome.localeCompare(b.nome, "pt-BR");
+    });
+
+  // ---- Detalhe por EPI (aba EPIs) — quantos colaboradores ATIVOS estão de
+  // posse de cada EPI hoje, lido do mesmo ultimoEvento (tipo "entrega" sem
+  // devolução depois). ----
+  const idsColaboradoresAtivos = new Set(colaboradoresAtivos.map((c) => c.id));
+  const posseAtualPorEpi = new Map<string, number>();
+  for (const [chave, evento] of ultimoEvento) {
+    if (evento.tipo !== "entrega") continue;
+    const [colaboradorId, epiId] = chave.split(":");
+    if (!idsColaboradoresAtivos.has(colaboradorId)) continue;
+    posseAtualPorEpi.set(epiId, (posseAtualPorEpi.get(epiId) ?? 0) + 1);
+  }
+
+  const PESO_STATUS_CA: Record<StatusCaEpi, number> = {
+    vencido: 0,
+    sem_ca: 1,
+    vencendo: 2,
+    ok: 3,
+    nao_exige: 4,
+  };
+  const episDetalhe: EpiAuditoria[] = episAtivos
+    .map((e) => ({
+      id: e.id,
+      nome: e.nome,
+      tipo: e.tipo,
+      ca: e.ca,
+      caValidade: e.ca_validade,
+      statusCa: calcularStatusCa(e),
+      colaboradoresComPosse: posseAtualPorEpi.get(e.id) ?? 0,
+    }))
+    .sort((a, b) => {
+      const peso = PESO_STATUS_CA[a.statusCa] - PESO_STATUS_CA[b.statusCa];
+      return peso !== 0 ? peso : a.nome.localeCompare(b.nome, "pt-BR");
+    });
+
   return {
     indiceControle,
     registrosAnalisados,
@@ -453,5 +575,7 @@ export async function apurarAuditoriaRegistros(
     criticoTotal,
     raioX,
     pendencias,
+    colaboradoresDetalhe,
+    episDetalhe,
   };
 }

@@ -23,9 +23,11 @@ export const ACAO_LABEL: Record<string, string> = {
   entrada_registrada: "Entrada de estoque registrada",
   limite_atualizado: "Limite de alerta de estoque atualizado",
   dados_resetados: "Dados de teste resetados",
+  entrega_teste_excluida: "Entrega de teste excluída",
   pagamento_criado: "Pagamento registrado",
   pagamento_recebido: "Pagamento recebido",
   limite_colaboradores_atualizado: "Limite de colaboradores atualizado",
+  auditoria_registrada: "Auditoria de NR-06 registrada",
 };
 
 export const TABELA_LABEL: Record<string, string> = {
@@ -42,6 +44,7 @@ export const TABELA_LABEL: Record<string, string> = {
   entradas_estoque: "Entrada de estoque",
   estoque: "Estoque",
   pagamentos_empresa: "Pagamento",
+  auditorias_nr06: "Auditoria de NR-06",
 };
 
 // Artigo + substantivo por tabela, usado nas frases do histórico ("Cadastrou
@@ -197,6 +200,12 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
       );
       return `Resetou os dados de teste da empresa (${total} registro${total === 1 ? "" : "s"} apagados)`;
     }
+    case "entrega_teste_excluida": {
+      const quantidade = item.detalhes?.quantidade as number | undefined;
+      return nome
+        ? `Excluiu entrega de teste de "${nome}"${quantidade ? ` (${quantidade} un.)` : ""}`
+        : "Excluiu uma entrega de teste";
+    }
     case "pagamento_criado": {
       const valor = item.detalhes?.valor as number | undefined;
       return `Registrou pagamento${valor !== undefined ? ` de ${valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""} de "${nome ?? "empresa"}"`;
@@ -208,6 +217,18 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
     case "limite_colaboradores_atualizado": {
       const limite = item.detalhes?.limite as number | null | undefined;
       return `${limite ? `Definiu o limite de colaboradores de "${nome ?? "empresa"}" para ${limite}` : `Removeu o limite de colaboradores de "${nome ?? "empresa"}"`}`;
+    }
+    case "auditoria_registrada": {
+      const naoConformidades = item.detalhes?.naoConformidades as
+        | number
+        | undefined;
+      return nome
+        ? `Registrou uma auditoria de NR-06 no setor "${nome}"${
+            naoConformidades
+              ? ` (${naoConformidades} pendência${naoConformidades === 1 ? "" : "s"})`
+              : ""
+          }`
+        : "Registrou uma auditoria de NR-06";
     }
     default:
       return ACAO_LABEL[item.acao] ?? item.acao;

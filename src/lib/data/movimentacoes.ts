@@ -37,6 +37,11 @@ export type MovimentacaoEvento = {
   // quantidade inteira daquela entrega, não um número digitado à parte (ver
   // comentário em listEntregasEmPosse mais abaixo).
   quantidade?: number;
+  // id "cru" (sem o prefixo "entrega-" usado em MovimentacaoEvento.id para
+  // não colidir com devoluções/recusas na mesma lista) — só para tipo
+  // "entrega", usado pelo botão de exclusão de entrega de teste (só
+  // super_admin, ver excluirEntregaTeste em actions.ts).
+  entregaId?: string;
 };
 
 type EpiEmbed = { nome: string; ca: string | null } | null;
@@ -112,6 +117,7 @@ async function buscarEventos(
         motivoLabel: MOTIVO_ENTREGA_LABEL[e.motivo] ?? e.motivo,
         detalhe: null,
         quantidade: e.quantidade,
+        entregaId: e.id,
       });
     }
   }

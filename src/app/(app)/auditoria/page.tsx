@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { VisaoGeralTab } from "./visao-geral-tab";
 import { PendenciasTab } from "./pendencias-tab";
 import { ChecklistCampoTab } from "./checklist-campo-tab";
+import { ColaboradoresTab } from "./colaboradores-tab";
+import { EpisTab } from "./epis-tab";
 
 // Ícone vibrante do cabeçalho — mesmo desenho do item de menu Auditoria
 // NR-06 (ver IconAuditoria em nav-icons.tsx): prancheta com check.
@@ -29,8 +31,8 @@ const ABAS = [
   { chave: "geral", label: "Visão geral", emBreve: false },
   { chave: "pendencias", label: "Pendências", emBreve: false },
   { chave: "checklist", label: "Checklist de campo", emBreve: false },
-  { chave: "colaboradores", label: "Colaboradores", emBreve: true },
-  { chave: "epis", label: "EPIs", emBreve: true },
+  { chave: "colaboradores", label: "Colaboradores", emBreve: false },
+  { chave: "epis", label: "EPIs", emBreve: false },
   { chave: "relatorio", label: "Relatório", emBreve: true },
 ] as const;
 
@@ -43,10 +45,10 @@ function isAba(value: string | undefined): value is Aba {
 /**
  * Barra de abas — navegação simples por URL (`?aba=`), sem JS no cliente:
  * cada aba é uma page.tsx renderizada no servidor de novo, igual qualquer
- * outro link do app. Abas "em breve" (Colaboradores/EPIs/Relatório — ver
- * pedido do Rafael, 06/10/2026) ficam como pill desabilitada, mesmo
- * tratamento visual do item "em breve" da barra lateral (app-shell.tsx),
- * adaptado pro fundo claro do conteúdo.
+ * outro link do app. Aba "em breve" (Relatório, geração de PDF — ver pedido
+ * do Rafael, 06/10/2026) fica como pill desabilitada, mesmo tratamento
+ * visual do item "em breve" da barra lateral (app-shell.tsx), adaptado pro
+ * fundo claro do conteúdo.
  */
 function TabsNav({ atual }: { atual: Aba }) {
   return (
@@ -105,6 +107,8 @@ export default async function AuditoriaPage({
       {aba === "geral" && <VisaoGeralTab empresaId={empresaId} />}
       {aba === "pendencias" && <PendenciasTab empresaId={empresaId} />}
       {aba === "checklist" && <ChecklistCampoTab user={user} empresaId={empresaId} />}
+      {aba === "colaboradores" && <ColaboradoresTab empresaId={empresaId} />}
+      {aba === "epis" && <EpisTab empresaId={empresaId} />}
     </div>
   );
 }

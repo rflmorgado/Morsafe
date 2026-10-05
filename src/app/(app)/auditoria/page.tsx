@@ -90,13 +90,16 @@ export default async function AuditoriaPage({
 }) {
   const { aba: abaParam, pagina: paginaParam } = await searchParams;
   const aba: Aba = isAba(abaParam) ? abaParam : "geral";
-  // Página da aba Colaboradores (20 por página — ver COLABORADORES_TAB_PAGE_SIZE
-  // em colaboradores-tab.tsx). Qualquer valor inválido ou ausente cai em 1;
-  // o próprio ColaboradoresTab também limita contra o total de páginas real.
-  const paginaColaboradoresParsed = Number(paginaParam);
-  const paginaColaboradores =
-    Number.isFinite(paginaColaboradoresParsed) && paginaColaboradoresParsed > 0
-      ? Math.floor(paginaColaboradoresParsed)
+  // Página das abas Colaboradores/EPIs (20 por página — ver
+  // COLABORADORES_TAB_PAGE_SIZE em colaboradores-tab.tsx e EPIS_TAB_PAGE_SIZE
+  // em epis-tab.tsx). Só uma aba fica visível por vez, então o mesmo `pagina`
+  // da URL serve pra qualquer uma das duas sem conflito. Qualquer valor
+  // inválido ou ausente cai em 1; cada aba também limita contra o total de
+  // páginas real dela.
+  const paginaParsed = Number(paginaParam);
+  const pagina =
+    Number.isFinite(paginaParsed) && paginaParsed > 0
+      ? Math.floor(paginaParsed)
       : 1;
 
   const user = await getCurrentUser();
@@ -116,9 +119,9 @@ export default async function AuditoriaPage({
       {aba === "pendencias" && <PendenciasTab empresaId={empresaId} />}
       {aba === "checklist" && <ChecklistCampoTab user={user} empresaId={empresaId} />}
       {aba === "colaboradores" && (
-        <ColaboradoresTab empresaId={empresaId} pagina={paginaColaboradores} />
+        <ColaboradoresTab empresaId={empresaId} pagina={pagina} />
       )}
-      {aba === "epis" && <EpisTab empresaId={empresaId} />}
+      {aba === "epis" && <EpisTab empresaId={empresaId} pagina={pagina} />}
     </div>
   );
 }

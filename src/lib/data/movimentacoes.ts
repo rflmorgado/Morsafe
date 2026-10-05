@@ -31,6 +31,11 @@ export type MovimentacaoEvento = {
   colaboradorNome: string;
   epiNome: string;
   epiCa: string | null;
+  // Tipo/categoria do EPI (ver TIPOS_EPI em epi-tipos.ts) — só pra escolher
+  // o ícone de categoria ao lado do nome na tela de Movimentações (mesmo
+  // ícone já usado na tela de EPIs, ver IconeDoTipo em epis/page.tsx).
+  // `null` quando o EPI ainda não foi classificado.
+  epiTipo: string | null;
   motivoLabel: string;
   detalhe: string | null;
   // Só entrega e devolução têm quantidade (uma recusa não entrega nada). Na
@@ -45,7 +50,7 @@ export type MovimentacaoEvento = {
   entregaId?: string;
 };
 
-type EpiEmbed = { nome: string; ca: string | null } | null;
+type EpiEmbed = { nome: string; ca: string | null; tipo: string | null } | null;
 type ColaboradorEmbed = { id: string; nome: string } | null;
 type EntregaLigadaEmbed = { quantidade: number } | null;
 
@@ -93,7 +98,7 @@ async function buscarEventos(
     let q = supabase
       .from("entregas")
       .select(
-        "id, data, hora, motivo, quantidade, criado_em, colaboradores ( id, nome ), epis ( nome, ca )",
+        "id, data, hora, motivo, quantidade, criado_em, colaboradores ( id, nome ), epis ( nome, ca, tipo )",
       )
       .eq("empresa_id", empresaId);
     if (colaboradorId) q = q.eq("colaborador_id", colaboradorId);
@@ -115,6 +120,7 @@ async function buscarEventos(
         colaboradorNome: colaborador?.nome ?? "—",
         epiNome: epi?.nome ?? "—",
         epiCa: epi?.ca ?? null,
+        epiTipo: epi?.tipo ?? null,
         motivoLabel: MOTIVO_ENTREGA_LABEL[e.motivo] ?? e.motivo,
         detalhe: null,
         quantidade: e.quantidade,
@@ -127,7 +133,7 @@ async function buscarEventos(
     let q = supabase
       .from("devolucoes")
       .select(
-        "id, data, motivo, destino, devolvido_fisicamente, criado_em, colaboradores ( id, nome ), epis ( nome, ca ), entregas ( quantidade )",
+        "id, data, motivo, destino, devolvido_fisicamente, criado_em, colaboradores ( id, nome ), epis ( nome, ca, tipo ), entregas ( quantidade )",
       )
       .eq("empresa_id", empresaId);
     if (colaboradorId) q = q.eq("colaborador_id", colaboradorId);
@@ -150,6 +156,7 @@ async function buscarEventos(
         colaboradorNome: colaborador?.nome ?? "—",
         epiNome: epi?.nome ?? "—",
         epiCa: epi?.ca ?? null,
+        epiTipo: epi?.tipo ?? null,
         motivoLabel: MOTIVO_DEVOLUCAO_LABEL[d.motivo] ?? d.motivo,
         detalhe: `${DESTINO_DEVOLUCAO_LABEL[d.destino] ?? d.destino}${
           d.devolvido_fisicamente ? "" : " · não devolvido fisicamente"
@@ -163,7 +170,7 @@ async function buscarEventos(
     let q = supabase
       .from("recusas")
       .select(
-        "id, data, hora, testemunha, observacoes, criado_em, colaboradores ( id, nome ), epis ( nome, ca )",
+        "id, data, hora, testemunha, observacoes, criado_em, colaboradores ( id, nome ), epis ( nome, ca, tipo )",
       )
       .eq("empresa_id", empresaId);
     if (colaboradorId) q = q.eq("colaborador_id", colaboradorId);
@@ -185,6 +192,7 @@ async function buscarEventos(
         colaboradorNome: colaborador?.nome ?? "—",
         epiNome: epi?.nome ?? "—",
         epiCa: epi?.ca ?? null,
+        epiTipo: epi?.tipo ?? null,
         motivoLabel: "Recusa registrada",
         detalhe: r.observacoes
           ? r.testemunha

@@ -34,7 +34,16 @@ export function MarcarPagoButton({
     <button
       type="button"
       disabled={pending}
-      onClick={handleClick}
+      // stopPropagation: a linha/cartão inteiro agora leva ao detalhe da
+      // empresa (ver pagamentos/page.tsx, mesmo padrão de
+      // empresas/page.tsx) — sem isso, clicar neste botão também
+      // navegaria pro detalhe por cima da ação de marcar como pago (mesma
+      // convenção de todo botão dentro de ClickableRow/ClickableCard, ver
+      // colaboradores/reativar-colaborador-button.tsx e afins).
+      onClick={(e) => {
+        e.stopPropagation();
+        handleClick();
+      }}
       aria-label={`Marcar pagamento de ${empresaNome} como pago`}
       className="rounded-lg border border-border-strong px-3 py-1.5 text-[12.5px] font-semibold text-brand-700 transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60"
     >

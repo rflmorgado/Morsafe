@@ -6,6 +6,12 @@ export type EmpresaResumo = {
   cnpj: string | null;
   ativo: boolean;
   criadoEm: string;
+  // PNG em data URL (ver logo-empresa-form.tsx) ou null — direto no mesmo
+  // select de empresas (sem a separação enxuta de getEmpresaLogoUrl, em
+  // empresa.ts): esta lista já é exclusiva do super_admin, com poucas
+  // dezenas de linhas (não toda página protegida como a barra lateral), o
+  // peso extra do logo em cada linha é desprezível aqui.
+  logoUrl: string | null;
   totalColaboradores: number;
   totalEpis: number;
   totalUsuarios: number;
@@ -16,7 +22,14 @@ export type EmpresaResumo = {
 };
 
 type AdminClient = ReturnType<typeof createAdminClient>;
-type EmpresaRow = { id: string; nome: string; cnpj: string | null; ativo: boolean; criado_em: string };
+type EmpresaRow = {
+  id: string;
+  nome: string;
+  cnpj: string | null;
+  ativo: boolean;
+  criado_em: string;
+  logo_url: string | null;
+};
 
 /**
  * Busca limite_colaboradores EM UMA CONSULTA SEPARADA do resto do resumo —
@@ -75,6 +88,7 @@ async function comResumo(
     cnpj: e.cnpj,
     ativo: e.ativo,
     criadoEm: e.criado_em,
+    logoUrl: e.logo_url,
     totalColaboradores: colaboradores.count ?? 0,
     totalEpis: epis.count ?? 0,
     totalUsuarios: usuarios.count ?? 0,
@@ -122,7 +136,7 @@ export async function listEmpresasComResumo(): Promise<EmpresaResumo[]> {
 
   const { data: empresas, error } = await admin
     .from("empresas")
-    .select("id, nome, cnpj, ativo, criado_em")
+    .select("id, nome, cnpj, ativo, criado_em, logo_url")
     .order("criado_em", { ascending: false });
 
   if (error || !empresas) {
@@ -170,7 +184,7 @@ export async function getEmpresaComResumo(
 
   const { data: empresa, error } = await admin
     .from("empresas")
-    .select("id, nome, cnpj, ativo, criado_em")
+    .select("id, nome, cnpj, ativo, criado_em, logo_url")
     .eq("id", empresaId)
     .maybeSingle();
 

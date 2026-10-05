@@ -99,7 +99,13 @@ export async function definirLimiteColaboradores(
 
   if (error) {
     console.error("definirLimiteColaboradores:", error.message);
-    if (error.code === "42703") {
+    // 42703 = Postgres "coluna inexistente" (erro de verdade do banco).
+    // PGRST204 = o PostgREST rejeita antes disso, sem nem chegar no banco:
+    // não encontra `limite_colaboradores` no SCHEMA CACHE dele — é o caso
+    // real aqui enquanto a migração não roda (confirmado em produção; ver
+    // mesmo raciocínio do PGRST205 em excluirEmpresaPermanentemente, logo
+    // abaixo, pra tabela em vez de coluna). Os dois tratamos igual.
+    if (error.code === "42703" || error.code === "PGRST204") {
       return {
         error:
           "Essa função depende de uma coluna nova no banco que ainda não foi criada (acesso ao Supabase está bloqueado pelo chamado de suporte em aberto). Assim que o acesso voltar e a migração pendente rodar, isso passa a funcionar.",

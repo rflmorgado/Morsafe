@@ -4,6 +4,7 @@ import {
   type EpiAuditoria,
 } from "@/lib/data/auditoria-registros";
 import { Card } from "@/components/ui/card";
+import { AvisosBanner } from "./avisos-banner";
 
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
@@ -71,14 +72,19 @@ export async function EpisTab({
 
   if (apuracao.episDetalhe.length === 0) {
     return (
-      <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
-        Nenhum EPI ativo cadastrado ainda.
-      </p>
+      <div>
+        <AvisosBanner avisos={apuracao.avisos} />
+        <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
+          Nenhum EPI ativo cadastrado ainda.
+        </p>
+      </div>
     );
   }
 
   return (
     <div>
+      <AvisosBanner avisos={apuracao.avisos} />
+
       {/* Tabela — só a partir de `xl`, mesmo limite usado no resto do app. */}
       <div className="hidden overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card xl:block">
         <table className="w-full border-collapse bg-surface text-left">

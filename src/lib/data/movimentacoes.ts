@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // Rótulos (MOTIVO_ENTREGA_LABEL etc.) e o tipo TipoMovimentacao moram em
 // movimentacoes-labels.ts, sem depender de Supabase/next/headers, pra poder
@@ -370,6 +371,61 @@ export async function listEpisParaFiltro(
   return data;
 }
 
+export type EntregaRecente = {
+  id: string;
+  data: string;
+  colaboradorNome: string;
+  epiNome: string;
+  quantidade: number;
+};
+
+/**
+ * As entregas mais recentes de UMA empresa, vistas pelo super_admin na tela
+ * de administração (app/(app)/empresas/[id]/page.tsx) — usa o client admin
+ * (service role), não listMovimentacoes/createClient: RLS isola `entregas`
+ * por `auth_empresa_id()` (ver morsafe-schema.sql), e super_admin nunca tem
+ * `empresa_id`, então `auth_empresa_id()` retorna null e a policy nunca
+ * bate com nenhuma linha, de nenhuma empresa — mesmo raciocínio de
+ * listEmpresasComResumo/listUsuariosDaEmpresa em lib/data/empresas.ts e
+ * usuarios.ts.
+ *
+ * Existe só para alimentar o botão de exclusão de entrega de TESTE (ver
+ * excluirEntregaTeste em app/(app)/movimentacoes/actions.ts) — por isso vem
+ * sem paginação/filtro, só as `limit` mais recentes, não uma listagem
+ * completa como listMovimentacoes (essa seria inviável aqui: a tela é por
+ * empresa, não a visão operacional do dia a dia).
+ */
+export async function listEntregasRecentesEmpresa(
+  empresaId: string,
+  limit = 15,
+): Promise<EntregaRecente[]> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("entregas")
+    .select("id, data, quantidade, colaboradores ( nome ), epis ( nome )")
+    .eq("empresa_id", empresaId)
+    .order("criado_em", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    console.error("listEntregasRecentesEmpresa:", error?.message);
+    return [];
+  }
+
+  return data.map((e) => {
+    const colaborador = e.colaboradores as unknown as { nome: string } | null;
+    const epi = e.epis as unknown as { nome: string } | null;
+    return {
+      id: e.id,
+      data: e.data,
+      colaboradorNome: colaborador?.nome ?? "—",
+      epiNome: epi?.nome ?? "—",
+      quantidade: e.quantidade,
+    };
+  });
+}
+
 export type EntregaEmPosse = {
   id: string;
   data: string;
@@ -379,64 +435,4 @@ export type EntregaEmPosse = {
   epiCa: string | null;
   // Quantidade original entregue — a devolução baixa essa entrega por
   // inteiro (não suporta devolução parcial de uma mesma entrega), então o
-  // formulário de devolução usa esse valor tanto para mostrar na lista
-  // quanto para creditar de volta ao estoque a quantidade certa.
-  quantidade: number;
-};
-
-/**
- * EPIs que um colaborador tem "em posse" — entregas dele que ainda não têm
- * nenhuma devolução vinculada (devolucoes.entrega_vinculada_id). Alimenta o
- * select de "qual EPI está sendo devolvido" no formulário de devolução: em
- * vez de escolher um EPI qualquer do catálogo, a pessoa escolhe a entrega
- * específica que está sendo baixada — o que preserva o vínculo
- * entrega->devolução no banco e é o mesmo raciocínio de rastreabilidade já
- * usado no resto do app.
- */
-export async function listEntregasEmPosse(
-  colaboradorId: string,
-  empresaId: string | null,
-): Promise<EntregaEmPosse[]> {
-  if (!colaboradorId || !empresaId) return [];
-  const supabase = await createClient();
-
-  const [{ data: entregas, error: entregasError }, { data: devolucoes }] =
-    await Promise.all([
-      supabase
-        .from("entregas")
-        .select("id, data, motivo, epi_id, quantidade, epis ( nome, ca )")
-        .eq("empresa_id", empresaId)
-        .eq("colaborador_id", colaboradorId)
-        .order("data", { ascending: false }),
-      supabase
-        .from("devolucoes")
-        .select("entrega_vinculada_id")
-        .eq("empresa_id", empresaId)
-        .eq("colaborador_id", colaboradorId)
-        .not("entrega_vinculada_id", "is", null),
-    ]);
-
-  if (entregasError || !entregas) {
-    console.error("listEntregasEmPosse:", entregasError?.message);
-    return [];
-  }
-
-  const jaDevolvidas = new Set(
-    (devolucoes ?? []).map((d) => d.entrega_vinculada_id),
-  );
-
-  return entregas
-    .filter((e) => !jaDevolvidas.has(e.id))
-    .map((e) => {
-      const epi = e.epis as unknown as EpiEmbed;
-      return {
-        id: e.id,
-        data: e.data,
-        motivoLabel: MOTIVO_ENTREGA_LABEL[e.motivo] ?? e.motivo,
-        epiId: e.epi_id,
-        epiNome: epi?.nome ?? "—",
-        epiCa: epi?.ca ?? null,
-        quantidade: e.quantidade,
-      };
-    });
-}
+  // formulário de devolução usa esse valor tanto para

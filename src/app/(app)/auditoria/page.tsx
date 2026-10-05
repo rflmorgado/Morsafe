@@ -86,10 +86,18 @@ function TabsNav({ atual }: { atual: Aba }) {
 export default async function AuditoriaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string }>;
+  searchParams: Promise<{ aba?: string; pagina?: string }>;
 }) {
-  const { aba: abaParam } = await searchParams;
+  const { aba: abaParam, pagina: paginaParam } = await searchParams;
   const aba: Aba = isAba(abaParam) ? abaParam : "geral";
+  // Página da aba Colaboradores (20 por página — ver COLABORADORES_TAB_PAGE_SIZE
+  // em colaboradores-tab.tsx). Qualquer valor inválido ou ausente cai em 1;
+  // o próprio ColaboradoresTab também limita contra o total de páginas real.
+  const paginaColaboradoresParsed = Number(paginaParam);
+  const paginaColaboradores =
+    Number.isFinite(paginaColaboradoresParsed) && paginaColaboradoresParsed > 0
+      ? Math.floor(paginaColaboradoresParsed)
+      : 1;
 
   const user = await getCurrentUser();
   const empresaId = user?.empresaId ?? null;
@@ -107,7 +115,9 @@ export default async function AuditoriaPage({
       {aba === "geral" && <VisaoGeralTab empresaId={empresaId} />}
       {aba === "pendencias" && <PendenciasTab empresaId={empresaId} />}
       {aba === "checklist" && <ChecklistCampoTab user={user} empresaId={empresaId} />}
-      {aba === "colaboradores" && <ColaboradoresTab empresaId={empresaId} />}
+      {aba === "colaboradores" && (
+        <ColaboradoresTab empresaId={empresaId} pagina={paginaColaboradores} />
+      )}
       {aba === "epis" && <EpisTab empresaId={empresaId} />}
     </div>
   );

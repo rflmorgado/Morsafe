@@ -5,8 +5,53 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ShieldIcon } from "@/components/brand/shield-icon";
 import { NAV_ITEMS, NAV_SECTION_LABEL } from "./nav-items";
-import { NAV_ICON_BY_HREF } from "./nav-icons";
+import { NAV_ICON_BY_HREF, IconEmpresa } from "./nav-icons";
 import { logout } from "@/app/(app)/actions";
+
+// Selo da empresa ativa, acima do nome e abaixo da marca "MorSafe" (pedido
+// do Rafael, 05/10/2026). Três estados: logo da empresa (PNG em data URL,
+// ver logo-empresa-form.tsx) quando existe; o mesmo ícone de prédio usado no
+// menu/cabeçalho de "Dados da empresa" (ver IconEmpresa, em nav-icons.tsx)
+// quando a empresa ainda não cadastrou um; e a marca do MorSafe quando quem
+// está logado é o super_admin (não tem empresa — "Administrador MorSafe").
+// A bolinha no canto reaproveita o mesmo tratamento "presença" já usado em
+// usuarios/page.tsx (AvatarComPresenca) — aqui sempre verde, só reforçando
+// visualmente "ativo/conectado", já que não existe um estado de presença
+// real pra uma empresa.
+function EmpresaBadge({
+  isSuperAdmin,
+  logoUrl,
+}: {
+  isSuperAdmin: boolean;
+  logoUrl: string | null;
+}) {
+  return (
+    <span className="relative inline-flex h-9 w-9 shrink-0">
+      {isSuperAdmin ? (
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500">
+          <ShieldIcon className="h-5 w-5" />
+        </span>
+      ) : logoUrl ? (
+        <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-white/10">
+          {/* eslint-disable-next-line @next/next/no-img-element -- data URL, não um asset do Next */}
+          <img
+            src={logoUrl}
+            alt=""
+            className="h-full w-full object-contain p-1"
+          />
+        </span>
+      ) : (
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 text-white">
+          <IconEmpresa className="h-[18px] w-[18px]" />
+        </span>
+      )}
+      <span
+        className="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full bg-brand-500"
+        style={{ boxShadow: "0 0 0 2px var(--brand-950)" }}
+      />
+    </span>
+  );
+}
 
 function NavLinks({
   onNavigate,
@@ -93,12 +138,14 @@ export function AppShell({
   children,
   userNome,
   empresaNome,
+  empresaLogoUrl = null,
   isSuperAdmin = false,
   isAdmin = false,
 }: {
   children: React.ReactNode;
   userNome: string;
   empresaNome: string | null;
+  empresaLogoUrl?: string | null;
   isSuperAdmin?: boolean;
   isAdmin?: boolean;
 }) {
@@ -151,13 +198,13 @@ export function AppShell({
             </span>
           </div>
 
-          <div className="mb-5 mt-1 flex items-center gap-2 rounded-lg bg-white/[0.06] px-2.5 py-2">
-            <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-brand-500" />
-            <div className="text-[11.5px] leading-tight text-white/70">
+          <div className="mb-5 mt-1 flex items-center gap-2.5 rounded-xl bg-white/[0.06] p-2.5">
+            <EmpresaBadge isSuperAdmin={isSuperAdmin} logoUrl={empresaLogoUrl} />
+            <div className="min-w-0 text-[11.5px] leading-tight text-white/60">
               {isSuperAdmin ? "Acesso" : "Empresa ativa"}
-              <span className="block text-[12.5px] font-semibold text-white">
+              <p className="truncate text-[12.5px] font-semibold leading-tight text-white">
                 {isSuperAdmin ? "Administrador MorSafe" : (empresaNome ?? "—")}
-              </span>
+              </p>
             </div>
           </div>
 

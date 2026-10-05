@@ -7,6 +7,14 @@ import { ClickableRow } from "@/components/ui/clickable-row";
 import { ClickableCard } from "@/components/ui/clickable-card";
 import { AvisosBanner } from "./avisos-banner";
 
+// Mesmo tamanho de página da listagem principal de colaboradores
+// (COLABORADORES_PAGE_SIZE, em lib/data/colaboradores.ts) — pedido do
+// Rafael, 06/10/2026: a lista inteira (uma empresa pode ter 100+
+// colaboradores) ficava enorme numa página só. A apuração continua
+// buscando/ordenando TUDO de uma vez (ver apurarAuditoriaRegistros); só o
+// recorte de 20 em 20 acontece aqui, na exibição.
+const COLABORADORES_TAB_PAGE_SIZE = 20;
+
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
 }
@@ -82,12 +90,15 @@ const STATUS_BADGE: Record<
  */
 export async function ColaboradoresTab({
   empresaId,
+  pagina,
 }: {
   empresaId: string | null;
+  pagina: number;
 }) {
   const apuracao = await apurarAuditoriaRegistros(empresaId);
+  const total = apuracao.colaboradoresDetalhe.length;
 
-  if (apuracao.colaboradoresDetalhe.length === 0) {
+  if (total === 0) {
     return (
       <div>
         <AvisosBanner avisos={apuracao.avisos} />
@@ -98,11 +109,29 @@ export async function ColaboradoresTab({
     );
   }
 
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(total / COLABORADORES_TAB_PAGE_SIZE),
+  );
+  const paginaAtual = Math.min(Math.max(1, pagina), totalPaginas);
+  const inicio = (paginaAtual - 1) * COLABORADORES_TAB_PAGE_SIZE;
+  const colaboradoresPagina = apuracao.colaboradoresDetalhe.slice(
+    inicio,
+    inicio + COLABORADORES_TAB_PAGE_SIZE,
+  );
+
   return (
     <div>
       <AvisosBanner avisos={apuracao.avisos} />
 
-      {/* Tabela — só a partir de `xl`, mesmo limite usado no resto do app. */}
+      {/* Tabela — só a partir de `xl`, mesmo limite usado no resto do app.
+          Nome e setor SEM truncate: numa tabela sem table-layout: fixed, o
+          max-width num <td> não limita de verdade a largura da coluna (o
+          navegador dimensiona pelo conteúdo), então um nome comprido
+          "vazava" visualmente por cima da coluna de setor em vez de cortar
+          — mesmo problema e mesma solução já aplicada em
+          colaboradores/page.tsx (ver comentário lá): deixar o texto quebrar
+          dentro da célula em vez de truncar. */}
       <div className="hidden overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card xl:block">
         <table className="w-full border-collapse bg-surface text-left">
           <thead>
@@ -120,7 +149,7 @@ export async function ColaboradoresTab({
             </tr>
           </thead>
           <tbody>
-            {apuracao.colaboradoresDetalhe.map((c) => {
+            {colaboradoresPagina.map((c) => {
               const badge = STATUS_BADGE[c.status];
               return (
                 <ClickableRow
@@ -128,32 +157,25 @@ export async function ColaboradoresTab({
                   href={`/colaboradores/${c.id}`}
                   label={`Ver ficha de ${c.nome}`}
                 >
-                  <td className="max-w-[220px] px-2.5 py-[9px] text-[12.5px] font-medium text-foreground">
-                    <span className="min-w-0 truncate" title={c.nome}>
-                      {c.nome}
-                    </span>
+                  <td className="px-2.5 py-[9px] text-[12.5px] font-medium text-foreground">
+                    {c.nome}
                   </td>
-                  <td className="max-w-[180px] px-2.5 py-[9px] text-[12.5px] text-text-secondary">
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                  <td className="px-2.5 py-[9px] text-[12.5px] text-text-secondary">
+                    <span className="inline-flex items-center gap-1.5">
                       <IconSetor className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-                      <span className="min-w-0 truncate" title={c.setorNome}>
-                        {c.setorNome}
-                      </span>
+                      {c.setorNome}
                     </span>
                   </td>
                   <td className="px-2.5 py-[9px]">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.className}`}
+                      className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.className}`}
                     >
                       {c.status === "pendente"
                         ? `${c.episFaltando.length} EPI${c.episFaltando.length === 1 ? "" : "s"} pendente${c.episFaltando.length === 1 ? "" : "s"}`
                         : badge.label}
                     </span>
                     {c.status === "pendente" && (
-                      <p
-                        className="mt-1 max-w-[260px] truncate text-[11px] text-text-muted"
-                        title={c.episFaltando.join(", ")}
-                      >
+                      <p className="mt-1 max-w-[260px] text-[11px] text-text-muted">
                         {c.episFaltando.join(", ")}
                       </p>
                     )}
@@ -175,9 +197,11 @@ export async function ColaboradoresTab({
         </table>
       </div>
 
-      {/* Lista de cartões — abaixo de `xl`. */}
+      {/* Lista de cartões — abaixo de `xl`. Aqui o truncate continua
+          funcionando normalmente: é flexbox (min-w-0 + truncate), não
+          tabela, então não tem o problema acima. */}
       <div className="space-y-2 xl:hidden">
-        {apuracao.colaboradoresDetalhe.map((c) => {
+        {colaboradoresPagina.map((c) => {
           const badge = STATUS_BADGE[c.status];
           return (
             <ClickableCard
@@ -220,7 +244,40 @@ export async function ColaboradoresTab({
         })}
       </div>
 
-      <p className="mt-3 text-[12px] text-text-muted">
+      <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+        <span className="text-[12.5px] text-text-secondary">
+          Página {paginaAtual} de {totalPaginas} · {total} colaborador
+          {total === 1 ? "" : "es"}
+        </span>
+        <div className="flex gap-2">
+          <Link
+            href={`/auditoria?aba=colaboradores&pagina=${paginaAtual - 1}`}
+            aria-disabled={paginaAtual <= 1}
+            tabIndex={paginaAtual <= 1 ? -1 : undefined}
+            className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+              paginaAtual <= 1
+                ? "pointer-events-none opacity-40"
+                : "hover:bg-surface-muted"
+            }`}
+          >
+            ← Anterior
+          </Link>
+          <Link
+            href={`/auditoria?aba=colaboradores&pagina=${paginaAtual + 1}`}
+            aria-disabled={paginaAtual >= totalPaginas}
+            tabIndex={paginaAtual >= totalPaginas ? -1 : undefined}
+            className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+              paginaAtual >= totalPaginas
+                ? "pointer-events-none opacity-40"
+                : "hover:bg-surface-muted"
+            }`}
+          >
+            Próxima →
+          </Link>
+        </div>
+      </div>
+
+      <p className="mt-3 text-center text-[12px] text-text-muted sm:text-left">
         <Link
           href="/colaboradores"
           className="font-semibold text-brand-700 hover:underline"

@@ -120,8 +120,15 @@ export async function listColaboradores({
   if (setorId) {
     request = request.eq("setor_id", setorId);
   }
+  // Sem filtro explícito, o padrão é mostrar só ativos — evita a lista
+  // crescer indefinidamente com desligados acumulando (pedido do Rafael,
+  // 05/10/2026: a maioria dos desligados tem histórico real de EPI e nunca
+  // poderá ser excluída definitivamente, então a lista só tende a crescer).
+  // "todos" é a única forma de ver os dois juntos; ver colaboradores-filters.tsx.
   if (status === "ativo" || status === "inativo") {
     request = request.eq("status", status);
+  } else if (status !== "todos") {
+    request = request.eq("status", "ativo");
   }
   if (nr06 === "pendente") {
     request = request.is("data_integracao_seguranca", null);
@@ -260,8 +267,12 @@ export async function listColaboradoresParaExportar({
   if (setorId) {
     request = request.eq("setor_id", setorId);
   }
+  // Mesmo padrão de listColaboradores: sem filtro explícito, só ativos —
+  // pra exportação continuar batendo exatamente com o que a tela mostra.
   if (status === "ativo" || status === "inativo") {
     request = request.eq("status", status);
+  } else if (status !== "todos") {
+    request = request.eq("status", "ativo");
   }
   if (nr06 === "pendente") {
     request = request.is("data_integracao_seguranca", null);

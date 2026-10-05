@@ -129,7 +129,9 @@ export default async function AuditoriaPage({
           searchParams={resolvedSearchParams}
         />
       )}
-      {aba === "checklist" && <ChecklistCampoTab user={user} empresaId={empresaId} />}
+      {aba === "checklist" && (
+        <ChecklistCampoTab user={user} empresaId={empresaId} pagina={pagina} />
+      )}
       {aba === "colaboradores" && (
         <ColaboradoresTab empresaId={empresaId} pagina={pagina} />
       )}

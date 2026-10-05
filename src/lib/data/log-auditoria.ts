@@ -28,6 +28,7 @@ export const ACAO_LABEL: Record<string, string> = {
   pagamento_recebido: "Pagamento recebido",
   limite_colaboradores_atualizado: "Limite de colaboradores atualizado",
   auditoria_registrada: "Auditoria de NR-06 registrada",
+  mesclado: "Setor mesclado com outro",
 };
 
 export const TABELA_LABEL: Record<string, string> = {
@@ -229,6 +230,12 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
               : ""
           }`
         : "Registrou uma auditoria de NR-06";
+    }
+    case "mesclado": {
+      const nomeOrigem = item.detalhes?.nomeOrigem as string | undefined;
+      return nomeOrigem && nome
+        ? `Mesclou o setor "${nomeOrigem}" dentro de "${nome}" (colaboradores, funções e EPIs obrigatórios movidos)`
+        : `Mesclou dois setores em "${nome ?? "um setor"}"`;
     }
     default:
       return ACAO_LABEL[item.acao] ?? item.acao;

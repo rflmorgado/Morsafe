@@ -153,7 +153,7 @@ export async function apurarAuditoriaRegistros(
       .eq("empresa_id", empresaId),
     supabase
       .from("devolucoes")
-      .select("id, colaborador_id, epi_id, data, assinatura_url")
+      .select("id, colaborador_id, epi_id, data")
       .eq("empresa_id", empresaId),
     supabase
       .from("setor_epi")
@@ -256,13 +256,18 @@ export async function apurarAuditoriaRegistros(
   }
 
   // ---- 1. Devoluções sem assinatura (crítico) ----
-  // Entregas NÃO entram aqui: assinatura_url é NOT NULL na tabela — não tem
-  // como existir uma entrega sem assinatura. Devoluções ganharam o campo
-  // depois (ver morsafe-add-assinatura-devolucao.sql), nullable, então
-  // devoluções antigas podem estar sem.
-  const devolucoesSemAssinatura = devolucoes.filter(
-    (d) => !d.assinatura_url,
-  );
+  // DESATIVADO por enquanto: a coluna devolucoes.assinatura_url existe no
+  // código (morsafe-add-assinatura-devolucao.sql) mas nunca foi aplicada no
+  // banco de produção — o Rafael está sem acesso ao painel do Supabase pra
+  // rodar essa migração (mesma situação de pagamentos_empresa/
+  // limite_colaboradores, ver CLAUDE.md). Selecionar essa coluna fazia a
+  // consulta inteira de devoluções falhar, derrubando a apuração inteira
+  // (ver extrairDados acima). Em vez de ficar bloqueado esperando acesso,
+  // a verificação fica em espera — devolucoesSemAssinatura sempre vazio —
+  // até a migração rodar; quando rodar, é só voltar a selecionar
+  // "assinatura_url" na consulta acima e trocar a linha abaixo por
+  // `devolucoes.filter((d) => !d.assinatura_url)`.
+  const devolucoesSemAssinatura: typeof devolucoes = [];
 
   // ---- 2. EPIs ativos sem C.A. completo quando exigem C.A. (crítico) ----
   const episSemCaCompleto = episAtivos.filter(
@@ -396,11 +401,13 @@ export async function apurarAuditoriaRegistros(
     },
     {
       label: "Evidência de recebimento",
-      status: devolucoesSemAssinatura.length > 0 ? "critico" : "ok",
+      // "atencao" fixo por enquanto — não dá pra verificar assinatura de
+      // devolução ainda (ver comentário em devolucoesSemAssinatura acima).
+      // Nunca reportar "ok" aqui seria afirmar uma coisa que não foi
+      // checada de verdade.
+      status: "atencao",
       detalhe:
-        devolucoesSemAssinatura.length > 0
-          ? `${devolucoesSemAssinatura.length} devolução(ões) sem assinatura registrada.`
-          : "Todas as entregas e devoluções têm assinatura registrada.",
+        "Entregas sempre exigem assinatura. A verificação de assinatura em devoluções está temporariamente indisponível (pendente de uma atualização no banco de dados).",
     },
     {
       label: "Substituições/devoluções",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ClickableRow } from "@/components/ui/clickable-row";
+import { ClickableCard } from "@/components/ui/clickable-card";
 import { Avatar } from "@/components/ui/avatar";
 import {
   listColaboradores,
@@ -307,7 +308,12 @@ export default async function ColaboradoresPage({
         }
       />
 
-      <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card">
+      {/* Tabela — só a partir de `lg` (mesmo ponto em que o menu lateral
+          aparece). Abaixo disso, 6 colunas + ícones de ação não cabem sem
+          rolar de lado por mais que o texto diminua — por isso vira lista
+          de cartões (ver bloco `lg:hidden` logo abaixo), que mostra a mesma
+          informação sem nenhuma rolagem horizontal. */}
+      <div className="hidden overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card lg:block">
         <table className="w-full min-w-[840px] border-collapse bg-surface text-left">
           <thead>
             <tr>
@@ -462,6 +468,112 @@ export default async function ColaboradoresPage({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Lista de cartões — telas abaixo de `lg` (ver comentário acima da
+          tabela). Mesmas informações e mesmas ações (Editar, Ver ficha,
+          Desligar/Reativar, Excluir), só que empilhadas em vez de em
+          colunas, pra caber na largura da tela sem rolar de lado. */}
+      <div className="space-y-2 lg:hidden">
+        {colaboradores.length === 0 ? (
+          <p className="rounded-2xl border border-border-subtle bg-surface px-4 py-6 text-center text-[13px] text-text-muted">
+            Nenhum colaborador encontrado.
+          </p>
+        ) : (
+          colaboradores.map((c) => (
+            <ClickableCard
+              key={c.id}
+              href={`/colaboradores/${c.id}`}
+              label={`Ver detalhes de ${c.nome}`}
+              className="rounded-2xl border border-border-subtle bg-surface p-3.5 shadow-card"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Avatar nome={c.nome} size="sm" />
+                  <span className="min-w-0 truncate text-[13.5px] font-semibold text-foreground">
+                    {c.nome}
+                  </span>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
+                    c.status === "ativo"
+                      ? "bg-brand-100 text-brand-700"
+                      : "bg-danger-bg text-danger-text"
+                  }`}
+                >
+                  {c.status === "ativo" ? "Ativo" : "Inativo"}
+                </span>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-text-secondary">
+                <span className="inline-flex items-center gap-1">
+                  <IconLayers className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                  {c.setor}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <IconIdBadge className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                  {c.cargo}
+                </span>
+              </div>
+
+              <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border-subtle pt-2.5">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-text-muted">
+                  <span className="inline-flex items-center gap-1">
+                    <IconCalendarSmall className="h-3.5 w-3.5 shrink-0" />
+                    {c.ultimaEntrega ? formatDate(c.ultimaEntrega) : "Sem entrega"}
+                  </span>
+                  {c.dataIntegracaoSeguranca ? (
+                    <span>NR-06: {formatDate(c.dataIntegracaoSeguranca)}</span>
+                  ) : (
+                    <span className="rounded-full bg-warning-bg px-2 py-0.5 text-[10.5px] font-semibold text-warning-text">
+                      NR-06 pendente
+                    </span>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-0.5">
+                  {podeGerenciar && (
+                    <EditarColaboradorButton
+                      colaborador={{
+                        id: c.id,
+                        nome: c.nome,
+                        setorId: c.setorId,
+                        cargoId: c.cargoId,
+                        cpf: c.cpf,
+                        telefone: c.telefone,
+                        dataIntegracaoSeguranca: c.dataIntegracaoSeguranca,
+                      }}
+                      setores={setores}
+                    />
+                  )}
+                  <VisualizarFichaButton
+                    colaboradorId={c.id}
+                    colaboradorNome={c.nome}
+                  />
+                  {podeDesligarOuReativar &&
+                    (c.status === "ativo" ? (
+                      <DesligarColaboradorButton
+                        colaboradorId={c.id}
+                        colaboradorNome={c.nome}
+                        userEmail={user?.email ?? ""}
+                      />
+                    ) : (
+                      <>
+                        <ReativarColaboradorButton
+                          colaboradorId={c.id}
+                          colaboradorNome={c.nome}
+                        />
+                        <ExcluirColaboradorButton
+                          colaboradorId={c.id}
+                          colaboradorNome={c.nome}
+                          userEmail={user?.email ?? ""}
+                        />
+                      </>
+                    ))}
+                </div>
+              </div>
+            </ClickableCard>
+          ))
+        )}
       </div>
 
       {total > 0 && (

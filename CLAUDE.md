@@ -26,8 +26,8 @@ ao mexer neste projeto (Claude ou qualquer outro desenvolvedor):
 3. Tabelas de histórico/auditoria (`entregas`, `devolucoes`, `recusas`,
    `log_auditoria`, `verificacoes_documento`) são imutáveis por design:
    nenhum caminho de código deve ter `.update()` ou `.delete()` nelas —
-   com duas exceções, estreitas e deliberadas, ambas só super_admin e
-   ambas exigindo digitar um texto exato como confirmação:
+   com três exceções, estreitas e deliberadas, todas só super_admin e
+   todas exigindo digitar um texto exato como confirmação:
      a) `resetarDadosEmpresa` (em `src/app/(app)/empresas/actions.ts`),
         usada para apagar TODOS os dados de TESTE de uma empresa cliente
         inteira durante onboarding/depuração — nunca dado real de
@@ -40,13 +40,36 @@ ao mexer neste projeto (Claude ou qualquer outro desenvolvedor):
         se já existir devolução vinculada, e repõe `estoque.saldo_atual`
         manualmente antes de apagar (único lugar do app que escreve
         direto nessa coluna — ver comentário na função).
+     c) `excluirEmpresaPermanentemente` (em
+        `src/app/(app)/empresas/actions.ts`), a mais larga das três: apaga
+        uma empresa cliente inteira — logins (usuarios + o auth.users de
+        cada um), estrutura (unidades/setores/cargos), colaboradores,
+        EPIs, estoque e TODO o histórico, inclusive `log_auditoria`
+        daquela empresa. Diferente de (a) e (b), aqui `log_auditoria` NÃO
+        é preservado — não tem como preservar o histórico de uma empresa
+        que deixou de existir, e tecnicamente não dá: `log_auditoria.
+        usuario` referencia `usuarios(id)` com FK restrict, então precisa
+        sair antes de `usuarios`, que por sua vez precisa sair antes de
+        `empresas` (também restrict). Só funciona com a empresa já
+        desativada antes (mesma trava de `excluirUsuarioDefinitivamente`
+        em `usuarios/actions.ts`). Confirmação: nome exato da empresa.
+        Usada só para remover de vez um cliente que saiu do MorSafe —
+        nunca para limpar dado de teste (isso é (a)) nem para corrigir um
+        lançamento (isso é (b)).
    Qualquer outro caminho de código que precise apagar algo nessas
-   tabelas deve reaproveitar uma destas duas, nunca duplicar um
+   tabelas deve reaproveitar uma destas três, nunca duplicar um
    `.delete()` avulso em outro lugar. `log_auditoria` continua imutável
-   mesmo aqui — as duas GRAVAM uma linha nova nela (`dados_resetados` /
+   em (a) e (b) — as duas GRAVAM uma linha nova nela (`dados_resetados` /
    `entrega_teste_excluida`) contando o que aconteceu, nunca apagam
-   nenhuma linha existente. Antes de mexer nessa área, confirmar isso com
-   uma busca no código (grep), não só de memória.
+   nenhuma linha existente; (c) é a exceção à exceção, pelo motivo acima.
+   Como (c) apaga a própria empresa (e com ela todo `log_auditoria` que a
+   registraria), não existe hoje nenhum registro durável no banco de
+   "empresa X foi excluída, por quem, quando" — fica só no log do
+   servidor (Vercel), uma limitação aceita enquanto o acesso ao painel do
+   Supabase estiver bloqueado (sem como criar uma tabela nova só para
+   isso agora; revisitar quando o acesso voltar). Antes de mexer nessa
+   área, confirmar isso com uma busca no código (grep), não só de
+   memória.
 
 4. Funcionalidade acessória (ex: geração de QR code, código de
    verificação, logo da empresa) nunca pode travar a emissão do

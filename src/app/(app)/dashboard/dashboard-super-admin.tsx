@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { IconBadge } from "@/components/ui/icon-badge";
+import { DonutChart } from "@/components/ui/donut-chart";
+import { BarTrendChart } from "@/components/ui/bar-trend-chart";
 import type { DashboardSuperAdminData } from "@/lib/data/dashboard-super-admin";
 
 // Ícones locais, mesmo padrão de dashboard/page.tsx (um arquivo, seus
@@ -93,6 +96,20 @@ function IconAlertTriangle(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+// Cores de STATUS dos dois donuts abaixo ("Situação dos pagamentos" e
+// "Empresas por status") — mesmos hexadecimais já validados (contraste
+// >= 3:1 nos dois temas, claro e escuro) em dashboard/page.tsx, pra ficar
+// idêntico entre as duas telas de Dashboard. Não são os tokens de badge
+// de texto (--brand-700/--warning-text/--danger-text): aqueles ficam baixo
+// demais de contraste como preenchimento sólido de fatia no tema escuro
+// (ver comentário completo na outra tela). COR_OUTROS é o mesmo cinza
+// neutro usado ali pra "o resto" — aqui, pra "inativa", que é um estado
+// neutro (empresa desativada), não um alerta.
+const COR_BOM = "#2f9e5b";
+const COR_ALERTA = "#c9850e";
+const COR_CRITICO = "#d1453d";
+const COR_OUTROS = "var(--text-muted)";
 
 function formatDateHora(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", {
@@ -189,6 +206,77 @@ export function DashboardSuperAdmin({
           deltaTone={data.empresasNoLimiteColaboradores > 0 ? "warn" : "up"}
         />
       </div>
+
+      {/* Dois donuts lado a lado — mesmo padrão dos 3 de dashboard/page.tsx
+          (donut sempre com legenda, nunca só cor sozinha), só que aqui são 2
+          em vez de 3, por isso sm:grid-cols-2 sem o lg:grid-cols-3 daquela
+          tela. "Situação dos pagamentos" reaproveita o mesmo dado que já
+          existe (pagamentosAtrasados/pagamentosAVencer), hoje só resumido no
+          card "Pagamentos pendentes" acima — aqui fica visível a proporção
+          entre os dois. Pedido do Rafael, 05/10/2026: "gráficos, mais
+          organizado". */}
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+        <Card>
+          <h3 className="mb-3.5 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+            <IconBadge icon={<IconWallet className="h-3.5 w-3.5" />} size="sm" />
+            Situação dos pagamentos
+          </h3>
+          <DonutChart
+            centerLabel={String(totalPendencias)}
+            centerSublabel="pendentes"
+            data={[
+              {
+                label: "Atrasado",
+                value: data.pagamentosAtrasados,
+                color: COR_CRITICO,
+              },
+              {
+                label: "A vencer",
+                value: data.pagamentosAVencer,
+                color: COR_ALERTA,
+              },
+            ]}
+          />
+        </Card>
+
+        <Card>
+          <h3 className="mb-3.5 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+            <IconBadge icon={<IconBuilding className="h-3.5 w-3.5" />} size="sm" />
+            Empresas por status
+          </h3>
+          <DonutChart
+            centerLabel={String(
+              data.totalEmpresasAtivas + data.totalEmpresasInativas,
+            )}
+            centerSublabel="empresas"
+            data={[
+              {
+                label: "Ativas",
+                value: data.totalEmpresasAtivas,
+                color: COR_BOM,
+              },
+              {
+                label: "Inativas",
+                value: data.totalEmpresasInativas,
+                color: COR_OUTROS,
+              },
+            ]}
+          />
+        </Card>
+      </div>
+
+      <Card>
+        <h3 className="mb-3.5 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+          <IconBadge icon={<IconTrendUp className="h-3.5 w-3.5" />} size="sm" />
+          Novas empresas nos últimos 6 meses
+        </h3>
+        <BarTrendChart
+          data={data.empresasNovasPorMes.map((m) => ({
+            label: m.label,
+            value: m.total,
+          }))}
+        />
+      </Card>
 
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.4fr_1fr]">
         <Card>

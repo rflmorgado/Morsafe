@@ -340,6 +340,21 @@ export async function excluirEmpresaPermanentemente(
       .eq("empresa_id", empresa.id);
 
     if (error) {
+      // PGRST205 = o PostgREST não encontra essa tabela no schema cache —
+      // ela ainda não existe de verdade no banco. Acontece hoje com
+      // `pagamentos_empresa` especificamente: é uma migração aditiva
+      // pendente (ver morsafe-add-pagamentos-empresa.sql), esperando o
+      // acesso ao painel do Supabase voltar (chamado de suporte em
+      // aberto). Não tem nada pra apagar numa tabela que não existe —
+      // conta 0 e segue pro resto, não é motivo pra travar a exclusão.
+      if (error.code === "PGRST205") {
+        console.warn(
+          `excluirEmpresaPermanentemente (${tabela}): tabela ainda não existe no banco (migração pendente) — pulando.`,
+        );
+        resultado[tabela] = 0;
+        continue;
+      }
+
       // 23503 = violação de chave estrangeira: alguma outra tabela (talvez
       // criada direto no Supabase, fora deste repositório) ainda
       // referencia uma linha que estamos tentando apagar aqui.

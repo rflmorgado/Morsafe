@@ -3,12 +3,14 @@ import { getCurrentUser } from "@/lib/data/current-user";
 import { getEmpresaComResumo, statusLimiteColaboradores } from "@/lib/data/empresas";
 import { listUsuariosDaEmpresa } from "@/lib/data/usuarios";
 import { listPagamentosDaEmpresa, formatStatusPagamento } from "@/lib/data/pagamentos";
+import { listEntregasRecentesEmpresa } from "@/lib/data/movimentacoes";
 import { PageHeader } from "@/components/ui/page-header";
 import { AlternarAtivoButton } from "../ativar-empresa-button";
 import { ResetarEmpresaButton } from "../resetar-empresa-button";
 import { DefinirLimiteButton } from "../definir-limite-button";
 import { NovoPagamentoButton } from "../../pagamentos/novo-pagamento-button";
 import { MarcarPagoButton } from "../../pagamentos/marcar-pago-button";
+import { ExcluirEntregaTesteButton } from "../../movimentacoes/excluir-entrega-teste-button";
 
 const PAPEL_LABEL: Record<string, string> = {
   admin: "Admin",
@@ -79,6 +81,7 @@ export default async function EmpresaDetalhePage({
 
   const usuarios = await listUsuariosDaEmpresa(empresa.id);
   const pagamentos = await listPagamentosDaEmpresa(empresa.id, empresa.nome);
+  const entregasRecentes = await listEntregasRecentesEmpresa(empresa.id);
 
   return (
     <div className="space-y-6">
@@ -290,6 +293,46 @@ export default async function EmpresaDetalhePage({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-[15px] font-bold tracking-tight text-foreground">
+          Entregas recentes
+        </h3>
+        <p className="mb-3 text-[12.5px] text-text-muted">
+          Só para corrigir um lançamento de EPI feito por engano como TESTE
+          (ver regra 3 do CLAUDE.md) — não é a listagem completa de
+          movimentações da empresa, que é a tela /movimentacoes, acessível
+          só por quem está logado na própria empresa cliente.
+        </p>
+        {entregasRecentes.length === 0 ? (
+          <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
+            Nenhuma entrega registrada ainda.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-card">
+            {entregasRecentes.map((e) => (
+              <div
+                key={e.id}
+                className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 last:border-b-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13.5px] font-medium text-foreground">
+                    {e.epiNome} · Qtd: {e.quantidade}
+                  </p>
+                  <p className="text-[12.5px] text-text-secondary">
+                    {e.colaboradorNome} · {formatDateSemHora(e.data)}
+                  </p>
+                </div>
+                <ExcluirEntregaTesteButton
+                  entregaId={e.id}
+                  colaboradorNome={e.colaboradorNome}
+                  epiNome={e.epiNome}
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -183,6 +183,7 @@ export type EntradaEstoque = {
   epiId: string;
   epiNome: string;
   epiCa: string | null;
+  epiTipo: string | null;
   quantidade: number;
   precoUnitario: number;
   fornecedor: string | null;
@@ -216,7 +217,7 @@ export async function listEntradasEstoque({
   const { data, error, count } = await supabase
     .from("entradas_estoque")
     .select(
-      "id, epi_id, quantidade, preco_unitario, fornecedor, nota_fiscal, data_compra, criado_em, epis ( nome, ca ), usuarios ( nome )",
+      "id, epi_id, quantidade, preco_unitario, fornecedor, nota_fiscal, data_compra, criado_em, epis ( nome, ca, tipo ), usuarios ( nome )",
       { count: "exact" },
     )
     .eq("empresa_id", empresaId)
@@ -233,11 +234,29 @@ export async function listEntradasEstoque({
       id: e.id,
       epiId: e.epi_id,
       epiNome:
-        (e.epis as unknown as { nome: string; ca: string | null } | null)
-          ?.nome ?? "—",
+        (
+          e.epis as unknown as {
+            nome: string;
+            ca: string | null;
+            tipo: string | null;
+          } | null
+        )?.nome ?? "—",
       epiCa:
-        (e.epis as unknown as { nome: string; ca: string | null } | null)
-          ?.ca ?? null,
+        (
+          e.epis as unknown as {
+            nome: string;
+            ca: string | null;
+            tipo: string | null;
+          } | null
+        )?.ca ?? null,
+      epiTipo:
+        (
+          e.epis as unknown as {
+            nome: string;
+            ca: string | null;
+            tipo: string | null;
+          } | null
+        )?.tipo ?? null,
       quantidade: e.quantidade,
       precoUnitario: e.preco_unitario,
       fornecedor: e.fornecedor,

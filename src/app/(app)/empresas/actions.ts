@@ -227,3 +227,226 @@ export async function resetarDadosEmpresa(
 
   return { error: null, resultado };
 }
+
+// Ordem da exclusão DEFINITIVA de uma empresa inteira — mais extensa que
+// TABELAS_EM_ORDEM (resetarDadosEmpresa só apaga "dado de EPI de teste",
+// mantendo empresa/usuarios/estrutura/log_auditoria). Aqui é tudo: além das
+// tabelas de cima, também estações de assinatura, auditorias de NR-06,
+// pagamentos, a estrutura organizacional (cargos/setores/unidades —
+// colaboradores/epis já estavam na lista de cima) e por fim log_auditoria,
+// que nas outras duas exceções da regra 3 do CLAUDE.md é sempre
+// preservado, mas aqui não tem como: log_auditoria.usuario referencia
+// usuarios(id) com FK restrict (sem "on delete cascade"), e usuarios
+// precisa ser apagado antes de empresas (empresas.id <- usuarios.empresa_id
+// também é restrict, ver morsafe-schema.sql) — ou seja, log_auditoria TEM
+// que sair antes de usuarios, senão o apagamento de usuarios é que trava.
+// Ordem pensada de baixo pra cima na árvore de dependências (mesmo
+// raciocínio da query de checagem em morsafe-reset-dados-viniplast.sql,
+// seção 1c) — tudo que referencia algo é apagado antes do que é
+// referenciado.
+const TABELAS_EM_ORDEM_EXCLUSAO = [
+  "verificacoes_documento",
+  "solicitacoes_assinatura",
+  "estacoes_assinatura",
+  "recusas",
+  "devolucoes",
+  "entregas",
+  "entradas_estoque",
+  "auditorias_nr06",
+  "log_auditoria",
+  "pagamentos_empresa",
+  "colaboradores",
+  "epis",
+  "cargos",
+  "setores",
+  "unidades",
+] as const;
+
+export type ExcluirEmpresaState = {
+  error: string | null;
+  resultado?: Partial<
+    Record<(typeof TABELAS_EM_ORDEM_EXCLUSAO)[number] | "usuarios", number>
+  >;
+};
+
+/**
+ * Exclusão DEFINITIVA de uma empresa cliente inteira — login, estrutura,
+ * todo o histórico de EPI, tudo. Terceira exceção, a mais larga, à regra 3
+ * do CLAUDE.md (as outras duas são resetarDadosEmpresa, que mantém a
+ * empresa e os logins, e excluirEntregaTeste, que apaga uma linha só) —
+ * diferente das outras duas, aqui log_auditoria também é apagado (ver
+ * comentário em TABELAS_EM_ORDEM_EXCLUSAO acima): não tem como preservar o
+ * histórico de uma empresa que deixou de existir.
+ *
+ * Usada só pra remover de vez um cliente que saiu do MorSafe — nunca pra
+ * "limpar dado de teste" (isso é resetarDadosEmpresa) nem pra corrigir um
+ * lançamento (isso é excluirEntregaTeste). Duas travas antes de rodar:
+ * 1) só com a empresa já desativada antes (mesmo padrão de
+ *    excluirUsuarioDefinitivamente em usuarios/actions.ts) — força um passo
+ *    deliberado a mais antes do definitivo, e corta o acesso de quem ainda
+ *    estivesse logado antes mesmo de começar a apagar;
+ * 2) nome exato da empresa digitado como confirmação.
+ *
+ * Limitação conhecida: como o acesso ao painel do Supabase está bloqueado
+ * (chamado de suporte em aberto), não dá pra criar agora uma tabela nova só
+ * pra guardar um registro permanente de "empresa X foi excluída, por quem,
+ * quando" — o ideal seria uma tabela `empresas_excluidas` sem FK pra
+ * `empresas` (só um snapshot), pra sobreviver à própria exclusão. Por ora,
+ * isso só fica registrado no log do servidor (Vercel). Revisitar quando o
+ * acesso ao Supabase voltar.
+ */
+export async function excluirEmpresaPermanentemente(
+  empresaId: string,
+  nomeDigitado: string,
+): Promise<ExcluirEmpresaState> {
+  const user = await getCurrentUser();
+  if (!user || user.papel !== "super_admin") {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: empresa, error: empresaError } = await admin
+    .from("empresas")
+    .select("id, nome, ativo")
+    .eq("id", empresaId)
+    .maybeSingle();
+
+  if (empresaError || !empresa) {
+    console.error(
+      "excluirEmpresaPermanentemente (busca empresa):",
+      empresaError?.message,
+    );
+    return { error: "Empresa não encontrada." };
+  }
+
+  if (empresa.ativo) {
+    return {
+      error:
+        "Só é possível excluir definitivamente uma empresa que já está desativada. Desative-a primeiro (botão acima).",
+    };
+  }
+
+  if (nomeDigitado.trim() !== empresa.nome) {
+    return { error: `Digite exatamente "${empresa.nome}" para confirmar.` };
+  }
+
+  const resultado: ExcluirEmpresaState["resultado"] = {};
+
+  for (const tabela of TABELAS_EM_ORDEM_EXCLUSAO) {
+    const { error, count } = await admin
+      .from(tabela)
+      .delete({ count: "exact" })
+      .eq("empresa_id", empresa.id);
+
+    if (error) {
+      // 23503 = violação de chave estrangeira: alguma outra tabela (talvez
+      // criada direto no Supabase, fora deste repositório) ainda
+      // referencia uma linha que estamos tentando apagar aqui.
+      console.error(`excluirEmpresaPermanentemente (${tabela}):`, error.message);
+      return {
+        error:
+          error.code === "23503"
+            ? `Não foi possível apagar "${tabela}": outra tabela ainda referencia esses registros (${error.message}). As tabelas já apagadas antes desta continuam apagadas — pode corrigir e rodar de novo.`
+            : `Não foi possível apagar "${tabela}": ${error.message}`,
+        resultado,
+      };
+    }
+
+    resultado[tabela] = count ?? 0;
+  }
+
+  // usuarios por último entre os "dados", porque entregas/devolucoes/
+  // recusas/entradas_estoque/log_auditoria/verificacoes_documento/
+  // solicitacoes_assinatura guardam criado_por/usuario/gerado_por
+  // apontando pra cá com FK restrict — todos já apagados no loop acima.
+  const { data: usuariosDaEmpresa, error: usuariosBuscaError } = await admin
+    .from("usuarios")
+    .select("id")
+    .eq("empresa_id", empresa.id);
+
+  if (usuariosBuscaError) {
+    console.error(
+      "excluirEmpresaPermanentemente (buscar usuarios):",
+      usuariosBuscaError.message,
+    );
+    return {
+      error: `Não foi possível buscar os usuários da empresa: ${usuariosBuscaError.message}`,
+      resultado,
+    };
+  }
+
+  if (usuariosDaEmpresa && usuariosDaEmpresa.length > 0) {
+    const { error: usuariosDeleteError, count } = await admin
+      .from("usuarios")
+      .delete({ count: "exact" })
+      .eq("empresa_id", empresa.id);
+
+    if (usuariosDeleteError) {
+      console.error(
+        "excluirEmpresaPermanentemente (usuarios):",
+        usuariosDeleteError.message,
+      );
+      return {
+        error:
+          usuariosDeleteError.code === "23503"
+            ? `Não foi possível apagar os usuários: outra tabela ainda referencia algum deles (${usuariosDeleteError.message}). As tabelas já apagadas antes desta continuam apagadas — pode corrigir e rodar de novo.`
+            : `Não foi possível apagar os usuários: ${usuariosDeleteError.message}`,
+        resultado,
+      };
+    }
+    resultado.usuarios = count ?? 0;
+
+    // Apaga o login de autenticação (Supabase Auth) de cada um — sem isso a
+    // pessoa continuaria conseguindo logar, só sem vínculo com empresa
+    // nenhuma (um login "fantasma"). Best-effort por usuário: o cadastro em
+    // `usuarios` (o que de fato tira o acesso ao sistema) já saiu acima; se
+    // o auth falhar aqui, só loga pra investigar depois um possível login
+    // órfão — mesmo padrão de excluirUsuarioDefinitivamente.
+    for (const u of usuariosDaEmpresa) {
+      const { error: authError } = await admin.auth.admin.deleteUser(u.id);
+      if (authError) {
+        console.error(
+          `excluirEmpresaPermanentemente (auth ${u.id}):`,
+          authError.message,
+        );
+      }
+    }
+  } else {
+    resultado.usuarios = 0;
+  }
+
+  const { data: empresaApagada, error: empresaDeleteError } = await admin
+    .from("empresas")
+    .delete()
+    .eq("id", empresa.id)
+    .select("id")
+    .maybeSingle();
+
+  if (empresaDeleteError || !empresaApagada) {
+    console.error(
+      "excluirEmpresaPermanentemente (empresa):",
+      empresaDeleteError?.message,
+    );
+    return {
+      error:
+        "Todos os dados e usuários já foram apagados, mas não foi possível apagar o cadastro da empresa em si. Tente de novo — o resto não duplica.",
+      resultado,
+    };
+  }
+
+  // Ver "Limitação conhecida" no comentário da função: isso não vira uma
+  // linha durável no banco (log_auditoria da própria empresa já foi
+  // apagado acima, de propósito), só fica aqui no log do servidor por
+  // enquanto.
+  console.log("EMPRESA EXCLUÍDA PERMANENTEMENTE:", {
+    empresaId: empresa.id,
+    nome: empresa.nome,
+    excluidaPor: user.id,
+    quando: new Date().toISOString(),
+    resultado,
+  });
+
+  revalidatePath("/empresas");
+  return { error: null, resultado };
+}

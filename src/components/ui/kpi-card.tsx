@@ -1,15 +1,16 @@
 import { Card } from "./card";
+import { IconBadge } from "./icon-badge";
 
 const TONE = {
   up: {
     bar: "bg-brand-500",
-    chip: "bg-brand-100 text-brand-700",
     pill: "bg-brand-100 text-brand-700",
+    badgeTone: "brand",
   },
   warn: {
     bar: "bg-warning-text",
-    chip: "bg-warning-bg text-warning-text",
     pill: "bg-warning-bg text-warning-text",
+    badgeTone: "warn",
   },
 } as const;
 
@@ -44,13 +45,7 @@ export function KpiCard({
             {value}
           </p>
         </div>
-        {icon && (
-          <span
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone.chip}`}
-          >
-            {icon}
-          </span>
-        )}
+        {icon && <IconBadge icon={icon} tone={tone.badgeTone} />}
       </div>
 
       {delta && (

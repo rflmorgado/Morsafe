@@ -82,14 +82,21 @@ export function ColaboradoresFilters({
         ))}
       </select>
 
+      {/* Padrão é "ativo" (ver listColaboradores) — selecionar "ativo" de
+          novo remove o parâmetro da URL (mesmo efeito, URL mais limpa).
+          "Todos os status" é a única forma de ver ativos e inativos juntos. */}
       <select
-        defaultValue={searchParams.get("status") ?? ""}
-        onChange={(e) => updateParams({ status: e.target.value || undefined })}
+        defaultValue={searchParams.get("status") ?? "ativo"}
+        onChange={(e) =>
+          updateParams({
+            status: e.target.value === "ativo" ? undefined : e.target.value,
+          })
+        }
         className="min-w-[120px] max-w-[160px] flex-1 rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
       >
-        <option value="">Todos os status</option>
         <option value="ativo">Somente ativos</option>
         <option value="inativo">Somente inativos</option>
+        <option value="todos">Todos os status</option>
       </select>
 
       {/* Isola quem está sem a data de Integração/NR-06 preenchida — pedido

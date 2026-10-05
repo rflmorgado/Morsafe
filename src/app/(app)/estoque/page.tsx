@@ -16,6 +16,152 @@ import { ImportarEstoqueButton } from "./importar-estoque-button";
 import { ImportarCatalogoEstoqueButton } from "./importar-catalogo-estoque-button";
 import { EditarLimiteButton } from "./editar-limite-button";
 
+// Ícone vibrante do cabeçalho (mesmo tratamento de Dashboard/Colaboradores/
+// EPIs/Movimentações/Estações/Empresa/Usuários) — uma caixa em perspectiva
+// isométrica, o símbolo universal de estoque/inventário.
+function IconEstoqueHeader(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5Z" />
+      <path d="M3.5 7.5 12 12l8.5-4.5" />
+      <path d="M12 12v9" />
+    </svg>
+  );
+}
+
+// Mesmo conjunto de ícones por categoria de EPI de epis/page.tsx/
+// movimentacoes/page.tsx — duplicado aqui (convenção já adotada nas outras
+// telas: cada arquivo de tela fica autocontido, sem um módulo compartilhado
+// só pra isso). Fica ao lado do nome do EPI na coluna "EPI" e em cada
+// entrada do histórico de compras, mesmo tratamento neutro (text-text-muted)
+// de ícone de célula — só o cabeçalho da página é vibrante.
+function IconCapacete(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4 15.2c0-4.5 3.5-8 8-8s8 3.5 8 8" />
+      <ellipse cx="12" cy="15.2" rx="9.7" ry="1.9" />
+      <path d="M12 7.2V5" />
+    </svg>
+  );
+}
+
+function IconAuricular(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4.5 13.6v-1.8a7.5 7.5 0 0 1 15 0v1.8" />
+      <rect x="2.3" y="12.6" width="4.4" height="7.4" rx="2.2" />
+      <rect x="17.3" y="12.6" width="4.4" height="7.4" rx="2.2" />
+    </svg>
+  );
+}
+
+function IconOculos(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M3 10.8c0-1.1.9-1.8 2-1.8h14c1.1 0 2 .7 2 1.8v2.4c0 2.3-2.2 3.8-5.3 3.8-2.1 0-3.6-1-4.2-2.6-.6 1.6-2.1 2.6-4.2 2.6-3.1 0-5.3-1.5-5.3-3.8Z" />
+      <path d="M9.3 11.8h5.4" />
+    </svg>
+  );
+}
+
+function IconRespirador(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4.5 9.5c0-.9.6-1.6 1.6-1.9C8.3 7 10 6.7 12 6.7s3.7.3 5.9 1c1 .3 1.6 1 1.6 1.9 0 3.6-1.3 6.4-3.3 8.1-1.5 1.3-3 1.9-4.2 1.9s-2.7-.6-4.2-1.9c-2-1.7-3.3-4.5-3.3-8.1Z" />
+      <path d="M6.7 10.3c2.3-.9 8.3-.9 10.6 0M6.7 12.6c2.3-.9 8.3-.9 10.6 0" />
+      <path d="M4.7 9.2 2.1 7.8M19.3 9.2l2.6-1.4" />
+    </svg>
+  );
+}
+
+function IconLuva(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M8 20v-8.6a1.6 1.6 0 0 1 3.2 0v-2a1.6 1.6 0 0 1 3.2 0v1.8a1.6 1.6 0 0 1 3.2 0V15c0 2.8-2 5-5 5Z" />
+      <path d="M8 13.4c-1.6-.2-2.8-1.3-2.8-2.9V9a1.6 1.6 0 0 1 3.2 0v2.6" />
+      <path d="M8 20h7.6" />
+    </svg>
+  );
+}
+
+function IconBota(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M9.5 3v7.6L5 13.3a3 3 0 0 0-1.5 2.6v1.6h17c0-2.5-1.7-3.9-4.2-4.5l-4.3-1V3Z" />
+      <path d="M9.5 6.8h3.5" />
+      <path d="M3.3 17.5h17.4" />
+    </svg>
+  );
+}
+
+function IconColete(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M9 4 6.3 6.2v13.3h4.2l.8-9.3h1.4l.8 9.3h4.2V6.2L14.8 4" />
+      <path d="M9 4c.9 1.3 1.9 2 3 2s2.1-.7 3-2" />
+      <path d="M7.2 13.5h2.6M14.2 13.5h2.6" />
+    </svg>
+  );
+}
+
+function IconQuedas(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="4.2" r="2" />
+      <path d="M8 8.2 12 6.2l4 2" />
+      <path d="M9 7l6 7M15 7l-6 7" />
+      <path d="M9.5 20l1-6M14.5 20l-1-6" />
+    </svg>
+  );
+}
+
+function IconTermica(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 2.8c2.3 3 .3 4-1 6.4-1 2 .3 4 1.8 4 1.8 0 2.8-1.5 2.4-3.4 1.4 1.5 2.3 3.2 2.3 5a5.5 5.5 0 1 1-11 0c0-3.6 2.3-6.2 5.5-12Z" />
+    </svg>
+  );
+}
+
+function IconTipoGenerico(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 3.5 19 6.5v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10v-5Z" />
+    </svg>
+  );
+}
+
+const ICONE_POR_TIPO: Record<string, (props: React.SVGProps<SVGSVGElement>) => React.JSX.Element> = {
+  "Proteção da cabeça": IconCapacete,
+  "Proteção auditiva": IconAuricular,
+  "Proteção visual": IconOculos,
+  "Proteção respiratória": IconRespirador,
+  "Proteção das mãos": IconLuva,
+  "Proteção dos pés": IconBota,
+  "Proteção do corpo": IconColete,
+  "Proteção contra quedas": IconQuedas,
+  "Proteção térmica": IconTermica,
+};
+
+function IconeDoTipo({
+  tipo,
+  className,
+}: {
+  tipo: string | null;
+  className?: string;
+}) {
+  const Icon = (tipo && ICONE_POR_TIPO[tipo]) || IconTipoGenerico;
+  return <Icon className={className} />;
+}
+
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
 }
@@ -149,6 +295,7 @@ export default async function EstoquePage({
         <PageHeader
           title="Estoque"
           description="Saldo atual por EPI e histórico de compras registradas."
+          icon={<IconEstoqueHeader className="h-5 w-5" />}
         />
 
         <ListToolbar
@@ -168,14 +315,22 @@ export default async function EstoquePage({
           }
         />
 
-        <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card">
-          <table className="w-full min-w-[760px] border-collapse bg-surface text-left">
+        {/* Tabela — só a partir de `xl` (1280px), mesmo critério de
+            Colaboradores/EPIs/Movimentações/Estações/Usuários (ver
+            comentário em usuarios/page.tsx): abaixo disso ela não cabe de
+            forma confiável sem rolar de lado — aqui com 7 colunas (uma a
+            mais que EPIs), por isso o padding/fonte mais compactos (mesmo
+            tratamento já usado em epis/page.tsx). Sem `min-w` fixo (removido
+            o antigo `min-w-[760px]`) — é a largura disponível de verdade
+            quem decide o tamanho das colunas. */}
+        <div className="hidden overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card xl:block">
+          <table className="w-full border-collapse bg-surface text-left">
             <thead>
               <tr>
                 {COLUNAS.map((coluna) => (
                   <th
                     key={coluna.label || "acoes"}
-                    className="border-b border-border-subtle bg-surface-muted px-4 py-3.5 text-[11px] font-semibold tracking-[0.04em] text-text-secondary uppercase"
+                    className="border-b border-border-subtle bg-surface-muted px-2.5 py-[9px] text-[10.5px] font-semibold tracking-[0.04em] text-text-secondary uppercase"
                   >
                     {coluna.sortKey ? (
                       <Link
@@ -217,43 +372,61 @@ export default async function EstoquePage({
                           : ""
                     }`}
                   >
-                    <td className="px-4 py-3.5 text-[13.5px] font-medium text-foreground">
-                      {item.nome}
+                    <td className="max-w-[160px] px-2.5 py-[9px] text-[12.5px] font-medium text-foreground">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <IconeDoTipo
+                          tipo={item.tipo}
+                          className="h-4 w-4 shrink-0 text-text-muted"
+                        />
+                        <span className="min-w-0 truncate" title={item.nome}>
+                          {item.nome}
+                        </span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3.5 text-[13.5px] text-foreground">
-                      {item.tipo ?? "—"}
+                    <td className="max-w-[172px] px-2.5 py-[9px] text-[12.5px] text-foreground">
+                      <span className="block truncate" title={item.tipo ?? undefined}>
+                        {item.tipo ?? "—"}
+                      </span>
                     </td>
-                    <td className="px-4 py-3.5 text-[13.5px] text-foreground">
+                    <td className="px-2.5 py-[9px] text-[12.5px] text-foreground">
                       {item.ca ?? "—"}
                     </td>
-                    <td
-                      className={`px-4 py-3.5 text-[13.5px] ${
-                        item.statusEstoque === "critico"
-                          ? "font-semibold text-danger-text"
-                          : item.statusEstoque === "alerta"
-                            ? "font-semibold text-warning-text"
-                            : "text-brand-700"
-                      }`}
-                    >
-                      {item.saldoAtual}
+                    <td className="px-2.5 py-[9px] text-[12.5px]">
+                      {/* Rótulo de status embaixo do número, não ao lado —
+                          inline ("Estoque crítico" ao lado do saldo) empurrava
+                          a coluna larga o bastante pra estourar os 820px
+                          disponíveis a `xl` com 7 colunas (mesma lição de
+                          usuarios/page.tsx: competir por largura na horizontal
+                          é o que mais facilmente derruba esse layout). */}
+                      <div
+                        className={
+                          item.statusEstoque === "critico"
+                            ? "font-semibold text-danger-text"
+                            : item.statusEstoque === "alerta"
+                              ? "font-semibold text-warning-text"
+                              : "text-brand-700"
+                        }
+                      >
+                        {item.saldoAtual}
+                      </div>
                       {item.statusEstoque === "critico" && (
-                        <span className="ml-1.5 rounded-full bg-danger-bg px-2 py-0.5 text-[10.5px] font-semibold text-danger-text">
+                        <div className="text-[10px] font-semibold text-danger-text">
                           Estoque crítico
-                        </span>
+                        </div>
                       )}
                       {item.statusEstoque === "alerta" && (
-                        <span className="ml-1.5 rounded-full bg-warning-bg px-2 py-0.5 text-[10.5px] font-semibold text-warning-text">
+                        <div className="text-[10px] font-semibold text-warning-text">
                           No limite mínimo
-                        </span>
+                        </div>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-[13.5px] text-foreground">
+                    <td className="px-2.5 py-[9px] text-[12.5px] text-foreground">
                       {item.limiteAlerta}
                     </td>
-                    <td className="px-4 py-3.5 text-[13.5px] text-foreground">
+                    <td className="px-2.5 py-[9px] text-[12.5px] text-foreground">
                       {formatMoney(item.custoMedioAtual)}
                     </td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-2.5 py-[9px] text-right">
                       {podeGerenciar && (
                         <EditarLimiteButton
                           epiId={item.id}
@@ -267,6 +440,82 @@ export default async function EstoquePage({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Lista de cartões — telas abaixo de `xl` (ver comentário acima da
+            tabela). */}
+        <div className="space-y-2 xl:hidden">
+          {itens.length === 0 ? (
+            <p className="rounded-2xl border border-border-subtle bg-surface px-4 py-6 text-center text-[13px] text-text-muted">
+              Nenhum EPI ativo encontrado.
+            </p>
+          ) : (
+            itens.map((item) => (
+              <div
+                key={item.id}
+                className={`rounded-2xl border border-border-subtle bg-surface p-3.5 shadow-card ${
+                  item.statusEstoque === "critico"
+                    ? "bg-danger-bg/20"
+                    : item.statusEstoque === "alerta"
+                      ? "bg-warning-bg/20"
+                      : ""
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <IconeDoTipo
+                      tipo={item.tipo}
+                      className="h-4 w-4 shrink-0 text-text-muted"
+                    />
+                    <span className="truncate text-[13.5px] font-semibold text-foreground">
+                      {item.nome}
+                    </span>
+                  </div>
+                  {podeGerenciar && (
+                    <EditarLimiteButton
+                      epiId={item.id}
+                      epiNome={item.nome}
+                      limiteAtual={item.limiteAlerta}
+                    />
+                  )}
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-text-secondary">
+                  <span>{item.tipo ?? "Sem tipo definido"}</span>
+                  <span>C.A. {item.ca ?? "—"}</span>
+                  <span>{formatMoney(item.custoMedioAtual)}</span>
+                </div>
+
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2.5">
+                  <span
+                    className={`text-[12.5px] font-semibold ${
+                      item.statusEstoque === "critico"
+                        ? "text-danger-text"
+                        : item.statusEstoque === "alerta"
+                          ? "text-warning-text"
+                          : "text-brand-700"
+                    }`}
+                  >
+                    Saldo: {item.saldoAtual}
+                    <span className="font-normal text-text-secondary">
+                      {" "}
+                      / limite {item.limiteAlerta}
+                    </span>
+                  </span>
+                  {item.statusEstoque === "critico" && (
+                    <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[10.5px] font-semibold text-danger-text">
+                      Estoque crítico
+                    </span>
+                  )}
+                  {item.statusEstoque === "alerta" && (
+                    <span className="rounded-full bg-warning-bg px-2 py-0.5 text-[10.5px] font-semibold text-warning-text">
+                      No limite mínimo
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         {total > 0 && (
@@ -319,19 +568,25 @@ export default async function EstoquePage({
             entradas.map((e) => (
               <div
                 key={e.id}
-                className="flex flex-col gap-0.5 border-b border-border-subtle px-6 py-4 transition-colors last:border-b-0 hover:bg-surface-muted/70"
+                className="flex items-start gap-2.5 border-b border-border-subtle px-6 py-4 transition-colors last:border-b-0 hover:bg-surface-muted/70"
               >
-                <span className="text-[13.5px] font-semibold text-foreground">
-                  {e.epiNome}
-                  {e.epiCa ? ` (C.A. ${e.epiCa})` : ""} · Qtd: {e.quantidade} ·{" "}
-                  {formatMoney(e.precoUnitario)}/un.
-                </span>
-                <span className="text-xs text-text-secondary">
-                  Compra em {formatDate(e.dataCompra)}
-                  {e.fornecedor ? ` · ${e.fornecedor}` : ""}
-                  {e.notaFiscal ? ` · NF ${e.notaFiscal}` : ""} · Registrado por{" "}
-                  {e.registradoPorNome ?? "—"} em {formatDateTime(e.criadoEm)}
-                </span>
+                <IconeDoTipo
+                  tipo={e.epiTipo}
+                  className="mt-0.5 h-4 w-4 shrink-0 text-text-muted"
+                />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-[13.5px] font-semibold text-foreground">
+                    {e.epiNome}
+                    {e.epiCa ? ` (C.A. ${e.epiCa})` : ""} · Qtd: {e.quantidade} ·{" "}
+                    {formatMoney(e.precoUnitario)}/un.
+                  </span>
+                  <span className="text-xs text-text-secondary">
+                    Compra em {formatDate(e.dataCompra)}
+                    {e.fornecedor ? ` · ${e.fornecedor}` : ""}
+                    {e.notaFiscal ? ` · NF ${e.notaFiscal}` : ""} · Registrado por{" "}
+                    {e.registradoPorNome ?? "—"} em {formatDateTime(e.criadoEm)}
+                  </span>
+                </div>
               </div>
             ))
           )}

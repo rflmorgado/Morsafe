@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { IconBadge } from "@/components/ui/icon-badge";
 import { DonutChart } from "@/components/ui/donut-chart";
 import { BarTrendChart } from "@/components/ui/bar-trend-chart";
 import { getDashboardData } from "@/lib/data/dashboard";
@@ -85,6 +87,69 @@ function IconCalendarAlert(props: React.SVGProps<SVGSVGElement>) {
       <path d="M8 3v4M16 3v4" />
       <path d="M12 13v3" />
       <circle cx="12" cy="18.2" r="0.15" fill="currentColor" />
+    </svg>
+  );
+}
+
+// Ícones dos títulos de card abaixo dos KPIs — mesmo padrão dos 4 acima,
+// só que menores (ver IconBadge tamanho "sm"). IconTrendUp repete o mesmo
+// desenho de dashboard-super-admin.tsx, de propósito, pra ficar idêntico
+// entre as duas telas de Dashboard (operacional e super_admin).
+function IconShieldCheck(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
+}
+
+function IconTrendUp(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M3 17l6-6 4 4 8-8" />
+      <path d="M15 7h6v6" />
+    </svg>
+  );
+}
+
+function IconBell(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M6 10a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 14 6 10z" />
+      <path d="M10 19a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
+function IconBolt(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" {...props}>
+      <path d="M13 2 4 14h6l-1 8 9-12h-6z" />
     </svg>
   );
 }
@@ -246,7 +311,11 @@ export default async function DashboardPage() {
           — pedido do Rafael pra não "amontoar" tudo numa tela só. */}
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
-          <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+          <h3 className="mb-3.5 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+            <IconBadge
+              icon={<IconShieldCheck className="h-3.5 w-3.5" />}
+              size="sm"
+            />
             Situação do NR-06
           </h3>
           <DonutChart
@@ -260,7 +329,8 @@ export default async function DashboardPage() {
         </Card>
 
         <Card>
-          <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+          <h3 className="mb-3.5 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+            <IconBadge icon={<IconBox className="h-3.5 w-3.5" />} size="sm" />
             Situação do estoque
           </h3>
           <DonutChart
@@ -287,7 +357,11 @@ export default async function DashboardPage() {
         </Card>
 
         <Card>
-          <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+          <h3 className="mb-3.5 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+            <IconBadge
+              icon={<IconWallet className="h-3.5 w-3.5" />}
+              size="sm"
+            />
             Gasto por setor no mês
           </h3>
           {data.gastoPorSetor.length === 0 ? (
@@ -310,7 +384,8 @@ export default async function DashboardPage() {
       </div>
 
       <Card>
-        <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+        <h3 className="mb-3.5 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+          <IconBadge icon={<IconTrendUp className="h-3.5 w-3.5" />} size="sm" />
           Entregas nos últimos 6 meses
         </h3>
         <BarTrendChart
@@ -323,7 +398,12 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.4fr_1fr]">
         <Card>
-          <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+          <h3 className="mb-3.5 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+            <IconBadge
+              icon={<IconBell className="h-3.5 w-3.5" />}
+              tone="warn"
+              size="sm"
+            />
             Alertas
           </h3>
 
@@ -374,15 +454,19 @@ export default async function DashboardPage() {
         </Card>
 
         <Card>
-          <h3 className="mb-3.5 text-sm font-semibold text-foreground">
+          <h3 className="mb-3.5 flex items-center gap-2.5 text-sm font-semibold text-foreground">
+            <IconBadge icon={<IconBolt className="h-3.5 w-3.5" />} size="sm" />
             Ações rápidas
           </h3>
           {/* "Registrar entrega" já está no botão de destaque lá em cima —
               aqui ficam os outros atalhos, pra não duplicar o mesmo modal
-              em dois lugares da mesma tela. Auditoria NR-06 continua "Em
-              breve" de verdade (ver nav-items.ts) — as outras três não
-              eram: o recurso já existia em Movimentações/Estoque, só não
-              estava ligado aqui (ver conversa com Rafael, 01/10/2026). */}
+              em dois lugares da mesma tela. Auditoria NR-06 saiu de "Em
+              breve" em 02/10/2026 (ver nav-items.ts) — como ela é rodada
+              setor por setor, o atalho aqui só leva pra tela de verdade (que
+              já lista os setores), em vez de tentar encaixar um seletor de
+              setor dentro deste card. As outras três não eram "Em breve": o
+              recurso já existia em Movimentações/Estoque, só não estava
+              ligado aqui (ver conversa com Rafael, 01/10/2026). */}
           <div className="flex flex-wrap gap-2">
             {podeGerenciar && (
               <>
@@ -391,17 +475,14 @@ export default async function DashboardPage() {
                   variant="solid"
                 />
                 <RegistrarEntradaButton epis={episAtivos} />
+                <Link
+                  href="/auditoria"
+                  className="flex items-center gap-2 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
+                >
+                  Rodar auditoria NR-06
+                </Link>
               </>
             )}
-            <div
-              title="Em breve"
-              className="flex items-center gap-2 rounded-lg border border-border-strong bg-surface-muted px-3.5 py-2.5 text-[13px] font-medium text-text-muted"
-            >
-              Rodar auditoria NR-06
-              <span className="rounded-full border border-border-strong px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-text-muted">
-                Em breve
-              </span>
-            </div>
           </div>
           {!podeGerenciar && (
             <p className="mt-2.5 text-[12px] text-text-muted">

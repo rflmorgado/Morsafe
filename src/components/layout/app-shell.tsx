@@ -180,7 +180,25 @@ export function AppShell({
           </div>
         </aside>
 
-        <main className="bg-surface-muted p-[18px] lg:p-7">{children}</main>
+        {/* min-w-0 é essencial aqui: esta coluna do grid (lg:grid-cols-[236px_1fr])
+            tem conteúdo que pode ficar largo (tabela do Colaboradores, por
+            exemplo, agora com avatar + ícones em cada célula). Sem min-w-0, o
+            tamanho mínimo "automático" de um item de grid é o min-content dos
+            filhos — ou seja, o grid tenta esticar essa coluna pra caber o
+            conteúdo inteiro, em vez de deixar a tabela rolar no próprio
+            `overflow-x-auto` dela (ver colaboradores/page.tsx). Como o card
+            pai tem `overflow-hidden` (pro border-radius funcionar), esse
+            estouro não vira barra de rolagem — ele simplesmente é cortado na
+            borda, cortando colunas/ícones do lado direito. min-w-0 devolve
+            pro navegador a liberdade de encolher esta coluna até a largura
+            real disponível, e aí quem rola o excesso é o `overflow-x-auto`
+            de dentro, não o grid inteiro. (Bug relatado pelo Rafael,
+            05/10/2026 — "cortou as laterais, cards cortados" na tela de
+            Colaboradores, depois de os ícones/avatar deixarem as linhas mais
+            largas.) */}
+        <main className="min-w-0 bg-surface-muted p-[18px] lg:p-7">
+          {children}
+        </main>
       </div>
     </div>
   );

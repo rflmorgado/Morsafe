@@ -12,6 +12,13 @@ import { ClickableRow } from "@/components/ui/clickable-row";
 import { ClickableCard } from "@/components/ui/clickable-card";
 import { RodarAuditoriaButton } from "./rodar-auditoria-button";
 
+// Mesmo tamanho de página das demais abas desta tela (ver
+// COLABORADORES_TAB_PAGE_SIZE em colaboradores-tab.tsx, EPIS_TAB_PAGE_SIZE
+// em epis-tab.tsx e PENDENCIAS_TAB_PAGE_SIZE em pendencias-tab.tsx) —
+// pedido do Rafael, 05/10/2026: empresas com muitos setores cadastrados
+// deixavam essa lista enorme também.
+const CHECKLIST_TAB_PAGE_SIZE = 20;
+
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
 }
@@ -83,13 +90,18 @@ function IconResponsavel(props: React.SVGProps<SVGSVGElement>) {
  * geral"/"Pendências", que audita só os REGISTROS já existentes (ver
  * comentário no topo de lib/data/auditoria-registros.ts). Era a tela inteira
  * de /auditoria antes de virar uma aba, 06/10/2026.
+ *
+ * Paginação (20 por página): mesmo padrão das demais abas desta tela —
+ * pedido do Rafael, 05/10/2026 ("podemos ter empresas com vários setores").
  */
 export async function ChecklistCampoTab({
   user,
   empresaId,
+  pagina,
 }: {
   user: Awaited<ReturnType<typeof getCurrentUser>>;
   empresaId: string | null;
+  pagina: number;
 }) {
   const [setores, nr06Counts, caVencendoTotal] = await Promise.all([
     listSetoresComStatusAuditoria(empresaId),
@@ -98,6 +110,12 @@ export async function ChecklistCampoTab({
   ]);
 
   const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
+
+  const total = setores.length;
+  const totalPaginas = Math.max(1, Math.ceil(total / CHECKLIST_TAB_PAGE_SIZE));
+  const paginaAtual = Math.min(Math.max(1, pagina), totalPaginas);
+  const inicio = (paginaAtual - 1) * CHECKLIST_TAB_PAGE_SIZE;
+  const setoresPagina = setores.slice(inicio, inicio + CHECKLIST_TAB_PAGE_SIZE);
 
   return (
     <div>
@@ -132,7 +150,7 @@ export async function ChecklistCampoTab({
         </Card>
       </div>
 
-      {setores.length === 0 ? (
+      {total === 0 ? (
         <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
           Nenhum setor cadastrado ainda.
         </p>
@@ -158,7 +176,7 @@ export async function ChecklistCampoTab({
                 </tr>
               </thead>
               <tbody>
-                {setores.map((s) => {
+                {setoresPagina.map((s) => {
                   const pendencias = s.ultimaAuditoria
                     ? contarNaoConformidades(s.ultimaAuditoria.respostas)
                     : 0;
@@ -236,7 +254,7 @@ export async function ChecklistCampoTab({
               da tabela). Mesmas informações, empilhadas em vez de em
               colunas. */}
           <div className="space-y-2 xl:hidden">
-            {setores.map((s) => {
+            {setoresPagina.map((s) => {
               const pendencias = s.ultimaAuditoria
                 ? contarNaoConformidades(s.ultimaAuditoria.respostas)
                 : 0;
@@ -296,6 +314,39 @@ export async function ChecklistCampoTab({
                 </ClickableCard>
               );
             })}
+          </div>
+
+          <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+            <span className="text-[12.5px] text-text-secondary">
+              Página {paginaAtual} de {totalPaginas} · {total} setor
+              {total === 1 ? "" : "es"}
+            </span>
+            <div className="flex gap-2">
+              <Link
+                href={`/auditoria?aba=checklist&pagina=${paginaAtual - 1}`}
+                aria-disabled={paginaAtual <= 1}
+                tabIndex={paginaAtual <= 1 ? -1 : undefined}
+                className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+                  paginaAtual <= 1
+                    ? "pointer-events-none opacity-40"
+                    : "hover:bg-surface-muted"
+                }`}
+              >
+                ← Anterior
+              </Link>
+              <Link
+                href={`/auditoria?aba=checklist&pagina=${paginaAtual + 1}`}
+                aria-disabled={paginaAtual >= totalPaginas}
+                tabIndex={paginaAtual >= totalPaginas ? -1 : undefined}
+                className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+                  paginaAtual >= totalPaginas
+                    ? "pointer-events-none opacity-40"
+                    : "hover:bg-surface-muted"
+                }`}
+              >
+                Próxima →
+              </Link>
+            </div>
           </div>
         </>
       )}

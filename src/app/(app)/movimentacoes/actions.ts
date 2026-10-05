@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
@@ -137,6 +138,12 @@ export type RegistrarDevolucaoState = { error: string | null; success?: boolean 
  * (relidos do banco aqui, nunca do formulário), e colaborador_id é
  * conferido contra o colaborador_id da própria entrega antes de gravar —
  * ver comentário mais abaixo.
+ *
+ * Exige assinatura de confirmação (igual a registrarEntrega), colhida ali
+ * mesmo ou na estação (ver registrar-devolucao-button.tsx) — inclusive
+ * quando a devolução é "extraviado/não devolvido fisicamente": aqui a
+ * assinatura vale como o colaborador confirmando a própria declaração de
+ * perda, não a entrega física de um objeto.
  */
 export async function registrarDevolucao(
   _prevState: RegistrarDevolucaoState,
@@ -151,6 +158,7 @@ export async function registrarDevolucao(
   const destino = String(formData.get("destino") ?? "").trim() as DestinoDevolucao;
   const devolvidoFisicamente = formData.get("devolvido_fisicamente") === "on";
   const data = String(formData.get("data") ?? "").trim();
+  const assinaturaUrl = String(formData.get("assinatura_url") ?? "").trim();
 
   if (
     !colaboradorId ||
@@ -164,6 +172,9 @@ export async function registrarDevolucao(
       error:
         "Selecione o colaborador, o EPI entregue, o motivo, o destino e a data.",
     };
+  }
+  if (!assinaturaUrl) {
+    return { error: "Colete a assinatura de confirmação da devolução." };
   }
 
   const user = await getCurrentUser();
@@ -238,6 +249,7 @@ export async function registrarDevolucao(
       motivo,
       destino,
       devolvido_fisicamente: devolvidoFisicamente,
+      assinatura_url: assinaturaUrl,
       criado_por: user.id,
     })
     .select("id")
@@ -399,4 +411,143 @@ export async function buscarSaldoEstoque(
     return null;
   }
   return data?.saldo_atual ?? null;
+}
+
+export type ExcluirEntregaTesteState = { error: string | null; success?: boolean };
+
+/**
+ * Exclusão de uma entrega específica, já registrada por engano (dado de
+ * TESTE) — segunda exceção deliberada e documentada à regra 3 do CLAUDE.md
+ * (a primeira é resetarDadosEmpresa, em empresas/actions.ts). Só
+ * super_admin, nunca admin/encarregado: diferente do reset de empresa, esta
+ * ação mira UMA entrega sem apagar o resto do histórico — pensada pro caso
+ * de um lançamento de teste feito sobre um colaborador real, onde resetar a
+ * empresa inteira destruiria dado de verdade junto (ver conversa com o
+ * Rafael, 05/10/2026 — 2 entregas de teste no Adauto, na ViniPlast).
+ *
+ * Duas travas, além da permissão:
+ * 1. Exige digitar o nome do colaborador (mostrado na tela) como
+ *    confirmação — mesmo raciocínio de resetarDadosEmpresa, adaptado de uma
+ *    empresa inteira pra uma entrega só.
+ * 2. Recusa se já existir uma devolução vinculada a esta entrega
+ *    (devolucoes.entrega_vinculada_id). A FK é ON DELETE SET NULL, então o
+ *    banco permitiria apagar mesmo assim — mas aí o histórico da devolução
+ *    ficaria "órfão" (sem saber de qual entrega ela veio), o que foge do
+ *    caso que esta função foi pensada pra resolver.
+ *
+ * Repõe `estoque.saldo_atual` manualmente antes de apagar: a baixa de
+ * estoque na criação da entrega é feita por uma trigger no banco
+ * (fn_registrar_entrega, só dispara em INSERT — ver
+ * morsafe-fix-checkup-estoque.sql), sem contrapartida de DELETE. Esta é a
+ * ÚNICA escrita direta em `estoque.saldo_atual` em todo o código do app —
+ * todo o resto depende só da trigger, de propósito (ver comentário no topo
+ * deste arquivo e em estoque/actions.ts) — porque é exatamente o que a
+ * trigger não cobre.
+ */
+export async function excluirEntregaTeste(
+  entregaId: string,
+  nomeColaboradorDigitado: string,
+): Promise<ExcluirEntregaTesteState> {
+  const user = await getCurrentUser();
+  if (!user || user.papel !== "super_admin") {
+    return { error: SEM_PERMISSAO };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: entrega, error: buscaError } = await admin
+    .from("entregas")
+    .select(
+      "id, empresa_id, colaborador_id, epi_id, quantidade, colaboradores ( nome ), epis ( nome )",
+    )
+    .eq("id", entregaId)
+    .maybeSingle();
+
+  if (buscaError || !entrega) {
+    return { error: "Entrega não encontrada." };
+  }
+
+  const colaborador = entrega.colaboradores as unknown as { nome: string } | null;
+  const epi = entrega.epis as unknown as { nome: string } | null;
+  const colaboradorNome = colaborador?.nome ?? "";
+
+  if (!colaboradorNome || nomeColaboradorDigitado.trim() !== colaboradorNome) {
+    return { error: `Digite exatamente "${colaboradorNome}" para confirmar.` };
+  }
+
+  const { data: devolucaoVinculada } = await admin
+    .from("devolucoes")
+    .select("id")
+    .eq("entrega_vinculada_id", entregaId)
+    .maybeSingle();
+
+  if (devolucaoVinculada) {
+    return {
+      error:
+        "Essa entrega já tem uma devolução vinculada a ela — não é possível excluir por aqui.",
+    };
+  }
+
+  // Leitura seguida de escrita porque supabase-js não faz
+  // "saldo_atual = saldo_atual + x" num único update — aceitável aqui por
+  // ser uma ação rara, de super_admin, não concorrente (diferente do
+  // cenário de duas entregas simultâneas que motivou a trigger ser atômica).
+  const { data: estoqueAtual } = await admin
+    .from("estoque")
+    .select("saldo_atual")
+    .eq("epi_id", entrega.epi_id)
+    .maybeSingle();
+
+  if (estoqueAtual) {
+    const { data: estoqueAtualizado, error: estoqueError } = await admin
+      .from("estoque")
+      .update({
+        saldo_atual: estoqueAtual.saldo_atual + entrega.quantidade,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("epi_id", entrega.epi_id)
+      .select("epi_id")
+      .maybeSingle();
+
+    if (estoqueError || !estoqueAtualizado) {
+      console.error(
+        "excluirEntregaTeste (repor estoque):",
+        estoqueError?.message,
+      );
+      return {
+        error: "Não foi possível repor o estoque. Nada foi apagado — tente novamente.",
+      };
+    }
+  }
+
+  const { data: apagada, error: deleteError } = await admin
+    .from("entregas")
+    .delete()
+    .eq("id", entregaId)
+    .select("id")
+    .maybeSingle();
+
+  if (deleteError || !apagada) {
+    console.error("excluirEntregaTeste:", deleteError?.message);
+    return { error: "Não foi possível excluir a entrega. Tente novamente." };
+  }
+
+  await registrarLogAuditoria({
+    supabase: admin,
+    empresaId: entrega.empresa_id,
+    tabela: "entregas",
+    registroId: entregaId,
+    acao: "entrega_teste_excluida",
+    usuarioId: user.id,
+    detalhes: {
+      nome: `${colaboradorNome} — ${epi?.nome ?? ""}`,
+      quantidade: entrega.quantidade,
+    },
+  });
+
+  revalidatePath("/movimentacoes");
+  revalidatePath(`/colaboradores/${entrega.colaborador_id}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/estoque");
+  return { error: null, success: true };
 }

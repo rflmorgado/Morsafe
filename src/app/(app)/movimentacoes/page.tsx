@@ -17,7 +17,6 @@ import { MovimentacoesFilters } from "./movimentacoes-filters";
 import { RegistrarEntregaButton } from "./registrar-entrega-button";
 import { RegistrarDevolucaoButton } from "./registrar-devolucao-button";
 import { RegistrarRecusaButton } from "./registrar-recusa-button";
-import { ExcluirEntregaTesteButton } from "./excluir-entrega-teste-button";
 
 const TIPO_LABEL: Record<TipoMovimentacao, string> = {
   entrega: "Entrega",
@@ -141,10 +140,14 @@ export default async function MovimentacoesPage({
   // colaborador ou um EPI. Não existe edição de movimentação: é um
   // histórico imutável por design. A única exceção é exclusão de ENTREGA,
   // reservada a super_admin e só para corrigir lançamento de teste (ver
-  // excluirEntregaTeste em actions.ts, e o botão mais abaixo) — não é uma
-  // ação de "admin" comum, por isso não entra em podeGerenciar.
+  // excluirEntregaTeste em actions.ts) — mas o botão não mora aqui: esta
+  // tela filtra tudo por user.empresaId, e super_admin nunca tem
+  // empresa_id (RLS de `entregas` isola por auth_empresa_id(), que
+  // retornaria null pra ele), então essa página sempre mostraria lista
+  // vazia pra essa conta. O botão fica em /empresas/[id] (super_admin
+  // acessa por lá, escolhendo a empresa pela URL, com client admin — ver
+  // listEntregasRecentesEmpresa em lib/data/movimentacoes.ts).
   const podeGerenciar = temPapelMinimo(user?.papel, "encarregado");
-  const souSuperAdmin = user?.papel === "super_admin";
 
   return (
     <div className="space-y-1">
@@ -234,13 +237,6 @@ export default async function MovimentacoesPage({
                   {evento.detalhe ? ` · ${evento.detalhe}` : ""}
                 </div>
               </div>
-              {souSuperAdmin && evento.tipo === "entrega" && evento.entregaId && (
-                <ExcluirEntregaTesteButton
-                  entregaId={evento.entregaId}
-                  colaboradorNome={evento.colaboradorNome}
-                  epiNome={evento.epiNome}
-                />
-              )}
             </div>
           ))
         )}

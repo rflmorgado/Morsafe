@@ -29,6 +29,11 @@ function iniciais(nome: string) {
 }
 
 const SIZE = {
+  // "xs" existe só pra tabela densa (Colaboradores, telas largas) — cada
+  // pixel de coluna conta quando a linha tem 6 colunas + ícones de ação.
+  // Nos cartões (telas estreitas, com uma linha só por colaborador) tem
+  // espaço de sobra, aí usa "sm" normalmente.
+  xs: "h-6 w-6 text-[9px]",
   sm: "h-7 w-7 text-[10px]",
   md: "h-9 w-9 text-[12px]",
 } as const;

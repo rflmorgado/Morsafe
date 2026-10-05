@@ -13,6 +13,157 @@ import { ExcluirEpiButton } from "./excluir-epi-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 
+// Ícone vibrante do cabeçalho (mesmo tratamento do Dashboard/Colaboradores)
+// — um "capacete" simplificado, de propósito genérico o bastante pra
+// representar EPI como um todo (o catálogo tem 9 categorias diferentes).
+function IconEpiHeader(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M4 14.5c0-5 3.5-9 8-9s8 4 8 9" />
+      <path d="M2.5 14.5h19" />
+      <path d="M2.5 14.5v2a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2v-2" />
+      <path d="M12 5.5v-2" />
+    </svg>
+  );
+}
+
+// Um ícone pequeno e neutro por categoria de EPI (mesma lista fixa de
+// TIPOS_EPI, ver epi-tipos.ts) — fica ao lado do nome do EPI, no lugar do
+// "rostinho" que o Avatar dá pro colaborador (pedido do Rafael, 05/10/2026:
+// "EPIs é a próxima tela natural... dá pra ganhar um ícone por categoria do
+// mesmo jeito"). Diferente do Avatar, aqui a identidade é por FORMATO do
+// ícone, não por cor: a paleta categórica (--chart-cat-1..5) só tem 5 cores
+// e aqui são 9 categorias fixas — forçar 9 cores nela ia ou repetir cor (
+// confundindo identidade) ou exigir cores novas fora do sistema já validado.
+// Ícone sempre neutro (text-text-muted), igual ao resto dos ícones de célula
+// da tabela — só o cabeçalho da página é vibrante, pelo mesmo motivo já
+// documentado em colaboradores/page.tsx (vibrante repetido em toda linha
+// vira "confete").
+function IconCapacete(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4 15c0-4.5 3.5-8 8-8s8 3.5 8 8" />
+      <path d="M2.5 15h19" />
+      <path d="M11 7V4.5" />
+    </svg>
+  );
+}
+
+function IconAuricular(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4 13a8 8 0 0 1 16 0" />
+      <rect x="2.5" y="13" width="4" height="6" rx="1.5" />
+      <rect x="17.5" y="13" width="4" height="6" rx="1.5" />
+    </svg>
+  );
+}
+
+function IconOculos(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="6.5" cy="13" r="3.5" />
+      <circle cx="17.5" cy="13" r="3.5" />
+      <path d="M10 13h4" />
+      <path d="M3 11.5 1.5 10M21 11.5 22.5 10" />
+    </svg>
+  );
+}
+
+function IconRespirador(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M3.5 12c0-2.5 2-4 8.5-4s8.5 1.5 8.5 4-2 5-8.5 5-8.5-2.5-8.5-5Z" />
+      <path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" />
+    </svg>
+  );
+}
+
+function IconLuva(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M6 10.5V5a1.5 1.5 0 0 1 3 0v4.5M9 9V4a1.5 1.5 0 0 1 3 0v5M12 9.2V4.5a1.5 1.5 0 0 1 3 0V10" />
+      <path d="M15 8.7a1.5 1.5 0 0 1 3 0V13c0 4-2.5 7-6.5 7S4 17 4 13v-2.5a1.5 1.5 0 0 1 3-.3" />
+    </svg>
+  );
+}
+
+function IconBota(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M8.5 3v8.5L4 15a2.5 2.5 0 0 0-1 2v1.5h17c0-2-1-3-3-3.5l-5-1.3V3Z" />
+      <path d="M8.5 7h3" />
+    </svg>
+  );
+}
+
+function IconColete(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M8 3 5 5.5V20h4.5l1-11 1 11h4.5V5.5L13 3" />
+      <path d="M8 3c1.3 1.3 2.7 2 4 2s2.7-.7 4-2" />
+    </svg>
+  );
+}
+
+function IconQuedas(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="5" r="2" />
+      <path d="M12 7v6M7 10l5 3 5-3M9 13l-3 7M15 13l3 7" />
+    </svg>
+  );
+}
+
+function IconTermica(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 3c2 3-2 3.5-2 6.5a2 2 0 0 0 4 0c1 1.2 1.5 2.3 1.5 3.5a3.5 3.5 0 1 1-7 0C8.5 9.5 10.5 7.5 12 3Z" />
+    </svg>
+  );
+}
+
+// Fallback genérico pra EPI sem tipo definido ainda (campo fica em branco
+// até alguém classificar — ver classificarTipoEpi em epi-tipos.ts).
+function IconTipoGenerico(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 3.5 19 6.5v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10v-5Z" />
+    </svg>
+  );
+}
+
+const ICONE_POR_TIPO: Record<string, (props: React.SVGProps<SVGSVGElement>) => React.JSX.Element> = {
+  "Proteção da cabeça": IconCapacete,
+  "Proteção auditiva": IconAuricular,
+  "Proteção visual": IconOculos,
+  "Proteção respiratória": IconRespirador,
+  "Proteção das mãos": IconLuva,
+  "Proteção dos pés": IconBota,
+  "Proteção do corpo": IconColete,
+  "Proteção contra quedas": IconQuedas,
+  "Proteção térmica": IconTermica,
+};
+
+function IconeDoTipo({
+  tipo,
+  className,
+}: {
+  tipo: string | null;
+  className?: string;
+}) {
+  const Icon = (tipo && ICONE_POR_TIPO[tipo]) || IconTipoGenerico;
+  return <Icon className={className} />;
+}
+
 function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
 }
@@ -188,6 +339,7 @@ export default async function EpisPage({
       <PageHeader
         title="EPIs homologados"
         description="Cadastro mestre de EPI, com C.A. e custo médio."
+        icon={<IconEpiHeader className="h-5 w-5" />}
       />
 
       <ListToolbar
@@ -224,14 +376,21 @@ export default async function EpisPage({
         }
       />
 
-      <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card">
-        <table className="w-full min-w-[680px] border-collapse bg-surface text-left">
+      {/* Tabela — só a partir de `xl` (1280px), mesmo critério e mesmo
+          motivo de colaboradores/page.tsx (ver comentário lá): abaixo
+          disso, mesmo com menos colunas que Colaboradores, ela não cabe de
+          forma confiável sem rolar de lado em notebook com a janela não
+          maximizada. Sem `min-w` fixo — a largura disponível de verdade
+          quem decide, com o texto quebrando dentro da célula quando
+          precisa. */}
+      <div className="hidden overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-card xl:block">
+        <table className="w-full border-collapse bg-surface text-left">
           <thead>
             <tr>
               {COLUNAS.map((coluna) => (
                 <th
                   key={coluna.label || "acoes"}
-                  className="border-b border-border-subtle bg-surface-muted px-4 py-3.5 text-[11px] font-semibold tracking-[0.04em] text-text-secondary uppercase"
+                  className="border-b border-border-subtle bg-surface-muted px-2.5 py-[9px] text-[10.5px] font-semibold tracking-[0.04em] text-text-secondary uppercase"
                 >
                   {coluna.sortKey ? (
                     <Link
@@ -276,18 +435,24 @@ export default async function EpisPage({
                     key={e.id}
                     className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-muted/70"
                   >
-                    <td className="px-4 py-3.5 text-[13.5px] font-medium text-foreground">
-                      {e.nome}
+                    <td className="px-2.5 py-[9px] text-[12.5px] font-medium text-foreground">
+                      <div className="flex items-center gap-2">
+                        <IconeDoTipo
+                          tipo={e.tipo}
+                          className="h-4 w-4 shrink-0 text-text-muted"
+                        />
+                        {e.nome}
+                      </div>
                     </td>
-                    <td className="px-4 py-3.5 text-[13.5px] text-foreground">
+                    <td className="px-2.5 py-[9px] text-[12.5px] text-foreground">
                       {e.tipo ?? "—"}
                     </td>
-                    <td className="px-4 py-3.5 text-[13.5px] text-foreground">
+                    <td className="px-2.5 py-[9px] text-[12.5px] text-foreground">
                       {e.exigeCa ? (
                         <div>
                           <div>{e.ca ?? "—"}</div>
                           {ca && (
-                            <div className={`text-[11px] ${ca.className}`}>
+                            <div className={`text-[10px] ${ca.className}`}>
                               {ca.label}
                             </div>
                           )}
@@ -296,12 +461,12 @@ export default async function EpisPage({
                         <span className="text-text-muted">Não exige C.A.</span>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-[13.5px] text-foreground">
+                    <td className="px-2.5 py-[9px] text-[12.5px] text-foreground">
                       {formatMoney(e.custoMedioAtual)}
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2.5 py-[9px]">
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                           e.ativo
                             ? "bg-brand-100 text-brand-700"
                             : "bg-danger-bg text-danger-text"
@@ -310,7 +475,7 @@ export default async function EpisPage({
                         {e.ativo ? "Ativo" : "Inativo"}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-2.5 py-[9px] text-right">
                       <div className="flex items-center justify-end gap-1">
                         {podeGerenciar && <EditarEpiButton epi={e} />}
                         {podeGerenciar &&
@@ -333,6 +498,83 @@ export default async function EpisPage({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Lista de cartões — telas abaixo de `xl` (ver comentário acima da
+          tabela). Não precisa de ClickableCard aqui (diferente de
+          Colaboradores): EPI não tem tela de detalhe pra abrir, o cartão é
+          só uma versão empilhada da mesma linha, sem navegação. */}
+      <div className="space-y-2 xl:hidden">
+        {epis.length === 0 ? (
+          <p className="rounded-2xl border border-border-subtle bg-surface px-4 py-6 text-center text-[13px] text-text-muted">
+            Nenhum EPI encontrado.
+          </p>
+        ) : (
+          epis.map((e) => {
+            const ca = statusCa(e.caValidade);
+            return (
+              <div
+                key={e.id}
+                className="rounded-2xl border border-border-subtle bg-surface p-3.5 shadow-card"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <IconeDoTipo
+                      tipo={e.tipo}
+                      className="h-4 w-4 shrink-0 text-text-muted"
+                    />
+                    <span className="text-[13.5px] font-semibold text-foreground">
+                      {e.nome}
+                    </span>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
+                      e.ativo
+                        ? "bg-brand-100 text-brand-700"
+                        : "bg-danger-bg text-danger-text"
+                    }`}
+                  >
+                    {e.ativo ? "Ativo" : "Inativo"}
+                  </span>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-text-secondary">
+                  <span>{e.tipo ?? "Sem tipo definido"}</span>
+                  <span>{formatMoney(e.custoMedioAtual)}</span>
+                </div>
+
+                <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border-subtle pt-2.5">
+                  <div className="text-[11px] text-text-muted">
+                    {e.exigeCa ? (
+                      <span>
+                        C.A. {e.ca ?? "—"}
+                        {ca && (
+                          <span className={`ml-1.5 ${ca.className}`}>
+                            · {ca.label}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span>Não exige C.A.</span>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {podeGerenciar && <EditarEpiButton epi={e} />}
+                    {podeGerenciar &&
+                      (e.ativo ? (
+                        <DesativarEpiButton epiId={e.id} epiNome={e.nome} />
+                      ) : (
+                        <ReativarEpiButton epiId={e.id} epiNome={e.nome} />
+                      ))}
+                    {podeExcluir && !e.ativo && (
+                      <ExcluirEpiButton epiId={e.id} epiNome={e.nome} />
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {total > 0 && (

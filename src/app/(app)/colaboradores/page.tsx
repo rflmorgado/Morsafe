@@ -159,12 +159,35 @@ export default async function ColaboradoresPage({
   const podeDesligarOuReativar = temPapelMinimo(user?.papel, "admin");
   const podeImportar = temPapelMinimo(user?.papel, "admin");
 
+  // Mesmo padrão de listColaboradores/listColaboradoresParaExportar: sem
+  // "status" na URL, o filtro aplicado de fato é "ativo" — esse aviso existe
+  // pra deixar isso visível, já que por padrão os desligados somem da lista
+  // (pedido do Rafael, 05/10/2026) em vez de simplesmente não aparecer sem
+  // explicação nenhuma.
+  const statusAtual =
+    status === "ativo" || status === "inativo" || status === "todos"
+      ? status
+      : "ativo";
+
   return (
     <div className="space-y-1">
       <PageHeader
         title="Colaboradores"
         description="Lista com busca rápida e filtro por setor."
       />
+
+      {statusAtual !== "todos" && (
+        <p className="px-0.5 text-[12.5px] text-text-secondary">
+          Mostrando só colaboradores{" "}
+          {statusAtual === "ativo" ? "ativos" : "inativos"} —{" "}
+          <Link
+            href={buildHref(q, setor, "todos", nr06, sort, dir, 1)}
+            className="font-semibold text-brand-700 hover:underline"
+          >
+            ver todos
+          </Link>
+        </p>
+      )}
 
       <ListToolbar
         filters={<ColaboradoresFilters setores={setores} />}

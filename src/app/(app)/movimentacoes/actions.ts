@@ -33,32 +33,77 @@ const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
 export type RegistrarEntregaState = { error: string | null; success?: boolean };
 
+// Formato de cada item dentro do campo "itens" do FormData (JSON) — ver
+// comentário em registrar-entrega-button.tsx sobre por que itens viajam
+// como JSON num campo só, em vez de nomes de campo por índice
+// (epi_id_0, epi_id_1...): o número de itens é dinâmico (botão "+
+// Adicionar outro item"), então um array serializado é mais simples de
+// montar no cliente e de validar aqui do que inventar uma convenção de
+// nomes indexados.
+type ItemEntregaBruto = {
+  epi_id?: unknown;
+  motivo?: unknown;
+  quantidade?: unknown;
+};
+
 /**
- * Registra a entrega de um EPI a um colaborador. custo_unitario_no_momento
- * é sempre lido do cadastro do EPI no momento da entrega (nunca digitado no
- * formulário) — é um "retrato" do custo naquela data, que não deve mudar
- * depois mesmo que o custo médio do EPI mude no catálogo.
+ * Registra uma ou mais entregas de EPI a um MESMO colaborador, de uma vez só
+ * — pedido do Rafael, 06/10/2026 ("em uma integração, entregamos mais de um
+ * tipo de EPI... 'adicione mais itens', pra não precisar abrir a tela várias
+ * vezes"). Cada item vira sua PRÓPRIA linha em `entregas` (mantém o
+ * raciocínio de "uma linha = um EPI", que é o que permite devolver um item
+ * do lote sem mexer nos outros — ver entrega_vinculada_id em
+ * registrarDevolucao), mas todas as linhas compartilham a mesma assinatura e
+ * o mesmo grupo_entrega_id, pra tela de Relatórios/ficha saberem que vieram
+ * do mesmo pedido (ver desenharBlocoEntregaAgrupada em
+ * colaboradores/[id]/ficha/route.ts).
+ *
+ * custo_unitario_no_momento é sempre lido do cadastro do EPI no momento da
+ * entrega (nunca digitado no formulário) — é um "retrato" do custo naquela
+ * data, que não deve mudar depois mesmo que o custo médio do EPI mude no
+ * catálogo.
  */
 export async function registrarEntrega(
   _prevState: RegistrarEntregaState,
   formData: FormData,
 ): Promise<RegistrarEntregaState> {
   const colaboradorId = String(formData.get("colaborador_id") ?? "").trim();
-  const epiId = String(formData.get("epi_id") ?? "").trim();
-  const motivo = String(formData.get("motivo") ?? "").trim() as MotivoEntrega;
   const data = String(formData.get("data") ?? "").trim();
   const hora = String(formData.get("hora") ?? "").trim();
   const assinaturaUrl = String(formData.get("assinatura_url") ?? "").trim();
-  const quantidade = Number(formData.get("quantidade") ?? 1);
+  const itensRaw = String(formData.get("itens") ?? "").trim();
 
-  if (!colaboradorId || !epiId || !motivo || !data || !hora) {
-    return { error: "Preencha colaborador, EPI, motivo, data e hora." };
+  if (!colaboradorId || !data || !hora) {
+    return { error: "Preencha colaborador, data e hora." };
   }
   if (!assinaturaUrl) {
     return { error: "Colete a assinatura de confirmação do recebimento." };
   }
-  if (!Number.isInteger(quantidade) || quantidade < 1) {
-    return { error: "Quantidade deve ser um número inteiro de pelo menos 1." };
+
+  let itensBrutos: ItemEntregaBruto[];
+  try {
+    itensBrutos = JSON.parse(itensRaw);
+  } catch {
+    return { error: "Itens da entrega inválidos. Feche e abra o formulário de novo." };
+  }
+  if (!Array.isArray(itensBrutos) || itensBrutos.length === 0) {
+    return { error: "Adicione pelo menos um item à entrega." };
+  }
+
+  const itens: { epiId: string; motivo: MotivoEntrega; quantidade: number }[] = [];
+  for (const bruto of itensBrutos) {
+    const epiId = String(bruto.epi_id ?? "").trim();
+    const motivo = String(bruto.motivo ?? "").trim() as MotivoEntrega;
+    const quantidade = Number(bruto.quantidade ?? 1);
+    if (!epiId || !motivo) {
+      return { error: "Preencha o EPI e o motivo de todos os itens." };
+    }
+    if (!Number.isInteger(quantidade) || quantidade < 1) {
+      return {
+        error: "Quantidade deve ser um número inteiro de pelo menos 1, em todos os itens.",
+      };
+    }
+    itens.push({ epiId, motivo, quantidade });
   }
 
   const user = await getCurrentUser();
@@ -68,10 +113,12 @@ export async function registrarEntrega(
   if (!temPapelMinimo(user.papel, "encarregado")) {
     return { error: SEM_PERMISSAO };
   }
+  const empresaId = user.empresaId;
 
   const supabase = await createClient();
 
-  const [{ data: colaborador }, { data: epi }] = await Promise.all([
+  const epiIds = [...new Set(itens.map((i) => i.epiId))];
+  const [{ data: colaborador }, { data: episData }] = await Promise.all([
     supabase
       .from("colaboradores")
       .select("nome, status")
@@ -79,49 +126,94 @@ export async function registrarEntrega(
       .maybeSingle(),
     supabase
       .from("epis")
-      .select("nome, ativo, custo_medio_atual")
-      .eq("id", epiId)
-      .maybeSingle(),
+      .select("id, nome, ativo, custo_medio_atual")
+      .in("id", epiIds),
   ]);
 
   if (!colaborador || colaborador.status !== "ativo") {
     return { error: "Colaborador inválido ou já desligado." };
   }
-  if (!epi || !epi.ativo) {
-    return { error: "EPI inválido ou desativado." };
+
+  const episPorId = new Map((episData ?? []).map((e) => [e.id, e]));
+  for (const item of itens) {
+    const epi = episPorId.get(item.epiId);
+    if (!epi || !epi.ativo) {
+      return { error: "Um dos EPIs selecionados é inválido ou foi desativado." };
+    }
   }
 
-  const { data: nova, error } = await supabase
-    .from("entregas")
-    .insert({
-      empresa_id: user.empresaId,
-      colaborador_id: colaboradorId,
-      epi_id: epiId,
-      data,
-      hora,
-      motivo,
-      quantidade,
-      assinatura_url: assinaturaUrl,
-      custo_unitario_no_momento: epi.custo_medio_atual,
-      criado_por: user.id,
-    })
-    .select("id")
-    .single();
+  // Sempre gerado, mesmo quando é um item só — assim nenhum outro lugar do
+  // código que lê grupo_entrega_id precisa tratar "entrega avulsa" como um
+  // caso especial (NULL só existe em registros de antes desta coluna
+  // existir, nunca em entrega nova).
+  const grupoEntregaId = crypto.randomUUID();
 
-  if (error || !nova) {
+  const linhas = itens.map((item) => ({
+    empresa_id: empresaId,
+    colaborador_id: colaboradorId,
+    epi_id: item.epiId,
+    data,
+    hora,
+    motivo: item.motivo,
+    quantidade: item.quantidade,
+    assinatura_url: assinaturaUrl,
+    custo_unitario_no_momento: episPorId.get(item.epiId)!.custo_medio_atual,
+    criado_por: user.id,
+    grupo_entrega_id: grupoEntregaId,
+  }));
+
+  // Um único INSERT com várias linhas — atômico (ou grava todas, ou
+  // nenhuma): melhor do que N inserts separados em loop, que podiam parar no
+  // meio (ex.: 2 de 3 itens gravados) e deixar o estoque/ficha num estado
+  // inconsistente. A trigger de baixa de estoque (fn_registrar_entrega, "for
+  // each row") dispara uma vez por linha dentro dessa mesma transação.
+  let { data: novas, error } = await supabase
+    .from("entregas")
+    .insert(linhas)
+    .select("id, epi_id, quantidade");
+
+  // grupo_entrega_id é coluna nova (ver morsafe-add-grupo-entrega.sql) e,
+  // enquanto o acesso ao Supabase do Rafael continuar bloqueado (sem como
+  // aplicar a migração — 06/10/2026), ela ainda não existe em produção.
+  // Mesmo raciocínio de getLimiteColaboradores em lib/data/empresas.ts: sem
+  // este fallback, TODA entrega pararia de poder ser registrada — não só a
+  // funcionalidade de vários itens — até a coluna existir. Detecta
+  // especificamente esse erro (mensagem citando a coluna) e tenta de novo
+  // sem ela: a entrega continua sendo gravada normalmente, só sem o
+  // agrupamento visual na ficha, que passa a funcionar sozinho, sem precisar
+  // mexer em mais nada, assim que a migração for aplicada.
+  if (error && /grupo_entrega_id/i.test(error.message ?? "")) {
+    const linhasSemGrupo = linhas.map(({ grupo_entrega_id: _grupo, ...resto }) => resto);
+    ({ data: novas, error } = await supabase
+      .from("entregas")
+      .insert(linhasSemGrupo)
+      .select("id, epi_id, quantidade"));
+  }
+
+  if (error || !novas || novas.length !== linhas.length) {
     console.error("registrarEntrega:", error?.message);
     return { error: "Não foi possível registrar a entrega. Tente novamente." };
   }
 
-  await registrarLogAuditoria({
-    supabase,
-    empresaId: user.empresaId,
-    tabela: "entregas",
-    registroId: nova.id,
-    acao: "criado",
-    usuarioId: user.id,
-    detalhes: { nome: `${colaborador.nome} — ${epi.nome}`, quantidade },
-  });
+  // Um registro de auditoria por item — mesmo nível de detalhe que cada
+  // entrega avulsa já tinha antes desta funcionalidade existir.
+  await Promise.all(
+    novas.map((nova) => {
+      const epi = episPorId.get(nova.epi_id);
+      return registrarLogAuditoria({
+        supabase,
+        empresaId,
+        tabela: "entregas",
+        registroId: nova.id,
+        acao: "criado",
+        usuarioId: user.id,
+        detalhes: {
+          nome: `${colaborador.nome} — ${epi?.nome ?? ""}`,
+          quantidade: nova.quantidade,
+        },
+      });
+    }),
+  );
 
   revalidatePath("/movimentacoes");
   revalidatePath(`/colaboradores/${colaboradorId}`);

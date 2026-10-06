@@ -466,7 +466,11 @@ export default async function DashboardPage() {
               já lista os setores), em vez de tentar encaixar um seletor de
               setor dentro deste card. As outras três não eram "Em breve": o
               recurso já existia em Movimentações/Estoque, só não estava
-              ligado aqui (ver conversa com Rafael, 01/10/2026). */}
+              ligado aqui (ver conversa com Rafael, 01/10/2026). "Itens para
+              repor estoque" segue o mesmo raciocínio de "Rodar auditoria
+              NR-06" — pedido do Rafael, 06/10/2026, logo ao lado de
+              "Registrar entrada" por serem os dois atalhos de estoque deste
+              card. */}
           <div className="flex flex-wrap gap-2">
             {podeGerenciar && (
               <>
@@ -475,6 +479,12 @@ export default async function DashboardPage() {
                   variant="solid"
                 />
                 <RegistrarEntradaButton epis={episAtivos} />
+                <Link
+                  href="/estoque/reposicao"
+                  className="flex items-center gap-2 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
+                >
+                  Itens para repor estoque
+                </Link>
                 <Link
                   href="/auditoria"
                   className="flex items-center gap-2 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"

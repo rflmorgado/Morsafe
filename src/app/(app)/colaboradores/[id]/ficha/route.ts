@@ -430,12 +430,190 @@ export async function GET(
     });
     y -= 14;
 
+    // Quantos eventos de ENTREGA existem em cada grupo_entrega_id — pedido
+    // do Rafael, 06/10/2026 ("adicione mais itens... esses pedidos devem
+    // sair e conter a assinatura"): quando várias EPIs são entregues de uma
+    // vez (ver "+ Adicionar outro item" em registrar-entrega-button.tsx), a
+    // ficha deve mostrar isso como UM registro com UMA assinatura, não como
+    // N linhas quase idênticas repetindo a mesma miniatura de assinatura.
+    //
+    // Só entra no caminho de bloco agrupado (desenharBlocoEntregaAgrupada,
+    // abaixo) quando o grupo tem de fato mais de 1 item — um grupo de 1 item
+    // só, ou um evento sem grupoEntregaId (todo o histórico anterior a esta
+    // coluna existir), desenha exatamente como sempre desenhou, pelo código
+    // de linha única logo abaixo, sem nenhuma mudança de comportamento.
+    const contagemPorGrupo = new Map<string, number>();
     for (const evento of colaborador.eventos) {
+      if (evento.tipo === "entrega" && evento.grupoEntregaId) {
+        contagemPorGrupo.set(
+          evento.grupoEntregaId,
+          (contagemPorGrupo.get(evento.grupoEntregaId) ?? 0) + 1,
+        );
+      }
+    }
+    const gruposJaDesenhados = new Set<string>();
+
+    // Desenha um grupo de 2+ entregas feitas no mesmo pedido como UM bloco:
+    // um título ("Entrega — N itens"), uma linha por item, "Registrado por"
+    // uma vez só, e a MESMA miniatura de assinatura (todas as linhas do
+    // grupo compartilham o mesmo assinatura_url, gravado assim desde a
+    // origem em registrarEntrega — ver movimentacoes/actions.ts) centralizada
+    // ao lado, em vez de repetida em cada linha. Reaproveita exatamente as
+    // mesmas constantes (ASSINATURA_LARGURA etc.) e os mesmos helpers
+    // (ensureSpace/fitSingleLine) do bloco de evento único logo abaixo — só
+    // a forma de montar o texto muda.
+    async function desenharBlocoEntregaAgrupada(
+      itensDoGrupo: NonNullable<typeof colaborador>["eventos"],
+    ) {
+      const primeiro = itensDoGrupo[0];
+
+      let assinaturaImagem: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null =
+        null;
+      let assinaturaAltura = 0;
+      if (primeiro.assinaturaUrl) {
+        try {
+          const base64 = primeiro.assinaturaUrl.split(",")[1] ?? "";
+          assinaturaImagem = await pdfDoc.embedPng(
+            Buffer.from(base64, "base64"),
+          );
+          assinaturaAltura =
+            ASSINATURA_LARGURA *
+            (assinaturaImagem.height / assinaturaImagem.width);
+        } catch (e) {
+          console.error("ficha: falha ao incorporar assinatura (grupo):", e);
+          assinaturaImagem = null;
+        }
+      }
+
+      // Mesma progressão de alturas do bloco de evento único (título a 0,
+      // primeira linha a -11, 9pt entre linhas seguintes, +8 de respiro no
+      // final) — só que com N linhas de item em vez de uma linha de detalhe
+      // fixa. Calculado ANTES de desenhar porque ensureSpace precisa saber o
+      // espaço total de antemão, pra decidir se quebra de página aqui.
+      const alturaTexto = 28 + 9 * itensDoGrupo.length;
+      const alturaLinha = Math.max(alturaTexto, assinaturaAltura);
+      ensureSpace(alturaLinha + 14);
+
+      const topoLinhaY = y;
+      const larguraMaximaTexto = assinaturaImagem
+        ? pageWidth - marginX * 2 - ASSINATURA_LARGURA - GAP_ASSINATURA
+        : pageWidth - marginX * 2;
+
+      const tituloTexto = fitSingleLine(
+        `Entrega — ${itensDoGrupo.length} itens`,
+        fontBold,
+        TITULO_SIZE,
+        larguraMaximaTexto,
+      );
+      page.drawText(tituloTexto, {
+        x: marginX,
+        y: topoLinhaY,
+        size: TITULO_SIZE,
+        font: fontBold,
+        color: textDark,
+      });
+
+      let linhaY = topoLinhaY - 11;
+      const detalheCabecalho = fitSingleLine(
+        `${formatDate(primeiro.data)} · ${itensDoGrupo.length} itens entregues juntos, mesma assinatura`,
+        fontRegular,
+        DETALHE_SIZE,
+        larguraMaximaTexto,
+      );
+      page.drawText(detalheCabecalho, {
+        x: marginX,
+        y: linhaY,
+        size: DETALHE_SIZE,
+        font: fontRegular,
+        color: textMuted,
+      });
+
+      for (const item of itensDoGrupo) {
+        linhaY -= 9;
+        const caLabel = item.ca ? ` (CA ${item.ca})` : "";
+        const qtdLabel =
+          typeof item.quantidade === "number" ? ` · Qtd: ${item.quantidade}` : "";
+        const itemTexto = fitSingleLine(
+          `• ${item.epi}${caLabel}${qtdLabel} — ${item.detalhe}`,
+          fontRegular,
+          DETALHE_SIZE,
+          larguraMaximaTexto,
+        );
+        page.drawText(itemTexto, {
+          x: marginX,
+          y: linhaY,
+          size: DETALHE_SIZE,
+          font: fontRegular,
+          color: textDark,
+        });
+      }
+
+      linhaY -= 9;
+      const responsavelTexto = primeiro.criadoEm
+        ? fitSingleLine(
+            primeiro.responsavelNome
+              ? `Registrado por ${primeiro.responsavelNome} em ${formatDateTime(primeiro.criadoEm)}`
+              : `Registrado em ${formatDateTime(primeiro.criadoEm)}`,
+            fontRegular,
+            RESPONSAVEL_SIZE,
+            larguraMaximaTexto,
+          )
+        : "Registro sem responsável/data de lançamento identificados";
+      page.drawText(responsavelTexto, {
+        x: marginX,
+        y: linhaY,
+        size: RESPONSAVEL_SIZE,
+        font: fontRegular,
+        color: textMuted,
+      });
+
+      if (assinaturaImagem) {
+        const imgX = pageWidth - marginX - ASSINATURA_LARGURA;
+        const imgY = topoLinhaY - (alturaLinha + assinaturaAltura) / 2 + 4;
+        page.drawImage(assinaturaImagem, {
+          x: imgX,
+          y: imgY,
+          width: ASSINATURA_LARGURA,
+          height: assinaturaAltura,
+        });
+      }
+
+      y = topoLinhaY - alturaLinha - 6;
+      page.drawLine({
+        start: { x: marginX, y },
+        end: { x: pageWidth - marginX, y },
+        thickness: 0.5,
+        color: lineColor,
+      });
+      y -= 10;
+    }
+
+    for (const evento of colaborador.eventos) {
+      if (
+        evento.tipo === "entrega" &&
+        evento.grupoEntregaId &&
+        (contagemPorGrupo.get(evento.grupoEntregaId) ?? 0) > 1
+      ) {
+        if (gruposJaDesenhados.has(evento.grupoEntregaId)) continue;
+        gruposJaDesenhados.add(evento.grupoEntregaId);
+        const itensDoGrupo = colaborador.eventos.filter(
+          (e) => e.tipo === "entrega" && e.grupoEntregaId === evento.grupoEntregaId,
+        );
+        await desenharBlocoEntregaAgrupada(itensDoGrupo);
+        continue;
+      }
+
       let assinaturaImagem: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null =
         null;
       let assinaturaAltura = 0;
 
-      if (evento.tipo === "entrega" && evento.assinaturaUrl) {
+      // Entrega e devolução podem ter assinatura (recusa nunca tem) — ver
+      // comentário em lib/data/colaboradores.ts sobre devoluções antigas,
+      // de antes da coluna assinatura_url existir, ficarem sem imagem aqui.
+      if (
+        (evento.tipo === "entrega" || evento.tipo === "devolucao") &&
+        evento.assinaturaUrl
+      ) {
         try {
           const base64 = evento.assinaturaUrl.split(",")[1] ?? "";
           assinaturaImagem = await pdfDoc.embedPng(

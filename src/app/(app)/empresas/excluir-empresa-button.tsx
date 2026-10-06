@@ -72,6 +72,13 @@ export function ExcluirEmpresaButton({
         setResultado(result.resultado);
         return;
       }
+      // Aviso raro (um ou mais logins não puderam ser removidos do
+      // Supabase Auth, mesmo com os cadastros já removidos do MorSafe) —
+      // sem sistema de toast no app, um alert simples garante que o
+      // super_admin não perca esse aviso antes de sair desta tela.
+      if (result.avisoLoginsOrfaos) {
+        window.alert(result.avisoLoginsOrfaos);
+      }
       // A empresa não existe mais — esta própria tela (/empresas/[id])
       // deixaria de ter o que mostrar, por isso volta pra lista em vez de
       // só dar refresh (diferente de ResetarEmpresaButton, que fica na

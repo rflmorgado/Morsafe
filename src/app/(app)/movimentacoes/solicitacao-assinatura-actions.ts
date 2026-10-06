@@ -108,6 +108,12 @@ export async function buscarStatusSolicitacao(
     .from("solicitacoes_assinatura")
     .select("status, assinatura_url")
     .eq("id", id)
+    // Reconfirma a empresa do pedido, não só o id — sem isso, qualquer
+    // usuário logado (de qualquer empresa) que descobrisse/adivinhasse o
+    // UUID de um pedido de OUTRA empresa conseguiria ler a assinatura dela
+    // (ver auditoria de isolamento entre empresas, 06/10/2026). Esta tabela
+    // ainda não tem RLS própria, então esta checagem é a única barreira.
+    .eq("empresa_id", user.empresaId)
     .maybeSingle();
 
   if (error || !data) {
@@ -142,6 +148,10 @@ export async function cancelarSolicitacaoAssinatura(
     .from("solicitacoes_assinatura")
     .update({ status: "cancelado" })
     .eq("id", id)
+    // Mesma barreira de empresa_id de buscarStatusSolicitacao acima — sem
+    // isso, um usuário de outra empresa poderia cancelar o pedido de
+    // assinatura de alguém que nem conhece.
+    .eq("empresa_id", user.empresaId)
     .eq("status", "aguardando");
 
   if (error) {

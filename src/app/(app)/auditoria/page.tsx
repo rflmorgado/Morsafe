@@ -6,6 +6,7 @@ import { PendenciasTab } from "./pendencias-tab";
 import { ChecklistCampoTab } from "./checklist-campo-tab";
 import { ColaboradoresTab } from "./colaboradores-tab";
 import { EpisTab } from "./epis-tab";
+import { RelatorioTab } from "./relatorio-tab";
 
 // Ícone vibrante do cabeçalho — mesmo desenho do item de menu Auditoria
 // NR-06 (ver IconAuditoria em nav-icons.tsx): prancheta com check.
@@ -33,7 +34,7 @@ const ABAS = [
   { chave: "checklist", label: "Checklist de campo", emBreve: false },
   { chave: "colaboradores", label: "Colaboradores", emBreve: false },
   { chave: "epis", label: "EPIs", emBreve: false },
-  { chave: "relatorio", label: "Relatório", emBreve: true },
+  { chave: "relatorio", label: "Relatório", emBreve: false },
 ] as const;
 
 type Aba = (typeof ABAS)[number]["chave"];
@@ -45,8 +46,10 @@ function isAba(value: string | undefined): value is Aba {
 /**
  * Barra de abas — navegação simples por URL (`?aba=`), sem JS no cliente:
  * cada aba é uma page.tsx renderizada no servidor de novo, igual qualquer
- * outro link do app. Aba "em breve" (Relatório, geração de PDF — ver pedido
- * do Rafael, 06/10/2026) fica como pill desabilitada, mesmo tratamento
+ * outro link do app. Nenhuma aba está "em breve" hoje (a última, Relatório —
+ * geração de PDF do diagnóstico —, saiu do estágio "em breve" em
+ * 06/10/2026, ver relatorio-tab.tsx); o tratamento de pill desabilitada
+ * abaixo continua aqui pronto pra uma futura aba que precise dele, mesmo
  * visual do item "em breve" da barra lateral (app-shell.tsx), adaptado pro
  * fundo claro do conteúdo.
  */
@@ -136,6 +139,7 @@ export default async function AuditoriaPage({
         <ColaboradoresTab empresaId={empresaId} pagina={pagina} />
       )}
       {aba === "epis" && <EpisTab empresaId={empresaId} pagina={pagina} />}
+      {aba === "relatorio" && <RelatorioTab empresaId={empresaId} />}
     </div>
   );
 }

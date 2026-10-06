@@ -301,17 +301,44 @@ export default async function EstoquePage({
         <ListToolbar
           filters={<EstoqueFilters />}
           actions={
-            podeGerenciar && (
-              <>
-                {podeImportar && (
-                  <>
-                    <ImportarCatalogoEstoqueButton epis={episAtivos} />
-                    <ImportarEstoqueButton epis={episAtivos} />
-                  </>
-                )}
-                <RegistrarEntradaButton epis={episAtivos} />
-              </>
-            )
+            <>
+              {/* Visível pra qualquer papel que acesse /estoque (inclusive
+                  "leitura") — é só uma lista derivada do saldo atual, sem
+                  nenhuma ação de escrita nela mesma (exportar é que exige
+                  "encarregado"+, checado dentro da própria tela/rota). */}
+              <a
+                href="/estoque/reposicao"
+                title="Ver itens com saldo abaixo do limite de alerta"
+                className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-surface-muted"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <circle cx="9" cy="20" r="1.4" />
+                  <circle cx="17.5" cy="20" r="1.4" />
+                  <path d="M2.5 3h2l2.6 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 7.5H6" />
+                </svg>
+                Itens para repor estoque
+              </a>
+              {podeGerenciar && (
+                <>
+                  {podeImportar && (
+                    <>
+                      <ImportarCatalogoEstoqueButton epis={episAtivos} />
+                      <ImportarEstoqueButton epis={episAtivos} />
+                    </>
+                  )}
+                  <RegistrarEntradaButton epis={episAtivos} />
+                </>
+              )}
+            </>
           }
         />
 

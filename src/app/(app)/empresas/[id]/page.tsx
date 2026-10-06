@@ -72,7 +72,7 @@ export default async function EmpresaDetalhePage({
         />
         <Link
           href="/empresas"
-          className="text-[13px] font-medium text-brand-700 hover:underline"
+          className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-700 hover:underline"
         >
           ← Voltar para Empresas
         </Link>
@@ -89,7 +89,7 @@ export default async function EmpresaDetalhePage({
       <div>
         <Link
           href="/empresas"
-          className="mb-2 inline-block text-[12.5px] font-medium text-text-muted hover:text-text-secondary"
+          className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-700 hover:underline"
         >
           ← Empresas
         </Link>

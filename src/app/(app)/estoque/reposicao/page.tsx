@@ -50,7 +50,7 @@ export default async function ReposicaoEstoquePage() {
       <div>
         <Link
           href="/estoque"
-          className="mb-3 inline-flex items-center gap-1 text-[12.5px] font-semibold text-text-secondary transition hover:text-brand-700"
+          className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-700 hover:underline"
         >
           ← Voltar para Estoque
         </Link>

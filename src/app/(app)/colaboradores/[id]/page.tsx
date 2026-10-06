@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getColaboradorDetalhe } from "@/lib/data/colaboradores";
 import { getCurrentUser } from "@/lib/data/current-user";
+import { PageHeader } from "@/components/ui/page-header";
 
 const TIPO_LABEL: Record<string, string> = {
   entrega: "Entrega",
@@ -49,12 +50,16 @@ export default async function ColaboradorDetalhePage({
         ← Colaboradores
       </Link>
 
-      <h2 className="text-xl font-bold tracking-tight text-foreground">
-        Ficha do colaborador
-      </h2>
-      <p className="mb-5 text-[13px] text-text-secondary">
-        Histórico completo de entregas, devoluções e recusas.
-      </p>
+      {/* PageHeader em vez do h2+p escritos à mão que existiam aqui antes —
+          ver auditoria de 06/10/2026: o tamanho do título (text-xl, 20px)
+          e da descrição (text-[13px]) divergiam sutilmente do padrão já
+          adotado nas outras telas de listagem/detalhe (text-[21px] /
+          text-[13.5px], ver page-header.tsx). Mesmo texto de antes, só o
+          componente muda. */}
+      <PageHeader
+        title="Ficha do colaborador"
+        description="Histórico completo de entregas, devoluções e recusas."
+      />
 
       <div className="overflow-hidden rounded-[14px] border border-border-subtle bg-surface">
         <div

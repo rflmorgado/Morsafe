@@ -3,7 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
-import type { StatusSolicitacaoAssinatura } from "@/types/database";
+import type {
+  StatusSolicitacaoAssinatura,
+  TipoSolicitacaoAssinatura,
+} from "@/types/database";
 
 const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
@@ -13,19 +16,23 @@ export type CriarSolicitacaoState =
 
 /**
  * Chamado pelo PC ao escolher "coletar assinatura na estação X" no
- * formulário de Registrar entrega — cria o pedido que a estação (ver
- * src/app/estacao) vai encontrar na próxima vez que consultar o servidor.
- * Usa o cliente comum (RLS por empresa), diferente das actions de
- * src/app/estacao/actions.ts, que rodam sem usuário logado.
+ * formulário de Registrar entrega OU de Registrar devolução — cria o pedido
+ * que a estação (ver src/app/estacao) vai encontrar na próxima vez que
+ * consultar o servidor. `tipo` só decide o texto mostrado lá (ver
+ * src/app/estacao/page.tsx); o resto do fluxo é idêntico. Usa o cliente
+ * comum (RLS por empresa), diferente das actions de src/app/estacao/actions.ts,
+ * que rodam sem usuário logado.
  */
 export async function criarSolicitacaoAssinatura({
   estacaoId,
   colaboradorNome,
   epiNome,
+  tipo,
 }: {
   estacaoId: string;
   colaboradorNome: string;
   epiNome: string;
+  tipo: TipoSolicitacaoAssinatura;
 }): Promise<CriarSolicitacaoState> {
   const user = await getCurrentUser();
   if (!user || !user.empresaId) {
@@ -61,6 +68,7 @@ export async function criarSolicitacaoAssinatura({
       estacao_id: estacaoId,
       colaborador_nome: colaboradorNome,
       epi_nome: epiNome,
+      tipo,
       criado_por: user.id,
     })
     .select("id")

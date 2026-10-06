@@ -359,7 +359,18 @@ export async function reativarUsuario(
   return { error: null, success: true };
 }
 
-export type ExcluirUsuarioState = { error: string | null; success?: boolean };
+export type ExcluirUsuarioState = {
+  error: string | null;
+  success?: boolean;
+  // Preenchido só quando o cadastro em `usuarios` foi removido com sucesso
+  // (a pessoa já não consegue mais acessar o app — ver bloqueio no
+  // middleware pra login autenticado sem linha em `usuarios`), mas o login
+  // dela no Supabase Auth não pôde ser removido. Não é um erro que impeça
+  // a conclusão (por isso `success` continua `true`), só um aviso pro
+  // admin saber que esse login ficou órfão e pode precisar de limpeza
+  // manual mais tarde.
+  aviso?: string;
+};
 
 /**
  * Exclusão DEFINITIVA de um usuário (login) — diferente de desativar, que é
@@ -462,10 +473,18 @@ export async function excluirUsuarioDefinitivamente(
 
   const { error: authDeleteError } =
     await admin.auth.admin.deleteUser(usuarioId);
+
+  // Mesmo se a remoção do login no Supabase Auth falhar, o cadastro em
+  // `usuarios` já foi removido — é o que de fato revoga o acesso: o
+  // middleware agora bloqueia e desloga qualquer login autenticado sem
+  // linha correspondente em `usuarios` (ver src/lib/supabase/middleware.ts,
+  // ajuste de 06/10/2026), então esse login órfão não consegue mais fazer
+  // nada no app mesmo continuando a existir no Supabase Auth. Mesmo assim
+  // não escondemos a falha: antes disso retornava sucesso sem avisar nada
+  // (ver auditoria de 06/10/2026) — agora o admin fica sabendo que esse
+  // login específico pode precisar de limpeza manual no painel do Supabase
+  // mais tarde.
   if (authDeleteError) {
-    // O cadastro em `usuarios` já foi removido (é o que importa pra sair
-    // da lista e das permissões); loga só pra investigar depois se sobrou
-    // um login órfão no Supabase Auth.
     console.error(
       "excluirUsuarioDefinitivamente (auth):",
       authDeleteError.message,
@@ -486,5 +505,11 @@ export async function excluirUsuarioDefinitivamente(
   });
 
   revalidatePath("/usuarios");
-  return { error: null, success: true };
+  return {
+    error: null,
+    success: true,
+    aviso: authDeleteError
+      ? "Usuário removido do MorSafe com sucesso, mas não foi possível remover o login dele no sistema de autenticação. Ele não consegue mais acessar o app, mas avise o suporte do MorSafe para limpar esse login manualmente."
+      : undefined,
+  };
 }

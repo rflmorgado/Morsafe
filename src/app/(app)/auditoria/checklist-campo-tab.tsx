@@ -2,6 +2,9 @@ import Link from "next/link";
 import {
   listSetoresComStatusAuditoria,
   countCaVencendo,
+  calcularSituacaoAuditoriaSetor,
+  REVISAO_AUDITORIA_MESES,
+  type SituacaoAuditoriaSetor,
 } from "@/lib/data/auditorias-nr06";
 import { contarNaoConformidades } from "@/lib/data/auditorias-nr06-perguntas";
 import { getNr06StatusCounts } from "@/lib/data/colaboradores";
@@ -60,6 +63,50 @@ function IconCalendarSmall(props: React.SVGProps<SVGSVGElement>) {
       <path d="M3.5 10h17" />
       <path d="M8 3v4M16 3v4" />
     </svg>
+  );
+}
+
+// Pílula de situação — mesma lógica usada no Relatório em PDF (ver
+// calcularSituacaoAuditoriaSetor, em lib/data/auditorias-nr06.ts), só que
+// renderizada aqui em HTML. Os 4 estados: nunca auditado (cinza), pendente —
+// a última auditoria encontrou não-conformidade (vermelho, sempre o mais
+// urgente), vencida — já foi conforme, mas já passou do prazo de revisão de
+// REVISAO_AUDITORIA_MESES sem uma auditoria nova (âmbar), conforme (verde).
+function SituacaoBadge({
+  situacao,
+  pendencias,
+}: {
+  situacao: SituacaoAuditoriaSetor;
+  pendencias: number;
+}) {
+  if (situacao === "nunca_auditado") {
+    return (
+      <span className="rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-text-muted">
+        Nunca auditado
+      </span>
+    );
+  }
+  if (situacao === "pendente") {
+    return (
+      <span className="rounded-full bg-danger-bg px-2.5 py-1 text-[11px] font-semibold text-danger-text">
+        {pendencias} pendência{pendencias === 1 ? "" : "s"}
+      </span>
+    );
+  }
+  if (situacao === "vencida") {
+    return (
+      <span
+        title={`Última auditoria há mais de ${REVISAO_AUDITORIA_MESES} meses`}
+        className="rounded-full bg-warning-bg px-2.5 py-1 text-[11px] font-semibold text-warning-text"
+      >
+        Auditoria vencida
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-brand-100 px-2.5 py-1 text-[11px] font-semibold text-brand-700">
+      Conforme
+    </span>
   );
 }
 
@@ -150,6 +197,14 @@ export async function ChecklistCampoTab({
         </Card>
       </div>
 
+      <p className="mb-5 rounded-2xl border border-border-subtle bg-surface-muted p-4 text-[12px] text-text-secondary">
+        Setores com a última auditoria há mais de {REVISAO_AUDITORIA_MESES}{" "}
+        meses aparecem como &quot;Auditoria vencida&quot; — a NR-06 não fixa
+        um prazo pra esse checklist; {REVISAO_AUDITORIA_MESES} meses é o
+        ciclo mínimo de revisão do PGR (NR-01), usado aqui como referência.
+        Nada impede rodar a auditoria antes disso.
+      </p>
+
       {total === 0 ? (
         <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
           Nenhum setor cadastrado ainda.
@@ -177,6 +232,9 @@ export async function ChecklistCampoTab({
               </thead>
               <tbody>
                 {setoresPagina.map((s) => {
+                  const situacao = calcularSituacaoAuditoriaSetor(
+                    s.ultimaAuditoria,
+                  );
                   const pendencias = s.ultimaAuditoria
                     ? contarNaoConformidades(s.ultimaAuditoria.respostas)
                     : 0;
@@ -220,19 +278,7 @@ export async function ChecklistCampoTab({
                         )}
                       </td>
                       <td className="px-2.5 py-[9px]">
-                        {!s.ultimaAuditoria ? (
-                          <span className="rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-text-muted">
-                            Nunca auditado
-                          </span>
-                        ) : pendencias > 0 ? (
-                          <span className="rounded-full bg-danger-bg px-2.5 py-1 text-[11px] font-semibold text-danger-text">
-                            {pendencias} pendência{pendencias === 1 ? "" : "s"}
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-brand-100 px-2.5 py-1 text-[11px] font-semibold text-brand-700">
-                            Conforme
-                          </span>
-                        )}
+                        <SituacaoBadge situacao={situacao} pendencias={pendencias} />
                       </td>
                       <td className="px-2.5 py-[9px]">
                         {podeGerenciar && (
@@ -255,6 +301,9 @@ export async function ChecklistCampoTab({
               colunas. */}
           <div className="space-y-2 xl:hidden">
             {setoresPagina.map((s) => {
+              const situacao = calcularSituacaoAuditoriaSetor(
+                s.ultimaAuditoria,
+              );
               const pendencias = s.ultimaAuditoria
                 ? contarNaoConformidades(s.ultimaAuditoria.respostas)
                 : 0;
@@ -272,19 +321,9 @@ export async function ChecklistCampoTab({
                         {s.nome}
                       </span>
                     </span>
-                    {!s.ultimaAuditoria ? (
-                      <span className="shrink-0 rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-text-muted">
-                        Nunca auditado
-                      </span>
-                    ) : pendencias > 0 ? (
-                      <span className="shrink-0 rounded-full bg-danger-bg px-2.5 py-1 text-[11px] font-semibold text-danger-text">
-                        {pendencias} pendência{pendencias === 1 ? "" : "s"}
-                      </span>
-                    ) : (
-                      <span className="shrink-0 rounded-full bg-brand-100 px-2.5 py-1 text-[11px] font-semibold text-brand-700">
-                        Conforme
-                      </span>
-                    )}
+                    <span className="shrink-0">
+                      <SituacaoBadge situacao={situacao} pendencias={pendencias} />
+                    </span>
                   </div>
 
                   {s.ultimaAuditoria && (

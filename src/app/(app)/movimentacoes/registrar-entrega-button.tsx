@@ -15,13 +15,28 @@ import type { MotivoEntrega } from "@/types/database";
 
 const INTERVALO_POLL_MS = 2000;
 
+// Um item da entrega (EPI + motivo + quantidade) — a entrega inteira pode
+// ter vários, pedido do Rafael em 06/10/2026 ("em uma integração, nós
+// entregamos mais de um tipo de EPI... 'adicione mais itens', pra não
+// precisar abrir a tela várias vezes"). `key` é só identidade de UI (pra
+// React/remover item), nunca vai pro servidor.
+type ItemFormulario = {
+  key: number;
+  epiId: string;
+  motivo: string;
+  quantidade: number;
+  saldoAtual: number | null;
+};
+
+function itemVazio(key: number): ItemFormulario {
+  return { key, epiId: "", motivo: "", quantidade: 1, saldoAtual: null };
+}
+
 type CamposEntrega = {
   colaborador_id: string;
-  epi_id: string;
-  motivo: string;
-  quantidade: string;
   data: string;
   hora: string;
+  itens: { epiId: string; motivo: string; quantidade: number }[];
 };
 
 type PedidoPendente = {
@@ -77,30 +92,43 @@ export function RegistrarEntregaButton({
     modoAssinatura === "estacao" && estacoes.length > 0
   );
 
-  // Estoque atual do EPI selecionado — só pra avisar (não bloquear, ver
-  // comentário em buscarSaldoEstoque) quando a quantidade deixaria o saldo
-  // negativo. requestIdRef segue o mesmo raciocínio do guard de devolução:
-  // ignora resposta de rede atrasada de uma troca de EPI anterior.
-  const [epiId, setEpiId] = useState("");
-  const [quantidade, setQuantidade] = useState(1);
-  const [saldoAtual, setSaldoAtual] = useState<number | null>(null);
-  const saldoRequestIdRef = useRef(0);
+  // Lista de itens da entrega — sempre começa com um item em branco; o
+  // botão "+ Adicionar outro item" empilha mais, nunca menos de um.
+  const [itens, setItens] = useState<ItemFormulario[]>(() => [itemVazio(0)]);
+  const proximaKeyRef = useRef(1);
+  // Guarda de requisição de saldo DE ESTOQUE, por item (igual ao raciocínio
+  // já usado no formulário de devolução): troca o EPI de um item duas vezes
+  // rápido e a resposta da primeira chega depois da segunda — sem isso, o
+  // saldo mostrado podia acabar sendo do EPI errado.
+  const saldoRequestIdRef = useRef<Map<number, number>>(new Map());
 
-  function resetCamposEstoque() {
-    setEpiId("");
-    setQuantidade(1);
-    setSaldoAtual(null);
-    saldoRequestIdRef.current++;
+  function resetarItens() {
+    setItens([itemVazio(0)]);
+    proximaKeyRef.current = 1;
+    saldoRequestIdRef.current.clear();
   }
 
-  async function handleEpiChange(id: string) {
-    setEpiId(id);
-    setSaldoAtual(null);
-    const requestId = ++saldoRequestIdRef.current;
-    if (!id) return;
-    const saldo = await buscarSaldoEstoque(id);
-    if (requestId !== saldoRequestIdRef.current) return;
-    setSaldoAtual(saldo);
+  function adicionarItem() {
+    const key = proximaKeyRef.current++;
+    setItens((prev) => [...prev, itemVazio(key)]);
+  }
+
+  function removerItem(key: number) {
+    setItens((prev) => (prev.length > 1 ? prev.filter((i) => i.key !== key) : prev));
+  }
+
+  function atualizarItem(key: number, patch: Partial<ItemFormulario>) {
+    setItens((prev) => prev.map((i) => (i.key === key ? { ...i, ...patch } : i)));
+  }
+
+  async function handleItemEpiChange(key: number, epiId: string) {
+    atualizarItem(key, { epiId, saldoAtual: null });
+    const requestId = (saldoRequestIdRef.current.get(key) ?? 0) + 1;
+    saldoRequestIdRef.current.set(key, requestId);
+    if (!epiId) return;
+    const saldo = await buscarSaldoEstoque(epiId);
+    if (saldoRequestIdRef.current.get(key) !== requestId) return;
+    atualizarItem(key, { saldoAtual: saldo });
   }
 
   function fecharModal() {
@@ -111,21 +139,45 @@ export function RegistrarEntregaButton({
     setPedidoPendente(null);
     setError(null);
     setAssinaturaColetada(false);
-    resetCamposEstoque();
+    resetarItens();
+  }
+
+  // Itens incompletos (sem EPI ou sem motivo escolhido) travam o envio —
+  // conferido antes de chamar o servidor OU de abrir o pedido pra estação,
+  // pra dar o aviso na hora em vez de só depois de um vai-e-volta.
+  function itensIncompletos() {
+    return itens.some((i) => !i.epiId || !i.motivo);
   }
 
   function handleSubmit(formData: FormData) {
     setError(null);
 
+    if (itensIncompletos()) {
+      setError("Preencha o EPI e o motivo de todos os itens.");
+      return;
+    }
+
+    const colaboradorId = String(formData.get("colaborador_id") ?? "");
+    const data = String(formData.get("data") ?? "");
+    const hora = String(formData.get("hora") ?? "");
+
     if (modoAssinatura === "estacao") {
-      const colaboradorId = String(formData.get("colaborador_id") ?? "");
-      const epiIdForm = String(formData.get("epi_id") ?? "");
       const colaboradorNome =
         colaboradores.find((c) => c.id === colaboradorId)?.nome ?? "";
-      const epiNome = epis.find((e) => e.id === epiIdForm)?.nome ?? "";
+      // Resumo com um item por linha — a estação (tablet) mostra isso
+      // literalmente na tela antes de pedir a assinatura (ver
+      // src/app/estacao/page.tsx, classe whitespace-pre-line), pra quem vai
+      // assinar conseguir conferir TUDO que está recebendo, não só o
+      // primeiro item.
+      const epiNomeResumo = itens
+        .map((i) => {
+          const epi = epis.find((e) => e.id === i.epiId);
+          return `${epi?.nome ?? "EPI"}${epi?.ca ? ` — C.A. ${epi.ca}` : ""} · ${i.quantidade} un.`;
+        })
+        .join("\n");
 
-      if (!colaboradorId || !epiIdForm || !estacaoId) {
-        setError("Selecione colaborador, EPI e a estação.");
+      if (!colaboradorId || !estacaoId) {
+        setError("Selecione colaborador e a estação.");
         return;
       }
 
@@ -133,7 +185,8 @@ export function RegistrarEntregaButton({
         const result = await criarSolicitacaoAssinatura({
           estacaoId,
           colaboradorNome,
-          epiNome,
+          epiNome: epiNomeResumo,
+          tipo: "entrega",
         });
         if (result.error || !result.id) {
           setError(result.error ?? "Não foi possível enviar pra estação.");
@@ -143,11 +196,13 @@ export function RegistrarEntregaButton({
           solicitacaoId: result.id,
           campos: {
             colaborador_id: colaboradorId,
-            epi_id: epiIdForm,
-            motivo: String(formData.get("motivo") ?? ""),
-            quantidade: String(formData.get("quantidade") ?? "1"),
-            data: String(formData.get("data") ?? ""),
-            hora: String(formData.get("hora") ?? ""),
+            data,
+            hora,
+            itens: itens.map((i) => ({
+              epiId: i.epiId,
+              motivo: i.motivo,
+              quantidade: i.quantidade,
+            })),
           },
         });
       });
@@ -155,7 +210,23 @@ export function RegistrarEntregaButton({
     }
 
     startTransition(async () => {
-      const result = await registrarEntrega({ error: null }, formData);
+      const fd = new FormData();
+      fd.set("colaborador_id", colaboradorId);
+      fd.set("data", data);
+      fd.set("hora", hora);
+      fd.set(
+        "itens",
+        JSON.stringify(
+          itens.map((i) => ({
+            epi_id: i.epiId,
+            motivo: i.motivo,
+            quantidade: i.quantidade,
+          })),
+        ),
+      );
+      fd.set("assinatura_url", String(formData.get("assinatura_url") ?? ""));
+
+      const result = await registrarEntrega({ error: null }, fd);
       if (result.error) {
         setError(result.error);
         return;
@@ -163,7 +234,7 @@ export function RegistrarEntregaButton({
       setOpen(false);
       setFormKey((k) => k + 1);
       setAssinaturaColetada(false);
-      resetCamposEstoque();
+      resetarItens();
     });
   }
 
@@ -184,11 +255,18 @@ export function RegistrarEntregaButton({
         clearInterval(id);
         const fd = new FormData();
         fd.set("colaborador_id", pedidoPendente.campos.colaborador_id);
-        fd.set("epi_id", pedidoPendente.campos.epi_id);
-        fd.set("motivo", pedidoPendente.campos.motivo);
-        fd.set("quantidade", pedidoPendente.campos.quantidade);
         fd.set("data", pedidoPendente.campos.data);
         fd.set("hora", pedidoPendente.campos.hora);
+        fd.set(
+          "itens",
+          JSON.stringify(
+            pedidoPendente.campos.itens.map((i) => ({
+              epi_id: i.epiId,
+              motivo: i.motivo,
+              quantidade: i.quantidade,
+            })),
+          ),
+        );
         fd.set("assinatura_url", result.assinaturaUrl);
 
         const final = await registrarEntrega({ error: null }, fd);
@@ -202,7 +280,7 @@ export function RegistrarEntregaButton({
         setFormKey((k) => k + 1);
         setPedidoPendente(null);
         setAssinaturaColetada(false);
-        resetCamposEstoque();
+        resetarItens();
       } else if (result.status === "cancelado" || result.status === "expirado") {
         clearInterval(id);
         setError("O pedido de assinatura foi cancelado.");
@@ -238,8 +316,11 @@ export function RegistrarEntregaButton({
               …
             </p>
             <p className="text-[13px] text-text-secondary">
-              Peça pro colaborador assinar no aparelho. Esta tela completa o
-              registro sozinha assim que a assinatura chegar.
+              Peça pro colaborador assinar no aparelho, confirmando os{" "}
+              {pedidoPendente.campos.itens.length}{" "}
+              {pedidoPendente.campos.itens.length > 1 ? "itens" : "item"}.
+              Esta tela completa o registro sozinha assim que a assinatura
+              chegar.
             </p>
             {error && (
               <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-text">
@@ -281,88 +362,117 @@ export function RegistrarEntregaButton({
             </select>
           </div>
 
-          <div>
-            <label
-              htmlFor="entrega-epi"
-              className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary"
-            >
-              EPI
+          <div className="space-y-3">
+            <label className="block text-[12.5px] font-semibold text-text-secondary">
+              Itens da entrega
             </label>
-            <select
-              id="entrega-epi"
-              name="epi_id"
-              required
-              value={epiId}
-              onChange={(e) => handleEpiChange(e.target.value)}
-              className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+
+            {itens.map((item, index) => (
+              <div
+                key={item.key}
+                className="space-y-3 rounded-lg border border-border-strong bg-surface-muted/40 p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11.5px] font-semibold uppercase tracking-wide text-text-muted">
+                    Item {index + 1}
+                  </span>
+                  {itens.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removerItem(item.key)}
+                      className="text-[12px] font-semibold text-danger-text hover:underline"
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary">
+                    EPI
+                  </label>
+                  <select
+                    required
+                    value={item.epiId}
+                    onChange={(e) => handleItemEpiChange(item.key, e.target.value)}
+                    className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  >
+                    <option value="" disabled>
+                      Selecione…
+                    </option>
+                    {epis.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.nome}
+                        {e.ca ? ` — C.A. ${e.ca}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-[1fr_auto] gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary">
+                      Motivo
+                    </label>
+                    <select
+                      required
+                      value={item.motivo}
+                      onChange={(e) =>
+                        atualizarItem(item.key, { motivo: e.target.value })
+                      }
+                      className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    >
+                      <option value="" disabled>
+                        Selecione…
+                      </option>
+                      {MOTIVOS.map(([valor, label]) => (
+                        <option key={valor} value={valor}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary">
+                      Quantidade
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      required
+                      value={item.quantidade}
+                      onChange={(e) =>
+                        atualizarItem(item.key, {
+                          quantidade: Number(e.target.value) || 1,
+                        })
+                      }
+                      className="w-20 rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    />
+                  </div>
+                </div>
+
+                {item.saldoAtual !== null && item.quantidade > item.saldoAtual && (
+                  <p className="rounded-lg bg-warning-bg px-3.5 py-2.5 text-[12.5px] text-warning-text">
+                    Estoque atual deste EPI: {item.saldoAtual}. Registrar{" "}
+                    {item.quantidade}{" "}
+                    {item.quantidade > 1 ? "unidades" : "unidade"} deixa o
+                    saldo negativo ({item.saldoAtual - item.quantidade}). A
+                    entrega pode ser registrada mesmo assim — ajuste o
+                    estoque depois, se for o caso.
+                  </p>
+                )}
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={adicionarItem}
+              className="w-full rounded-lg border border-dashed border-border-strong px-3.5 py-2.5 text-[12.5px] font-semibold text-brand-700 transition hover:bg-brand-50"
             >
-              <option value="" disabled>
-                Selecione…
-              </option>
-              {epis.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.nome}
-                  {e.ca ? ` — C.A. ${e.ca}` : ""}
-                </option>
-              ))}
-            </select>
+              + Adicionar outro item
+            </button>
           </div>
-
-          <div className="grid grid-cols-[1fr_auto] gap-3">
-            <div>
-              <label
-                htmlFor="entrega-motivo"
-                className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary"
-              >
-                Motivo
-              </label>
-              <select
-                id="entrega-motivo"
-                name="motivo"
-                required
-                defaultValue=""
-                className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              >
-                <option value="" disabled>
-                  Selecione…
-                </option>
-                {MOTIVOS.map(([valor, label]) => (
-                  <option key={valor} value={valor}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor="entrega-quantidade"
-                className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary"
-              >
-                Quantidade
-              </label>
-              <input
-                id="entrega-quantidade"
-                name="quantidade"
-                type="number"
-                min={1}
-                step={1}
-                required
-                value={quantidade}
-                onChange={(e) => setQuantidade(Number(e.target.value) || 1)}
-                className="w-20 rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              />
-            </div>
-          </div>
-
-          {saldoAtual !== null && quantidade > saldoAtual && (
-            <p className="rounded-lg bg-warning-bg px-3.5 py-2.5 text-[12.5px] text-warning-text">
-              Estoque atual deste EPI: {saldoAtual}. Registrar{" "}
-              {quantidade} {quantidade > 1 ? "unidades" : "unidade"} deixa o
-              saldo negativo ({saldoAtual - quantidade}). A entrega pode ser
-              registrada mesmo assim — ajuste o estoque depois, se for o
-              caso.
-            </p>
-          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -477,7 +587,11 @@ export function RegistrarEntregaButton({
             </button>
             <button
               type="submit"
-              disabled={pending || (precisaAssinaturaLocal && !assinaturaColetada)}
+              disabled={
+                pending ||
+                (precisaAssinaturaLocal && !assinaturaColetada) ||
+                itensIncompletos()
+              }
               className="rounded-lg bg-brand-700 px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending ? "Salvando..." : "Registrar entrega"}

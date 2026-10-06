@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { getUsuarioDaEmpresa } from "@/lib/data/usuarios";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   listLogsPorUsuario,
   descreverLogAuditoria,
@@ -71,12 +72,10 @@ export default async function HistoricoUsuarioPage({
   if (!user || user.papel !== "admin" || !user.empresaId) {
     return (
       <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">
-          Acesso restrito
-        </h2>
-        <p className="text-[13px] text-text-secondary">
-          Esta página é exclusiva do administrador da empresa.
-        </p>
+        <PageHeader
+          title="Acesso restrito"
+          description="Esta página é exclusiva do administrador da empresa."
+        />
       </div>
     );
   }
@@ -89,7 +88,7 @@ export default async function HistoricoUsuarioPage({
     const admin = createAdminClient();
     const [alvoResult, logsResult] = await Promise.all([
       getUsuarioDaEmpresa(id, user.empresaId),
-      listLogsPorUsuario(admin, id, { page }),
+      listLogsPorUsuario(admin, id, user.empresaId, { page }),
     ]);
     alvo = alvoResult;
     logs = logsResult.logs;
@@ -104,9 +103,7 @@ export default async function HistoricoUsuarioPage({
   if (erroConfiguracao) {
     return (
       <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">
-          Histórico
-        </h2>
+        <PageHeader title="Histórico" />
         <p className="mt-4 max-w-md rounded-lg bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-text">
           Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY
           ausente no Vercel). Adicione essa variável de ambiente em
@@ -136,14 +133,10 @@ export default async function HistoricoUsuarioPage({
         >
           ← Usuários
         </Link>
-        <h2 className="text-xl font-bold tracking-tight text-foreground">
-          Usuário não encontrado
-        </h2>
-        <p className="max-w-md text-[13px] text-text-secondary">
-          Este usuário não existe mais ou não pertence à sua empresa. Ele pode
-          ter sido excluído definitivamente — nesse caso, o histórico de
-          ações dele deixa de ficar disponível.
-        </p>
+        <PageHeader
+          title="Usuário não encontrado"
+          description="Este usuário não existe mais ou não pertence à sua empresa. Ele pode ter sido excluído definitivamente — nesse caso, o histórico de ações dele deixa de ficar disponível."
+        />
       </div>
     );
   }
@@ -157,13 +150,10 @@ export default async function HistoricoUsuarioPage({
         ← Usuários
       </Link>
 
-      <h2 className="text-xl font-bold tracking-tight text-foreground">
-        Histórico de ações
-      </h2>
-      <p className="mb-5 text-[13px] text-text-secondary">
-        Tudo que esta pessoa fez dentro do MorSafe, mais recente primeiro —
-        pra rastreabilidade e conformidade.
-      </p>
+      <PageHeader
+        title="Histórico de ações"
+        description="Tudo que esta pessoa fez dentro do MorSafe, mais recente primeiro — pra rastreabilidade e conformidade."
+      />
 
       <div className="overflow-hidden rounded-[14px] border border-border-subtle bg-surface">
         <div

@@ -272,6 +272,17 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
 export async function listLogsPorUsuario(
   supabase: SupabaseClient<Database>,
   usuarioId: string,
+  // empresaId é obrigatório (não opcional) de propósito — ver auditoria de
+  // isolamento entre empresas, 06/10/2026: antes, esta função filtrava só
+  // por `usuario`, sem `empresa_id` nenhum, e só não vazava dado de outra
+  // empresa porque sua ÚNICA chamadora (historico/page.tsx) descartava o
+  // resultado se o usuário-alvo não fosse confirmado da mesma empresa de
+  // quem está vendo. Essa era uma barreira correta ali, mas vivia inteira
+  // fora desta função — qualquer futura chamada daqui que não replicasse
+  // exatamente a mesma checagem vazaria histórico de outra empresa por
+  // UUID adivinhado. Exigir empresaId no parâmetro torna a barreira parte
+  // da própria função, não uma convenção que depende de quem chama lembrar.
+  empresaId: string,
   { page = 1, pageSize = HISTORICO_PAGE_SIZE }: { page?: number; pageSize?: number } = {},
 ): Promise<{ logs: LogAuditoriaItem[]; total: number }> {
   const currentPage = page > 0 ? page : 1;
@@ -284,6 +295,7 @@ export async function listLogsPorUsuario(
       count: "exact",
     })
     .eq("usuario", usuarioId)
+    .eq("empresa_id", empresaId)
     .order("criado_em", { ascending: false })
     .range(from, to);
 

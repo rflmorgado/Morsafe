@@ -347,11 +347,11 @@ export async function getColaboradorDetalhe(
   // (usuarios via criado_por) vão pra ficha em PDF — ver comentário em
   // ficha/route.ts sobre por que isso importa numa eventual ação
   // trabalhista: "data"/"hora" são digitados no formulário, criado_em não.
-  const [entregas, devolucoes, recusas] = await Promise.all([
+  const [entregasRes, devolucoes, recusas] = await Promise.all([
     supabase
       .from("entregas")
       .select(
-        "id, data, hora, motivo, quantidade, assinatura_url, criado_em, epis ( nome, ca ), usuarios ( nome )",
+        "id, data, hora, motivo, quantidade, assinatura_url, criado_em, grupo_entrega_id, epis ( nome, ca ), usuarios ( nome )",
       )
       .eq("colaborador_id", id)
       .order("data", { ascending: false }),
@@ -371,6 +371,28 @@ export async function getColaboradorDetalhe(
       .order("data", { ascending: false }),
   ]);
 
+  // grupo_entrega_id é coluna nova (ver morsafe-add-grupo-entrega.sql) e,
+  // enquanto o acesso ao Supabase do Rafael continuar bloqueado (sem como
+  // aplicar a migração — 06/10/2026), ela ainda não existe em produção.
+  // Mesmo raciocínio de getLimiteColaboradores em lib/data/empresas.ts: sem
+  // este fallback, a consulta INTEIRA falhava (erro de "coluna não existe"
+  // na mesma query que busca todo o histórico de entregas), derrubando a
+  // ficha e a página do colaborador por completo — não só o agrupamento.
+  // Detecta especificamente esse erro e refaz a mesma busca sem a coluna: a
+  // ficha volta a funcionar normalmente (sem agrupamento, como sempre foi)
+  // até a migração ser aplicada, sem precisar mexer em mais nada depois.
+  let entregasData = entregasRes.data;
+  if (entregasRes.error && /grupo_entrega_id/i.test(entregasRes.error.message ?? "")) {
+    const retry = await supabase
+      .from("entregas")
+      .select(
+        "id, data, hora, motivo, quantidade, assinatura_url, criado_em, epis ( nome, ca ), usuarios ( nome )",
+      )
+      .eq("colaborador_id", id)
+      .order("data", { ascending: false });
+    entregasData = (retry.data ?? []).map((e) => ({ ...e, grupo_entrega_id: null }));
+  }
+
   type Evento = {
     id: string;
     tipo: "entrega" | "devolucao" | "recusa";
@@ -386,6 +408,11 @@ export async function getColaboradorDetalhe(
     // Só entrega e devolução têm quantidade (na devolução, vem da entrega
     // vinculada — ver comentário em EntregaEmPosse, lib/data/movimentacoes.ts).
     quantidade?: number;
+    // Só entrega tem — amarra vários eventos de entrega que vieram do mesmo
+    // pedido no formulário (ver morsafe-add-grupo-entrega.sql). Usada só na
+    // ficha em PDF (ficha/route.ts) pra agrupar visualmente itens entregues
+    // juntos, com uma assinatura só, em vez de N linhas quase idênticas.
+    grupoEntregaId?: string | null;
     // Quem registrou (usuarios.nome via criado_por) e quando, de verdade —
     // ver comentário acima sobre criado_em. null só em registros muito
     // antigos, de antes dessas colunas existirem.
@@ -394,7 +421,7 @@ export async function getColaboradorDetalhe(
   };
 
   const eventos: Evento[] = [
-    ...(entregas.data ?? []).map((e) => ({
+    ...(entregasData ?? []).map((e) => ({
       id: `entrega-${e.id}`,
       tipo: "entrega" as const,
       data: e.data,
@@ -403,6 +430,7 @@ export async function getColaboradorDetalhe(
       detalhe: MOTIVO_ENTREGA_LABEL[e.motivo] ?? e.motivo,
       assinaturaUrl: e.assinatura_url,
       quantidade: e.quantidade,
+      grupoEntregaId: e.grupo_entrega_id,
       responsavelNome: (e.usuarios as unknown as { nome: string } | null)?.nome ?? null,
       criadoEm: e.criado_em,
     })),

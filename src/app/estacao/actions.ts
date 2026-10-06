@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { gerarTokenEstacao } from "@/lib/estacao-assinatura/tokens";
+import type { TipoSolicitacaoAssinatura } from "@/types/database";
 
 /**
  * Todas as actions deste arquivo rodam SEM usuário logado — quem chama é o
@@ -92,6 +93,9 @@ export type SolicitacaoPendente = {
   colaboradorNome: string;
   epiNome: string;
   criadoEm: string;
+  // Decide só o texto mostrado na tela de assinatura (ver estacao/page.tsx)
+  // — "Confirmação de recebimento" (entrega) vs "Confirmação de devolução".
+  tipo: TipoSolicitacaoAssinatura;
 };
 
 export type BuscarSolicitacaoResult =
@@ -140,7 +144,7 @@ export async function buscarSolicitacaoPendente(
 
   const { data: pendente } = await supabase
     .from("solicitacoes_assinatura")
-    .select("id, colaborador_nome, epi_nome, criado_em")
+    .select("id, colaborador_nome, epi_nome, criado_em, tipo")
     .eq("estacao_id", estacao.id)
     .eq("status", "aguardando")
     .order("criado_em", { ascending: true })
@@ -156,6 +160,10 @@ export async function buscarSolicitacaoPendente(
           colaboradorNome: pendente.colaborador_nome,
           epiNome: pendente.epi_nome,
           criadoEm: pendente.criado_em,
+          // Pedidos criados antes desta coluna existir não têm valor —
+          // trata como "entrega" (era o único tipo possível até agora),
+          // nunca deixa a tela sem saber o que mostrar.
+          tipo: pendente.tipo ?? "entrega",
         }
       : null,
   };

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { AuditoriaNr06, RespostasAuditoria } from "./auditorias-nr06-perguntas";
+import { contarNaoConformidades } from "./auditorias-nr06-perguntas";
 
 export type {
   AuditoriaNr06,
@@ -62,6 +63,50 @@ export type SetorComStatusAuditoria = {
   nome: string;
   ultimaAuditoria: AuditoriaNr06 | null;
 };
+
+// Prazo de referência pra sinalizar que a auditoria de campo (checklist) de
+// um setor está desatualizada e merece ser refeita — pedido do Rafael,
+// 06/10/2026. A NR-06 em si NÃO fixa periodicidade pra esse checklist (só
+// define obrigações de fornecer/orientar/registrar entrega, ver comentário
+// no topo de lib/data/auditoria-registros.ts) — 12 meses é o ciclo mínimo de
+// revisão do PGR sob a NR-01 (gerenciamento de risco, do qual o uso de EPI é
+// um controle), adotado aqui como referência prática mais comum entre
+// empresas, não como exigência normativa fechada. Nada impede rodar a
+// auditoria antes disso — o alerta é só um lembrete de que já passou o
+// prazo "padrão" de revisão, igual é explicado nas telas (ver
+// checklist-campo-tab.tsx e auditoria/relatorio/route.ts).
+export const REVISAO_AUDITORIA_MESES = 12;
+const REVISAO_AUDITORIA_DIAS = 365; // ~12 meses
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+export type SituacaoAuditoriaSetor =
+  | "nunca_auditado"
+  | "pendente"
+  | "vencida"
+  | "conforme";
+
+/**
+ * Situação de UM setor em relação ao checklist de campo, cruzando duas
+ * coisas independentes: se a última auditoria encontrou alguma
+ * não-conformidade (campo pendente, sempre o mais urgente, não importa a
+ * data) e se já passou do prazo de revisão (REVISAO_AUDITORIA_DIAS) mesmo
+ * sem nenhuma não-conformidade registrada (setor "vencido" — já era
+ * conforme, mas pede uma nova olhada). Centralizado aqui (em vez de
+ * recalculado em cada tela) pra garantir que checklist-campo-tab.tsx e o
+ * Relatório em PDF (auditoria/relatorio/route.ts) nunca divirjam no que
+ * conta como "vencido".
+ */
+export function calcularSituacaoAuditoriaSetor(
+  ultimaAuditoria: AuditoriaNr06 | null,
+): SituacaoAuditoriaSetor {
+  if (!ultimaAuditoria) return "nunca_auditado";
+  if (contarNaoConformidades(ultimaAuditoria.respostas) > 0) return "pendente";
+  const diasDesde = Math.floor(
+    (Date.now() - new Date(`${ultimaAuditoria.data}T00:00:00`).getTime()) /
+      DIA_MS,
+  );
+  return diasDesde > REVISAO_AUDITORIA_DIAS ? "vencida" : "conforme";
+}
 
 /**
  * Todos os setores da empresa, cada um com a sua auditoria mais recente (se

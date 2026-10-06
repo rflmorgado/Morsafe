@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { listEpis, type Epi } from "./epis";
+import { listEpis, listEpisParaExportar, type Epi } from "./epis";
 
 export const ESTOQUE_PAGE_SIZE = 20;
 export const ENTRADAS_ESTOQUE_PAGE_SIZE = 10;
@@ -114,6 +114,92 @@ export async function listEstoquePorEpi({
   });
 
   return { itens, total };
+}
+
+export type ItemReposicao = {
+  id: string;
+  nome: string;
+  tipo: string | null;
+  ca: string | null;
+  saldoAtual: number;
+  limiteAlerta: number;
+  quantidadeComprar: number;
+  custoMedioAtual: number;
+  custoEstimado: number;
+};
+
+/**
+ * Itens de EPI com saldo abaixo do "Limite de alerta" configurado (ver
+ * editar-limite-button.tsx) — pedido do Rafael, 06/10/2026: empresas
+ * costumam contar o estoque no fim do mês e fazer a solicitação de compra
+ * pro mês seguinte com base num estoque mínimo ("nosso teto", nas palavras
+ * dele); esta lista já traz pronto quanto comprar de cada EPI pra voltar a
+ * esse nível, e um custo estimado (quantidade × custo médio atual) pra
+ * ajudar a dimensionar o pedido de compra.
+ *
+ * Reaproveita listEpisParaExportar (sem paginação, só EPIs ativos,
+ * ordenados por nome) em vez de listEpis — é uma lista de reposição, não
+ * uma tela paginada: precisa comparar TODOS os EPIs ativos de uma vez, não
+ * só os 20 de uma página. Mesmo motivo de listEstoquePorEpi pra buscar
+ * `estoque` à parte e juntar em memória por epi_id: `database.ts` não tem a
+ * FK declarada do lado de `epis` (ver comentário lá em cima).
+ */
+export async function listItensParaReporEstoque(
+  empresaId: string | null,
+): Promise<ItemReposicao[]> {
+  if (!empresaId) return [];
+
+  const epis = await listEpisParaExportar({
+    empresaId,
+    status: "ativo",
+    sort: "nome",
+    dir: "asc",
+  });
+
+  if (epis.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data: linhasEstoque, error } = await supabase
+    .from("estoque")
+    .select("epi_id, saldo_atual, limite_alerta")
+    .eq("empresa_id", empresaId)
+    .in(
+      "epi_id",
+      epis.map((e) => e.id),
+    );
+
+  if (error) {
+    console.error("listItensParaReporEstoque:", error.message);
+  }
+
+  const porEpiId = new Map((linhasEstoque ?? []).map((l) => [l.epi_id, l]));
+
+  const itens: ItemReposicao[] = [];
+  for (const e of epis) {
+    const linha = porEpiId.get(e.id);
+    const saldoAtual = linha?.saldo_atual ?? SALDO_PADRAO;
+    const limiteAlerta = linha?.limite_alerta ?? LIMITE_ALERTA_PADRAO;
+    // Só entra na lista quem está de fato abaixo do limite — um item
+    // exatamente NO limite não precisa de compra nenhuma (quantidade 0),
+    // então fica de fora (continua aparecendo em /estoque, destacado em
+    // laranja, só não entra nesta lista de reposição).
+    const quantidadeComprar = limiteAlerta - saldoAtual;
+    if (quantidadeComprar <= 0) continue;
+
+    itens.push({
+      id: e.id,
+      nome: e.nome,
+      tipo: e.tipo,
+      ca: e.ca,
+      saldoAtual,
+      limiteAlerta,
+      quantidadeComprar,
+      custoMedioAtual: e.custoMedioAtual,
+      custoEstimado: quantidadeComprar * e.custoMedioAtual,
+    });
+  }
+
+  return itens;
 }
 
 export type EstoqueStatusCounts = {

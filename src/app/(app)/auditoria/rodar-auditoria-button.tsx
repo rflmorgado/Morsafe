@@ -35,6 +35,10 @@ const OPCOES_RESPOSTA: {
   },
 ];
 
+const VALORES_RESPOSTA_VALIDOS = new Set(
+  OPCOES_RESPOSTA.map((o) => o.valor as string),
+);
+
 export function RodarAuditoriaButton({
   setorId,
   setorNome,
@@ -53,16 +57,45 @@ export function RodarAuditoriaButton({
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Chaves das perguntas (ver PERGUNTAS_AUDITORIA_NR06) ainda sem resposta
+  // na última tentativa de salvar — usado só pra destacar visualmente qual
+  // pergunta falta responder (ver renderização abaixo). Pedido do Rafael,
+  // 06/10/2026: sem isso, uma pergunta esquecida virava silenciosamente a
+  // mesma coisa que "N/A" no banco, sem nenhum aviso.
+  const [perguntasFaltando, setPerguntasFaltando] = useState<Set<string>>(
+    new Set(),
+  );
   const [pending, startTransition] = useTransition();
   const [formKey, setFormKey] = useState(0);
 
   function handleClose() {
     setOpen(false);
     setError(null);
+    setPerguntasFaltando(new Set());
   }
 
   function handleSubmit(formData: FormData) {
     setError(null);
+
+    // Validação no navegador — resposta imediata, sem round-trip ao
+    // servidor. A mesma checagem é refeita em rodarAuditoria (actions.ts)
+    // como segunda camada, nunca confiando só nisto aqui.
+    const faltando = PERGUNTAS_AUDITORIA_NR06.filter(
+      (p) => !VALORES_RESPOSTA_VALIDOS.has(String(formData.get(p.chave) ?? "")),
+    );
+    if (faltando.length > 0) {
+      setPerguntasFaltando(new Set(faltando.map((p) => p.chave)));
+      setError(
+        faltando.length === 1
+          ? `Responda a pergunta "${faltando[0].pergunta}" antes de salvar (marque Sim, Não ou N/A).`
+          : `Responda todas as perguntas antes de salvar — faltam ${faltando.length}: ${faltando
+              .map((p) => `"${p.pergunta}"`)
+              .join(", ")}.`,
+      );
+      return;
+    }
+    setPerguntasFaltando(new Set());
+
     startTransition(async () => {
       const result = await rodarAuditoria({ error: null }, formData);
       if (result.error) {
@@ -106,10 +139,10 @@ export function RodarAuditoriaButton({
           <input type="hidden" name="setor_id" value={setorId} />
 
           <p className="rounded-lg bg-surface-muted px-3.5 py-2.5 text-[12.5px] text-text-secondary">
-            Responda o que for possível avaliar agora — deixe em “N/A” o que
-            não se aplica a este setor hoje. Uma resposta “Não” fica marcada
-            como pendência no histórico, mas não impede o registro da
-            auditoria.
+            Responda todas as perguntas antes de salvar — marque “N/A” o que
+            não se aplica a este setor hoje (não dá pra deixar em branco).
+            Uma resposta “Não” fica marcada como pendência no histórico, mas
+            não impede o registro da auditoria.
           </p>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -147,30 +180,60 @@ export function RodarAuditoriaButton({
           </div>
 
           <div className="space-y-3">
-            {PERGUNTAS_AUDITORIA_NR06.map((p) => (
-              <div key={p.chave}>
-                <p className="mb-1.5 text-[12.5px] font-medium text-foreground">
-                  {p.pergunta}
-                </p>
-                <div className="flex gap-2">
-                  {OPCOES_RESPOSTA.map((opcao) => (
-                    <label key={opcao.valor} className="flex-1">
-                      <input
-                        type="radio"
-                        name={p.chave}
-                        value={opcao.valor}
-                        className="peer sr-only"
-                      />
-                      <span
-                        className={`block cursor-pointer rounded-lg border border-border-strong py-1.5 text-center text-[12px] font-semibold text-text-secondary transition hover:bg-surface-muted ${opcao.classeSelecionada}`}
-                      >
-                        {opcao.label}
+            {PERGUNTAS_AUDITORIA_NR06.map((p) => {
+              const faltando = perguntasFaltando.has(p.chave);
+              return (
+                <div
+                  key={p.chave}
+                  className={
+                    faltando
+                      ? "rounded-lg border border-danger-text/50 bg-danger-bg/40 p-2.5"
+                      : undefined
+                  }
+                >
+                  <p
+                    className={`mb-1.5 text-[12.5px] font-medium ${
+                      faltando ? "text-danger-text" : "text-foreground"
+                    }`}
+                  >
+                    {p.pergunta}
+                    {faltando && (
+                      <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-wide">
+                        — não respondida
                       </span>
-                    </label>
-                  ))}
+                    )}
+                  </p>
+                  <div className="flex gap-2">
+                    {OPCOES_RESPOSTA.map((opcao) => (
+                      <label key={opcao.valor} className="flex-1">
+                        <input
+                          type="radio"
+                          name={p.chave}
+                          value={opcao.valor}
+                          className="peer sr-only"
+                          // Some o destaque assim que a pessoa escolhe uma
+                          // opção pra essa pergunta específica — sem esperar
+                          // um novo clique em "Registrar auditoria".
+                          onChange={() => {
+                            setPerguntasFaltando((prev) => {
+                              if (!prev.has(p.chave)) return prev;
+                              const next = new Set(prev);
+                              next.delete(p.chave);
+                              return next;
+                            });
+                          }}
+                        />
+                        <span
+                          className={`block cursor-pointer rounded-lg border border-border-strong py-1.5 text-center text-[12px] font-semibold text-text-secondary transition hover:bg-surface-muted ${opcao.classeSelecionada}`}
+                        >
+                          {opcao.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div>

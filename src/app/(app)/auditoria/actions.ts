@@ -15,17 +15,21 @@ const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 export type RodarAuditoriaState = { error: string | null; success?: boolean };
 
 /**
- * "sim" -> true, "nao" -> false, qualquer outra coisa (campo não marcado,
- * ou "na") -> null. A coluna no banco é boolean nullable pros dois casos
- * ("não avaliado" e "não se aplica") — o formulário não precisa distinguir
- * um do outro, só precisa garantir que uma resposta "Não" explícita nunca
- * vire null por engano.
+ * "sim" -> true, "nao" -> false, "na" -> null. A coluna no banco é boolean
+ * nullable só pro caso "não se aplica" — um campo de verdade NÃO MARCADO
+ * nunca chega até aqui: a validação logo abaixo (ver perguntasSemResposta,
+ * em rodarAuditoria) já recusa o registro antes disso, pedido do Rafael,
+ * 06/10/2026 ("garantir que todas as perguntas sejam respondidas"). Mantida
+ * como fallback pra null mesmo assim, por segurança (nunca confiar só na
+ * validação de uma camada pra decidir o que grava no banco).
  */
 function paraBooleano(valor: FormDataEntryValue | null): boolean | null {
   if (valor === "sim") return true;
   if (valor === "nao") return false;
   return null;
 }
+
+const RESPOSTAS_VALIDAS = new Set(["sim", "nao", "na"]);
 
 /**
  * Registra uma rodada do checklist de auditoria de NR-06 num setor — as 8
@@ -61,6 +65,27 @@ export async function rodarAuditoria(
   }
   if (!responsavel) {
     return { error: "Informe o responsável pela auditoria." };
+  }
+
+  // Garante que NENHUMA das 8 perguntas ficou em branco — pedido do
+  // Rafael, 06/10/2026: sem isso, uma pergunta esquecida virava silenciosamente
+  // a mesma coisa que "N/A" no banco (ambas null, ver paraBooleano acima), sem
+  // nenhum aviso de que faltou responder. O formulário (rodar-auditoria-
+  // button.tsx) já bloqueia isso no navegador antes de chegar aqui; esta
+  // checagem é a segunda camada, caso o formulário seja enviado de outro
+  // jeito (nunca confiar só em validação do lado do cliente).
+  const perguntasSemResposta = PERGUNTAS_AUDITORIA_NR06.filter(
+    (p) => !RESPOSTAS_VALIDAS.has(String(formData.get(p.chave) ?? "")),
+  );
+  if (perguntasSemResposta.length > 0) {
+    return {
+      error:
+        perguntasSemResposta.length === 1
+          ? `Responda a pergunta "${perguntasSemResposta[0].pergunta}" antes de salvar (marque Sim, Não ou N/A).`
+          : `Responda todas as perguntas antes de salvar — faltam ${perguntasSemResposta.length}: ${perguntasSemResposta
+              .map((p) => `"${p.pergunta}"`)
+              .join(", ")}.`,
+    };
   }
 
   const user = await getCurrentUser();

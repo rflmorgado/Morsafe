@@ -78,10 +78,12 @@ export const NAV_ITEMS: NavItem[] = [
     section: "operacao",
   },
   {
+    // Saiu de "Em breve" em 06/10/2026 — tela própria de consumo de EPI
+    // (ver src/app/(app)/relatorios/page.tsx), separada do Relatório (PDF)
+    // da Auditoria NR-06 (que é sobre conformidade do checklist, não gasto).
     label: "Relatórios",
     href: "/relatorios",
-    comingSoon: true,
-    section: "em_breve",
+    section: "operacao",
   },
 ];
 

@@ -584,8 +584,17 @@ export async function createColaborador(
     .single();
 
   if (error || !novo) {
+    // 23505 = unique_violation no Postgres — mesma constraint unique
+    // (empresa_id, cpf) já tratada em importarColaboradores (ver abaixo
+    // neste arquivo); faltava só aqui, no cadastro de um colaborador por
+    // vez, que até então mostrava a mesma mensagem genérica de qualquer
+    // outra falha (ver auditoria de 06/10/2026).
+    const mensagem =
+      error?.code === "23505"
+        ? "CPF já cadastrado em outro colaborador desta empresa."
+        : "Não foi possível salvar o colaborador. Tente novamente.";
     console.error("createColaborador:", error?.message);
-    return { error: "Não foi possível salvar o colaborador. Tente novamente." };
+    return { error: mensagem };
   }
 
   await registrarLogAuditoria({

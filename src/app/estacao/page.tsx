@@ -308,12 +308,19 @@ export default function EstacaoPage() {
       {(fase === "assinando" || fase === "enviando") && solicitacao && (
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-surface p-5 text-left">
           <p className="text-[12.5px] font-semibold uppercase tracking-wide text-text-muted">
-            Confirmação de recebimento de EPI
+            {solicitacao.tipo === "devolucao"
+              ? "Confirmação de devolução de EPI"
+              : "Confirmação de recebimento de EPI"}
           </p>
           <p className="mt-1 text-[17px] font-bold text-foreground">
             {solicitacao.colaboradorNome}
           </p>
-          <p className="text-[13.5px] text-text-secondary">
+          {/* epiNome pode vir com várias linhas (um item por linha) quando a
+              entrega tem mais de um EPI — ver "+ Adicionar outro item" em
+              registrar-entrega-button.tsx. whitespace-pre-line preserva as
+              quebras de linha enviadas pelo PC, sem precisar de nenhuma
+              lista/array nova no banco: é só texto, como sempre foi. */}
+          <p className="whitespace-pre-line text-[13.5px] text-text-secondary">
             {solicitacao.epiNome}
           </p>
 

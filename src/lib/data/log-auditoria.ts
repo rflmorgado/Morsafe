@@ -30,6 +30,7 @@ export const ACAO_LABEL: Record<string, string> = {
   auditoria_registrada: "Auditoria de NR-06 registrada",
   mesclado: "Setor mesclado com outro",
   relatorio_gerado: "Relatório de Auditoria NR-06 gerado",
+  relatorio_consumo_gerado: "Relatório de Consumo de EPI gerado",
 };
 
 export const TABELA_LABEL: Record<string, string> = {
@@ -243,6 +244,12 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
       return indice !== undefined
         ? `Gerou o relatório de Auditoria NR-06 em PDF (índice de controle: ${indice}%)`
         : "Gerou o relatório de Auditoria NR-06 em PDF";
+    }
+    case "relatorio_consumo_gerado": {
+      const valor = item.detalhes?.totalValor as number | undefined;
+      return valor !== undefined
+        ? `Gerou o relatório de Consumo de EPI em PDF (${valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} no período)`
+        : "Gerou o relatório de Consumo de EPI em PDF";
     }
     default:
       return ACAO_LABEL[item.acao] ?? item.acao;

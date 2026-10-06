@@ -122,11 +122,19 @@ export async function registrarEntrega(
     supabase
       .from("colaboradores")
       .select("nome, status")
+      // empresa_id reconfirmado aqui, não só pelo RLS — mesmo raciocínio
+      // de epis/estoque/colaboradores/actions.ts (ver auditoria de
+      // isolamento entre empresas, 06/10/2026): sem isso, um id de
+      // colaborador de OUTRA empresa só dependeria do RLS pra não ser
+      // aceito, e este projeto já teve RLS mal configurado sem policy
+      // mais de uma vez (ver CLAUDE.md regra 2).
+      .eq("empresa_id", empresaId)
       .eq("id", colaboradorId)
       .maybeSingle(),
     supabase
       .from("epis")
       .select("id, nome, ativo, custo_medio_atual")
+      .eq("empresa_id", empresaId)
       .in("id", epiIds),
   ]);
 
@@ -182,7 +190,19 @@ export async function registrarEntrega(
   // sem ela: a entrega continua sendo gravada normalmente, só sem o
   // agrupamento visual na ficha, que passa a funcionar sozinho, sem precisar
   // mexer em mais nada, assim que a migração for aplicada.
-  if (error && /grupo_entrega_id/i.test(error.message ?? "")) {
+  // error.code "42703" é o código padrão do Postgres pra "coluna não
+  // existe" (undefined_column) — mais preciso do que testar um regex no
+  // texto da mensagem (como era antes): um regex casa com QUALQUER erro
+  // que mencione "grupo_entrega_id" no texto (ex.: erro de permissão numa
+  // policy futura que cite essa coluna), o que engoliria silenciosamente
+  // um erro real sem relação com a coluna não existir ainda. Mantém o
+  // teste na mensagem como segunda confirmação, pra não cair num 42703 de
+  // outra coluna qualquer.
+  if (
+    error &&
+    error.code === "42703" &&
+    /grupo_entrega_id/i.test(error.message ?? "")
+  ) {
     const linhasSemGrupo = linhas.map(({ grupo_entrega_id: _grupo, ...resto }) => resto);
     ({ data: novas, error } = await supabase
       .from("entregas")
@@ -283,11 +303,14 @@ export async function registrarDevolucao(
     supabase
       .from("colaboradores")
       .select("nome")
+      // Mesma reconfirmação de empresa_id de registrarEntrega acima.
+      .eq("empresa_id", user.empresaId)
       .eq("id", colaboradorId)
       .maybeSingle(),
     supabase
       .from("entregas")
       .select("colaborador_id, epi_id, quantidade, epis ( nome )")
+      .eq("empresa_id", user.empresaId)
       .eq("id", entregaVinculadaId)
       .maybeSingle(),
   ]);
@@ -412,9 +435,16 @@ export async function registrarRecusa(
     supabase
       .from("colaboradores")
       .select("nome, status")
+      // Mesma reconfirmação de empresa_id de registrarEntrega acima.
+      .eq("empresa_id", user.empresaId)
       .eq("id", colaboradorId)
       .maybeSingle(),
-    supabase.from("epis").select("nome, ativo").eq("id", epiId).maybeSingle(),
+    supabase
+      .from("epis")
+      .select("nome, ativo")
+      .eq("empresa_id", user.empresaId)
+      .eq("id", epiId)
+      .maybeSingle(),
   ]);
 
   if (!colaborador || colaborador.status !== "ativo") {

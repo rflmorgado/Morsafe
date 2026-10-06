@@ -65,6 +65,12 @@ export function ExcluirUsuarioButton({
       }
       setOpen(false);
       setConfirmacao("");
+      // Aviso raro (falha ao remover o login no Supabase Auth, mesmo com o
+      // cadastro já removido do MorSafe) — sem sistema de toast no app,
+      // um alert simples garante que o admin não perca esse aviso.
+      if (result.aviso) {
+        window.alert(result.aviso);
+      }
       router.refresh();
     });
   }

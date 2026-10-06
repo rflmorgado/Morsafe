@@ -75,7 +75,7 @@ export async function updateSession(request: NextRequest) {
   // super_admin (sem empresa_id) o embed vem null, então empresaAtiva fica
   // undefined — nunca bloqueia esse papel.
   if (user && !isPublicPath) {
-    const { data: perfil } = await supabase
+    const { data: perfil, error: perfilError } = await supabase
       .from("usuarios")
       .select("ativo, ultima_atividade, empresas ( ativo )")
       .eq("id", user.id)
@@ -84,6 +84,25 @@ export async function updateSession(request: NextRequest) {
     const empresaAtiva = (
       perfil?.empresas as unknown as { ativo: boolean } | null
     )?.ativo;
+
+    // Autenticado no Supabase Auth mas sem linha correspondente em
+    // `usuarios` (e sem erro de consulta — só ausência real do registro,
+    // não uma falha transitória de rede/banco, que não deve bloquear
+    // ninguém): acontece se a exclusão de um login (ver
+    // excluirUsuarioDefinitivamente/excluirEmpresaPermanentemente, em
+    // usuarios/actions.ts e empresas/actions.ts) apagar a linha em
+    // `usuarios` mas falhar ao apagar o login em auth.users — esse login
+    // continuava autenticável e passava por aqui sem perfil nenhum (fica
+    // só com o default de getCurrentUser: papel "leitura", empresaId
+    // null). Fail-closed: nega acesso em vez de deixar passar sem perfil
+    // (ver auditoria de isolamento entre empresas, 06/10/2026).
+    if (!perfil && !perfilError) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("motivo", "acesso_desativado");
+      return NextResponse.redirect(url);
+    }
 
     if (perfil && perfil.ativo === false) {
       await supabase.auth.signOut();

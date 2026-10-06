@@ -10,7 +10,11 @@ import {
   apurarAuditoriaRegistros,
   type RaioXStatus,
 } from "@/lib/data/auditoria-registros";
-import { listSetoresComStatusAuditoria } from "@/lib/data/auditorias-nr06";
+import {
+  listSetoresComStatusAuditoria,
+  calcularSituacaoAuditoriaSetor,
+  REVISAO_AUDITORIA_MESES,
+} from "@/lib/data/auditorias-nr06";
 import { contarNaoConformidades } from "@/lib/data/auditorias-nr06-perguntas";
 
 const STATUS_LABEL: Record<RaioXStatus, string> = {
@@ -460,12 +464,23 @@ export async function GET(request: Request) {
   // ---- Checklist de campo por setor ----
   sectionTitle("Checklist de campo por setor");
   const totalSetores = setoresChecklist.length;
-  const nuncaAuditados = setoresChecklist.filter((s) => !s.ultimaAuditoria).length;
-  const comPendencia = setoresChecklist.filter(
-    (s) =>
-      s.ultimaAuditoria && contarNaoConformidades(s.ultimaAuditoria.respostas) > 0,
+  // 4 estados (ver calcularSituacaoAuditoriaSetor, em lib/data/auditorias-
+  // nr06.ts): "pendente" (não-conformidade encontrada) é sempre o mais
+  // urgente, independente da data; "vencida" é um setor já conforme, mas
+  // cuja última auditoria passou do prazo de revisão de
+  // REVISAO_AUDITORIA_MESES — mesma lógica usada na aba Checklist de campo
+  // (checklist-campo-tab.tsx), centralizada pra nunca divergir entre as
+  // duas telas.
+  const nuncaAuditados = setoresChecklist.filter(
+    (s) => calcularSituacaoAuditoriaSetor(s.ultimaAuditoria) === "nunca_auditado",
   ).length;
-  const conformes = totalSetores - nuncaAuditados - comPendencia;
+  const comPendencia = setoresChecklist.filter(
+    (s) => calcularSituacaoAuditoriaSetor(s.ultimaAuditoria) === "pendente",
+  ).length;
+  const vencidas = setoresChecklist.filter(
+    (s) => calcularSituacaoAuditoriaSetor(s.ultimaAuditoria) === "vencida",
+  ).length;
+  const conformes = totalSetores - nuncaAuditados - comPendencia - vencidas;
 
   if (totalSetores === 0) {
     ensureSpace(18);
@@ -478,9 +493,20 @@ export async function GET(request: Request) {
     });
     y -= 18;
   } else {
+    drawWrappedText(
+      `Setores com a última auditoria há mais de ${REVISAO_AUDITORIA_MESES} meses aparecem como "Auditoria vencida" — a NR-06 não fixa prazo pra esse checklist; ${REVISAO_AUDITORIA_MESES} meses é o ciclo mínimo de revisão do PGR (NR-01), usado aqui como referência. Nada impede rodar a auditoria antes disso.`,
+      {
+        size: 8.5,
+        font: fontOblique,
+        color: textMuted,
+        lineHeight: 11,
+        maxWidth: pageWidth - marginX * 2,
+      },
+    );
+    y -= 6;
     ensureSpace(16);
     page.drawText(
-      `${conformes} conforme(s) · ${comPendencia} com pendência(s) · ${nuncaAuditados} nunca auditado(s) — de ${totalSetores} setor(es).`,
+      `${conformes} conforme(s) · ${comPendencia} com pendência(s) · ${vencidas} vencida(s) · ${nuncaAuditados} nunca auditado(s) — de ${totalSetores} setor(es).`,
       { x: marginX, y, size: 10, font: fontBold, color: textDark },
     );
     y -= 18;
@@ -491,16 +517,20 @@ export async function GET(request: Request) {
       const pendencias = s.ultimaAuditoria
         ? contarNaoConformidades(s.ultimaAuditoria.respostas)
         : 0;
-      const situacao = !s.ultimaAuditoria
-        ? "Nunca auditado"
-        : pendencias > 0
-          ? `${pendencias} pendência${pendencias === 1 ? "" : "s"}`
-          : "Conforme";
+      const situacao = calcularSituacaoAuditoriaSetor(s.ultimaAuditoria);
+      const situacaoTexto =
+        situacao === "nunca_auditado"
+          ? "Nunca auditado"
+          : situacao === "pendente"
+            ? `${pendencias} pendência${pendencias === 1 ? "" : "s"}`
+            : situacao === "vencida"
+              ? "Auditoria vencida"
+              : "Conforme";
       const detalheData = s.ultimaAuditoria
         ? ` · última auditoria: ${formatDate(s.ultimaAuditoria.data)} (${s.ultimaAuditoria.responsavel})`
         : "";
       const linha = fitSingleLine(
-        `•  ${s.nome} — ${situacao}${detalheData}`,
+        `•  ${s.nome} — ${situacaoTexto}${detalheData}`,
         fontRegular,
         9,
         pageWidth - marginX * 2 - 8,

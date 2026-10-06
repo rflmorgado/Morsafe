@@ -98,7 +98,7 @@ export default async function HistoricoAuditoriaSetorPage({
       <div>
         <Link
           href="/auditoria"
-          className="mb-3 inline-block text-[12.5px] font-semibold text-brand-700 hover:underline"
+          className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-700 hover:underline"
         >
           ← Auditoria NR-06
         </Link>
@@ -120,7 +120,7 @@ export default async function HistoricoAuditoriaSetorPage({
       </div>
 
       {auditorias.length === 0 ? (
-        <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-sm text-text-muted shadow-card">
+        <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
           Nenhuma auditoria registrada ainda para este setor.
         </p>
       ) : (

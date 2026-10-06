@@ -273,6 +273,13 @@ export type ExcluirEmpresaState = {
   resultado?: Partial<
     Record<(typeof TABELAS_EM_ORDEM_EXCLUSAO)[number] | "usuarios", number>
   >;
+  // Preenchido só quando um ou mais logins da empresa excluída não
+  // puderam ser removidos do Supabase Auth (best-effort, ver loop abaixo)
+  // — os cadastros em `usuarios` já saíram, o que de fato revoga o acesso
+  // (ver bloqueio no middleware pra login autenticado sem linha em
+  // `usuarios`), mas esses logins específicos ficam órfãos no painel de
+  // Auth e podem precisar de limpeza manual.
+  avisoLoginsOrfaos?: string;
 };
 
 /**
@@ -338,6 +345,7 @@ export async function excluirEmpresaPermanentemente(
   }
 
   const resultado: ExcluirEmpresaState["resultado"] = {};
+  let avisoLoginsOrfaos: string | undefined;
 
   for (const tabela of TABELAS_EM_ORDEM_EXCLUSAO) {
     const { error, count } = await admin
@@ -422,16 +430,25 @@ export async function excluirEmpresaPermanentemente(
     // pessoa continuaria conseguindo logar, só sem vínculo com empresa
     // nenhuma (um login "fantasma"). Best-effort por usuário: o cadastro em
     // `usuarios` (o que de fato tira o acesso ao sistema) já saiu acima; se
-    // o auth falhar aqui, só loga pra investigar depois um possível login
-    // órfão — mesmo padrão de excluirUsuarioDefinitivamente.
+    // o auth falhar aqui, o middleware ainda bloqueia esse login (ver
+    // ajuste de 06/10/2026 em src/lib/supabase/middleware.ts: autenticado
+    // sem linha em `usuarios` é negado), então não é mais um risco de
+    // acesso — mas conta quantos falharam pra avisar o super_admin, em vez
+    // de só logar silenciosamente (mesmo padrão de
+    // excluirUsuarioDefinitivamente).
+    let loginsOrfaos = 0;
     for (const u of usuariosDaEmpresa) {
       const { error: authError } = await admin.auth.admin.deleteUser(u.id);
       if (authError) {
+        loginsOrfaos++;
         console.error(
           `excluirEmpresaPermanentemente (auth ${u.id}):`,
           authError.message,
         );
       }
+    }
+    if (loginsOrfaos > 0) {
+      avisoLoginsOrfaos = `${loginsOrfaos} de ${usuariosDaEmpresa.length} login(s) desta empresa não puderam ser removidos do sistema de autenticação (ficaram órfãos). Ninguém com esses logins consegue mais acessar o MorSafe, mas avise o suporte pra limpar manualmente no painel do Supabase quando o acesso voltar.`;
     }
   } else {
     resultado.usuarios = 0;
@@ -469,5 +486,5 @@ export async function excluirEmpresaPermanentemente(
   });
 
   revalidatePath("/empresas");
-  return { error: null, resultado };
+  return { error: null, resultado, avisoLoginsOrfaos };
 }

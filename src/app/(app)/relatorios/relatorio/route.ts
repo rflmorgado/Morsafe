@@ -216,6 +216,68 @@ export async function GET(request: Request) {
     y -= rowHeight;
   }
 
+  // Largura útil de uma barrinha proporcional — mesma indentação/largura já
+  // usada nas listas de bullet deste relatório (marginX + 8, até a margem
+  // direita), pra tudo ficar alinhado na mesma coluna.
+  const BAR_MAX_WIDTH = pageWidth - marginX * 2 - 8;
+  const BAR_HEIGHT = 6;
+
+  // Um item de "ranking visual": uma linha de texto (rótulo — valor) seguida
+  // de uma barra proporcional ao maior valor da própria lista — pedido do
+  // Rafael, 06/10/2026 ("fica mais bonito... não parece só uma lista
+  // simples"). A trilha cinza-clara (lineColor) fica sempre inteira atrás, a
+  // barra colorida cresce por cima — mesmo desenho da RankingBars da tela
+  // (ver src/components/ui/ranking-bars.tsx), só que com retângulo liso em
+  // vez de `rounded-full`: pdf-lib não tem canto arredondado nativo em
+  // drawRectangle, e pra uma barra de 6pt de altura o arredondado não faz
+  // diferença perceptível no papel — não vale o risco de um path SVG
+  // desenhado à mão sair torto num documento que pode ir pra impressão.
+  function drawBarItem(params: {
+    label: string;
+    valueLabel: string;
+    value: number;
+    maxValue: number;
+    barColor: ReturnType<typeof rgb>;
+  }) {
+    ensureSpace(13 + BAR_HEIGHT + 9);
+    const linha = fitSingleLine(
+      `${params.label} — ${params.valueLabel}`,
+      fontRegular,
+      9.5,
+      BAR_MAX_WIDTH,
+    );
+    page.drawText(linha, {
+      x: marginX + 8,
+      y,
+      size: 9.5,
+      font: fontRegular,
+      color: textDark,
+    });
+    y -= 11;
+
+    page.drawRectangle({
+      x: marginX + 8,
+      y: y - BAR_HEIGHT,
+      width: BAR_MAX_WIDTH,
+      height: BAR_HEIGHT,
+      color: lineColor,
+    });
+    const barWidth =
+      params.maxValue > 0
+        ? Math.max(3, Math.round((params.value / params.maxValue) * BAR_MAX_WIDTH))
+        : 0;
+    if (barWidth > 0) {
+      page.drawRectangle({
+        x: marginX + 8,
+        y: y - BAR_HEIGHT,
+        width: barWidth,
+        height: BAR_HEIGHT,
+        color: params.barColor,
+      });
+    }
+    y -= BAR_HEIGHT + 9;
+  }
+
   // ---- Cabeçalho (selo MorSafe + logo da empresa, mesmo layout da Auditoria) ----
   const badgeR = 16;
   const badgeCenterX = pageWidth - marginX - badgeR;
@@ -398,42 +460,16 @@ export async function GET(request: Request) {
     });
     y -= 18;
   } else {
-    drawRow([
-      { text: "Setor", x: COLX_MES, width: COLW_MES + 60, font: fontBold, color: textMuted },
-      {
-        text: "Unidades",
-        x: COLX_MES + 60 + COLW_MES,
-        width: 70,
-        align: "right",
-        font: fontBold,
-        color: textMuted,
-      },
-      {
-        text: "Gasto",
-        x: COLX_MES + 130 + COLW_MES,
-        width: pageWidth - marginX - (COLX_MES + 130 + COLW_MES),
-        align: "right",
-        font: fontBold,
-        color: textMuted,
-      },
-    ]);
-    y -= 4;
     const setoresExibidos = r.porSetor.slice(0, MAX_LINHAS_SETOR);
+    const maxSetorValor = Math.max(...setoresExibidos.map((s) => s.valor), 1);
     for (const s of setoresExibidos) {
-      drawRow([
-        {
-          text: `${s.setorNome} (${s.unidadeNome})`,
-          x: COLX_MES,
-          width: COLW_MES + 60,
-        },
-        { text: String(s.quantidade), x: COLX_MES + 60 + COLW_MES, width: 70, align: "right" },
-        {
-          text: formatMoney(s.valor),
-          x: COLX_MES + 130 + COLW_MES,
-          width: pageWidth - marginX - (COLX_MES + 130 + COLW_MES),
-          align: "right",
-        },
-      ]);
+      drawBarItem({
+        label: `${s.setorNome} (${s.unidadeNome})`,
+        valueLabel: `${s.quantidade} un. · ${formatMoney(s.valor)}`,
+        value: s.valor,
+        maxValue: maxSetorValor,
+        barColor: brand,
+      });
     }
     if (r.porSetor.length > MAX_LINHAS_SETOR) {
       ensureSpace(13);
@@ -475,16 +511,16 @@ export async function GET(request: Request) {
     });
     y -= 18;
   } else {
-    for (const t of r.porTipoEpi.slice(0, MAX_LINHAS_TIPO)) {
-      ensureSpace(13);
-      const linha = fitSingleLine(
-        `•  ${t.tipo} — ${t.quantidade} un. · ${formatMoney(t.valor)}`,
-        fontRegular,
-        9.5,
-        pageWidth - marginX * 2 - 8,
-      );
-      page.drawText(linha, { x: marginX + 8, y, size: 9.5, font: fontRegular, color: textDark });
-      y -= 13;
+    const tiposExibidos = r.porTipoEpi.slice(0, MAX_LINHAS_TIPO);
+    const maxTipoValor = Math.max(...tiposExibidos.map((t) => t.valor), 1);
+    for (const t of tiposExibidos) {
+      drawBarItem({
+        label: t.tipo,
+        valueLabel: `${t.quantidade} un. · ${formatMoney(t.valor)}`,
+        value: t.valor,
+        maxValue: maxTipoValor,
+        barColor: brand,
+      });
     }
     if (r.porTipoEpi.length > MAX_LINHAS_TIPO) {
       ensureSpace(13);
@@ -515,17 +551,17 @@ export async function GET(request: Request) {
       `Total comprado: ${r.entradasTotal.quantidade} un. · ${formatMoney(r.entradasTotal.valor)}`,
       { x: marginX, y, size: 10, font: fontBold, color: textDark },
     );
-    y -= 17;
-    for (const t of r.entradasPorTipo.slice(0, MAX_LINHAS_TIPO)) {
-      ensureSpace(13);
-      const linha = fitSingleLine(
-        `•  ${t.tipo} — ${t.quantidade} un. · ${formatMoney(t.valor)}`,
-        fontRegular,
-        9.5,
-        pageWidth - marginX * 2 - 8,
-      );
-      page.drawText(linha, { x: marginX + 8, y, size: 9.5, font: fontRegular, color: textDark });
-      y -= 13;
+    y -= 3;
+    const entradasExibidas = r.entradasPorTipo.slice(0, MAX_LINHAS_TIPO);
+    const maxEntradaValor = Math.max(...entradasExibidas.map((t) => t.valor), 1);
+    for (const t of entradasExibidas) {
+      drawBarItem({
+        label: t.tipo,
+        valueLabel: `${t.quantidade} un. · ${formatMoney(t.valor)}`,
+        value: t.valor,
+        maxValue: maxEntradaValor,
+        barColor: brand,
+      });
     }
     if (r.entradasPorTipo.length > MAX_LINHAS_TIPO) {
       ensureSpace(13);
@@ -565,16 +601,15 @@ export async function GET(request: Request) {
       y -= 6;
     }
     const MOTIVOS_ANOMALOS = new Set(["troca_dano", "perda", "roubo"]);
+    const maxMotivoQtd = Math.max(...r.porMotivo.map((m) => m.quantidade), 1);
     for (const m of r.porMotivo) {
-      ensureSpace(13);
-      page.drawText(`•  ${m.label} — ${m.quantidade} (${m.pct}%)`, {
-        x: marginX + 8,
-        y,
-        size: 9.5,
-        font: fontRegular,
-        color: MOTIVOS_ANOMALOS.has(m.motivo) ? corAnomalo : textDark,
+      drawBarItem({
+        label: m.label,
+        valueLabel: `${m.quantidade} (${m.pct}%)`,
+        value: m.quantidade,
+        maxValue: maxMotivoQtd,
+        barColor: MOTIVOS_ANOMALOS.has(m.motivo) ? corAnomalo : brand,
       });
-      y -= 13;
     }
   }
   y -= 8;

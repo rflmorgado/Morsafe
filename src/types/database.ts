@@ -397,6 +397,13 @@ export interface Database {
           custo_unitario_no_momento: number;
           criado_em: string;
           criado_por: string | null;
+          // Amarra N linhas desta tabela como tendo vindo do MESMO pedido no
+          // formulário (botão "+ Adicionar outro item" em Movimentações) —
+          // ver morsafe-add-grupo-entrega.sql e o comentário em
+          // registrarEntrega (movimentacoes/actions.ts). NULL em todo
+          // registro anterior a essa funcionalidade; não é FK pra nenhuma
+          // tabela, é só um UUID compartilhado.
+          grupo_entrega_id: string | null;
         },
         | "empresa_id"
         | "colaborador_id"

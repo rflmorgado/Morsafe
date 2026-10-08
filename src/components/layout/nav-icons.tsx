@@ -143,6 +143,19 @@ export function IconPagamentos({ className }: NavIconProps) {
   );
 }
 
+// Duas flechas em ciclo — reforça "recorrente", diferente de
+// IconPagamentos (uma fatura só, pra cobrança individual).
+export function IconAssinaturas({ className }: NavIconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+      <path d="M21 4v4h-4" />
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+      <path d="M3 20v-4h4" />
+    </IconBase>
+  );
+}
+
 export function IconEstoque({ className }: NavIconProps) {
   return (
     <IconBase className={className}>
@@ -186,6 +199,7 @@ export const NAV_ICON_BY_HREF: Record<string, ComponentType<NavIconProps>> = {
   "/estacoes": IconEstacoes,
   "/empresa": IconEmpresa,
   "/empresas": IconEmpresas,
+  "/assinaturas": IconAssinaturas,
   "/pagamentos": IconPagamentos,
   "/usuarios": IconUsuarios,
   "/setup-empresa": IconNovaEmpresa,

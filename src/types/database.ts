@@ -134,8 +134,18 @@ export interface Database {
           // assinatura recorrente (ver lib/asaas), null nas que ainda
           // existirem do controle 100% manual anterior. Índice único no
           // banco garante que o webhook nunca duplica linha pro mesmo
-          // pagamento (ver morsafe-add-assinaturas-asaas.sql).
+          // pagamento (ver morsafe-pendentes-supabase-TUDO.sql — o antigo
+          // morsafe-add-assinaturas-asaas.sql citado aqui antes nunca foi
+          // encontrado no repositório ao revisar tudo em 08/10/2026).
           asaas_payment_id: string | null;
+          // Link da fatura hospedada pelo Asaas (Pix/boleto/cartão) — pra
+          // exibir na tela de Cobranças/empresa sem precisar abrir o
+          // painel do Asaas. Gravado na criação da cobrança (ver
+          // criarPagamento e o passo 5 de criarEmpresa) e sincronizado
+          // pelo webhook quando o Asaas manda o campo (ver
+          // morsafe-add-pagamentos-invoice-url.sql). Null em cobrança sem
+          // Asaas por trás (controle 100% manual).
+          asaas_invoice_url: string | null;
           criado_em: string;
         },
         "empresa_id" | "valor" | "data_vencimento",
@@ -181,7 +191,7 @@ export interface Database {
 
       // Dedup dos webhooks do Asaas já processados (campo "id" do
       // payload) — ver comentário completo em
-      // morsafe-add-assinaturas-asaas.sql.
+      // morsafe-pendentes-supabase-TUDO.sql.
       asaas_webhook_events: TableDef<
         {
           evento_id: string;

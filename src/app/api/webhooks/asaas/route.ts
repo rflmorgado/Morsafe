@@ -129,14 +129,25 @@ async function processarEventoPagamento(
   evento: string,
   payment: NonNullable<AsaasWebhookPayload["payment"]>,
 ) {
-  // Acha a empresa pelo asaas_subscription_id (cobrança de assinatura) —
-  // toda cobrança que este webhook trata vem de uma assinatura recorrente
-  // (billingType "UNDEFINED" criado em lib/asaas/client.ts), nunca de uma
-  // cobrança avulsa.
+  const pago = evento === "PAYMENT_CONFIRMED" || evento === "PAYMENT_RECEIVED";
+
+  // payment.subscription só vem preenchido pra cobrança gerada por uma
+  // assinatura recorrente (billingType "UNDEFINED" criado em
+  // criarAssinaturaAsaas, lib/asaas/client.ts). Cobrança AVULSA — hoje só
+  // a taxa de implantação, criada por criarCobrancaAvulsaAsaas via
+  // criarPagamento, app/(app)/pagamentos/actions.ts — nunca tem
+  // subscription, e não deve tocar em `assinaturas` (não representa o
+  // ciclo de mensalidade de ninguém).
+  if (!payment.subscription) {
+    await processarCobrancaAvulsa(admin, evento, payment, pago);
+    return;
+  }
+
+  // Acha a empresa pelo asaas_subscription_id (cobrança de assinatura).
   const { data: assinatura, error: assinaturaError } = await admin
     .from("assinaturas")
     .select("id, empresa_id, status")
-    .eq("asaas_subscription_id", payment.subscription ?? "")
+    .eq("asaas_subscription_id", payment.subscription)
     .maybeSingle();
 
   if (assinaturaError || !assinatura) {
@@ -152,7 +163,6 @@ async function processarEventoPagamento(
   // Upsert por asaas_payment_id — idempotente mesmo que o Asaas mande
   // PAYMENT_CREATED e, segundos depois, PAYMENT_CONFIRMED pra mesma
   // cobrança (ambos caem aqui, o segundo só atualiza o primeiro).
-  const pago = evento === "PAYMENT_CONFIRMED" || evento === "PAYMENT_RECEIVED";
   const { error: pagamentoError } = await admin
     .from("pagamentos_empresa")
     .upsert(
@@ -195,5 +205,62 @@ async function processarEventoPagamento(
 
   if (statusError) {
     throw new Error(`Falha ao atualizar status da assinatura: ${statusError.message}`);
+  }
+}
+
+/**
+ * Cobrança avulsa (sem subscription — ver comentário acima). A empresa é
+ * achada pelo asaas_customer_id gravado em `assinaturas` na implantação
+ * (ver criarEmpresa, setup-empresa/actions.ts) — é o único vínculo que o
+ * Asaas manda nesse caso (payment.customer), já que não existe uma
+ * assinatura por trás desta cobrança específica.
+ *
+ * Upsert por asaas_payment_id, igual ao fluxo de assinatura: se a linha
+ * local já existir (criada por criarPagamento ANTES de chamar o Asaas,
+ * com o id gravado só depois que o Asaas responde — ver lá), o upsert só
+ * atualiza o valor/status/vencimento vindos do Asaas. Se o webhook chegar
+ * antes dessa gravação (corrida improvável, mas possível), o upsert cria
+ * a linha aqui mesmo — nesse caso ela nasce sem o resto dos campos que
+ * criarPagamento também grava (observacao), o que é aceitável: o essencial
+ * (valor, vencimento, status) sempre vem do Asaas, fonte da verdade.
+ */
+async function processarCobrancaAvulsa(
+  admin: ReturnType<typeof createAdminClient>,
+  evento: string,
+  payment: NonNullable<AsaasWebhookPayload["payment"]>,
+  pago: boolean,
+) {
+  const { data: assinaturaDoCliente, error: clienteError } = await admin
+    .from("assinaturas")
+    .select("empresa_id")
+    .eq("asaas_customer_id", payment.customer)
+    .maybeSingle();
+
+  if (clienteError || !assinaturaDoCliente) {
+    console.error(
+      `Webhook Asaas: cobrança avulsa sem empresa correspondente pro customer ${payment.customer} (evento ${evento}, payment ${payment.id}).`,
+    );
+    // Mesmo raciocínio do caso de assinatura: não lança erro, só loga —
+    // evita reenvio infinito do Asaas por um dado de teste/sandbox
+    // desalinhado.
+    return;
+  }
+
+  const { error: pagamentoError } = await admin
+    .from("pagamentos_empresa")
+    .upsert(
+      {
+        empresa_id: assinaturaDoCliente.empresa_id,
+        asaas_payment_id: payment.id,
+        valor: payment.value,
+        data_vencimento: payment.dueDate,
+        status: pago ? "pago" : "pendente",
+        data_pagamento: payment.paymentDate ?? null,
+      },
+      { onConflict: "asaas_payment_id" },
+    );
+
+  if (pagamentoError) {
+    throw new Error(`Falha ao gravar cobrança avulsa: ${pagamentoError.message}`);
   }
 }

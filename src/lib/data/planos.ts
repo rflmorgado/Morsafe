@@ -51,6 +51,18 @@ export const PLANOS_ORDENADOS: PlanoAssinatura[] = [
   "enterprise",
 ];
 
+/**
+ * Taxa de implantação — cobrança única, cobrada uma vez só na entrada do
+ * cliente, fora do ciclo da mensalidade (ver criarCobrancaAvulsaAsaas,
+ * lib/asaas/client.ts, e o passo 5 de criarEmpresa, setup-empresa/
+ * actions.ts, que já lança essa cobrança automaticamente na implantação).
+ * Hoje é um valor ÚNICO fixo pra qualquer plano comercial (decisão de
+ * Rafael, 08/10/2026) — diferente de PLANO_VALOR_MENSAL, não varia por
+ * plano. Se um dia precisar variar por plano/negociação, vira um Record
+ * igual PLANO_VALOR_MENSAL; por enquanto é só esta constante.
+ */
+export const TAXA_IMPLANTACAO = 390;
+
 export function formatValorPlano(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }

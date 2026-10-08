@@ -63,6 +63,12 @@ export const NAV_ITEMS: NavItem[] = [
     section: "sistema",
   },
   {
+    label: "Assinaturas",
+    href: "/assinaturas",
+    superAdminOnly: true,
+    section: "sistema",
+  },
+  {
     label: "Pagamentos",
     href: "/pagamentos",
     superAdminOnly: true,

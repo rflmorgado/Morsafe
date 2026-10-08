@@ -6,6 +6,7 @@ import {
   PLANO_LABEL,
   PLANO_VALOR_MENSAL,
   PLANOS_ORDENADOS,
+  TAXA_IMPLANTACAO,
   formatValorPlano,
 } from "@/lib/data/planos";
 
@@ -28,9 +29,16 @@ export function SetupEmpresaForm() {
 
   if (state.success) {
     return (
-      <div className="rounded-lg bg-brand-50 px-4 py-3.5 text-sm text-brand-800">
-        Empresa e usuário admin criados com sucesso. O novo cliente já pode
-        entrar em <strong>/login</strong> com o e-mail e senha cadastrados.
+      <div className="space-y-3">
+        <div className="rounded-lg bg-brand-50 px-4 py-3.5 text-sm text-brand-800">
+          Empresa e usuário admin criados com sucesso. O novo cliente já pode
+          entrar em <strong>/login</strong> com o e-mail e senha cadastrados.
+        </div>
+        {state.avisoImplantacao && (
+          <div className="rounded-lg bg-warning-bg px-4 py-3.5 text-sm text-warning-text">
+            {state.avisoImplantacao}
+          </div>
+        )}
       </div>
     );
   }
@@ -174,6 +182,16 @@ export function SetupEmpresaForm() {
             cliente a partir de agora.
           </p>
         </div>
+
+        {comercial && (
+          <div className="rounded-lg bg-surface-muted px-3.5 py-3 text-[12.5px] text-text-secondary">
+            Ao salvar, esta empresa já sai com: assinatura mensal recorrente
+            no Asaas (vencimento sempre no dia 05), e a taxa de implantação
+            de <strong>{formatValorPlano(TAXA_IMPLANTACAO)}</strong>{" "}
+            (cobrança única, valor fixo) lançada automaticamente — Pix,
+            boleto ou cartão, à escolha do cliente.
+          </div>
+        )}
 
         {plano === "enterprise" && (
           <div>

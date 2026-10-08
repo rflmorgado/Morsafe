@@ -227,7 +227,7 @@ export default async function EmpresaDetalhePage({
       <div>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="text-[15px] font-bold tracking-tight text-foreground">
-            Pagamentos
+            Cobranças
           </h3>
           <NovoPagamentoButton empresaIdFixo={empresa.id} />
         </div>

@@ -21,6 +21,10 @@ export type PagamentoEmpresa = {
   dataPagamento: string | null;
   observacao: string | null;
   criadoEm: string;
+  // Link da fatura hospedada pelo Asaas (Pix/boleto/cartão) — null em
+  // cobrança sem Asaas por trás (controle 100% manual, ou campo ainda não
+  // sincronizado). Ver comentário completo em types/database.ts.
+  asaasInvoiceUrl: string | null;
 };
 
 type PagamentoRow = {
@@ -32,6 +36,7 @@ type PagamentoRow = {
   data_pagamento: string | null;
   observacao: string | null;
   criado_em: string;
+  asaas_invoice_url: string | null;
 };
 
 /**
@@ -90,6 +95,7 @@ function mapRow(p: PagamentoRow, empresaNome: string): PagamentoEmpresa {
     dataPagamento: p.data_pagamento,
     observacao: p.observacao,
     criadoEm: p.criado_em,
+    asaasInvoiceUrl: p.asaas_invoice_url,
   };
 }
 
@@ -116,7 +122,7 @@ export async function listPagamentosConsolidado(): Promise<PagamentoEmpresa[]> {
   const { data, error } = await admin
     .from("pagamentos_empresa")
     .select(
-      "id, empresa_id, valor, data_vencimento, status, data_pagamento, observacao, criado_em, empresas ( nome )",
+      "id, empresa_id, valor, data_vencimento, status, data_pagamento, observacao, criado_em, asaas_invoice_url, empresas ( nome )",
     )
     .order("data_vencimento", { ascending: true });
 
@@ -154,7 +160,7 @@ export async function listPagamentosDaEmpresa(
   const { data, error } = await admin
     .from("pagamentos_empresa")
     .select(
-      "id, empresa_id, valor, data_vencimento, status, data_pagamento, observacao, criado_em",
+      "id, empresa_id, valor, data_vencimento, status, data_pagamento, observacao, criado_em, asaas_invoice_url",
     )
     .eq("empresa_id", empresaId)
     .order("data_vencimento", { ascending: false });

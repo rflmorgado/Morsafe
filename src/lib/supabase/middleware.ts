@@ -77,13 +77,26 @@ export async function updateSession(request: NextRequest) {
   if (user && !isPublicPath) {
     const { data: perfil, error: perfilError } = await supabase
       .from("usuarios")
-      .select("ativo, ultima_atividade, empresas ( ativo )")
+      .select(
+        "ativo, ultima_atividade, empresas ( ativo, assinaturas ( status ) )",
+      )
       .eq("id", user.id)
       .maybeSingle();
 
-    const empresaAtiva = (
-      perfil?.empresas as unknown as { ativo: boolean } | null
-    )?.ativo;
+    const empresaEmbed = perfil?.empresas as unknown as {
+      ativo: boolean;
+      assinaturas: { status: string }[] | { status: string } | null;
+    } | null;
+    const empresaAtiva = empresaEmbed?.ativo;
+    // O embed vem array (join 1:N do ponto de vista do schema, mesmo
+    // `assinaturas` tendo índice único por empresa_id garantindo 1:1 na
+    // prática) ou objeto único dependendo da versão do PostgREST — trata
+    // os dois formatos. `assinaturas` ainda não existe em produção (ver
+    // morsafe-add-assinaturas-asaas.sql, pendente) — até lá o embed
+    // sempre vem vazio/null e nenhuma empresa é bloqueada por isso.
+    const statusAssinatura = Array.isArray(empresaEmbed?.assinaturas)
+      ? empresaEmbed?.assinaturas[0]?.status
+      : empresaEmbed?.assinaturas?.status;
 
     // Autenticado no Supabase Auth mas sem linha correspondente em
     // `usuarios` (e sem erro de consulta — só ausência real do registro,
@@ -117,6 +130,21 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("motivo", "empresa_desativada");
+      return NextResponse.redirect(url);
+    }
+
+    // Régua de inadimplência (ver MorSafe_Modelo_Comercial_e_Fluxo_de_Cobranca):
+    // assinatura em atraso além do prazo de tolerância vira "suspensa" (ver
+    // job em app/api/cron/verificar-inadimplencia/route.ts) e bloqueia o
+    // acesso operacional da empresa — sem isso, "suspensa" não significava
+    // nada de verdade, igual "empresaAtiva" antes do bloqueio acima. Não
+    // confundir com empresaAtiva === false (desativação manual pelo
+    // super_admin): aqui é consequência automática de inadimplência.
+    if (perfil && statusAssinatura === "suspensa") {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("motivo", "assinatura_suspensa");
       return NextResponse.redirect(url);
     }
 

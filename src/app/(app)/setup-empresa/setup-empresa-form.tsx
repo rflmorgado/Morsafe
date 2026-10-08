@@ -1,7 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { criarEmpresa, type CriarEmpresaState } from "./actions";
+import {
+  PLANO_LABEL,
+  PLANO_VALOR_MENSAL,
+  PLANOS_ORDENADOS,
+  formatValorPlano,
+} from "@/lib/data/planos";
 
 const initialState: CriarEmpresaState = { error: null };
 
@@ -15,6 +21,10 @@ export function SetupEmpresaForm() {
     criarEmpresa,
     initialState,
   );
+  // "interno" (fora de PlanoAssinatura) é o único valor que pula a
+  // criação de assinatura no Asaas — ver mesmo texto em actions.ts.
+  const [plano, setPlano] = useState<string>("interno");
+  const comercial = plano !== "interno";
 
   if (state.success) {
     return (
@@ -49,15 +59,21 @@ export function SetupEmpresaForm() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="cnpj" className={labelClass}>
-              CNPJ
+              CNPJ{comercial && <span className="text-danger-text"> *</span>}
             </label>
             <input
               id="cnpj"
               name="cnpj"
               type="text"
+              required={comercial}
               placeholder="00.000.000/0000-00"
               className={inputClass}
             />
+            {comercial && (
+              <p className="mt-1 text-[11.5px] text-text-muted">
+                Obrigatório para plano pago — o Asaas precisa dele para gerar a cobrança.
+              </p>
+            )}
           </div>
           <div>
             <label htmlFor="endereco" className={labelClass}>
@@ -118,12 +134,64 @@ export function SetupEmpresaForm() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={6}
+              minLength={8}
               placeholder="••••••••••"
               className={inputClass}
             />
           </div>
         </div>
+      </fieldset>
+
+      <fieldset className="space-y-4 border-t border-border-subtle pt-4">
+        <legend className="mb-1 text-[13px] font-bold text-foreground">
+          Plano e cobrança
+        </legend>
+
+        <div>
+          <label htmlFor="plano" className={labelClass}>
+            Plano
+          </label>
+          <select
+            id="plano"
+            name="plano"
+            value={plano}
+            onChange={(e) => setPlano(e.target.value)}
+            className={inputClass}
+          >
+            <option value="interno">Uso interno (sem cobrança)</option>
+            {PLANOS_ORDENADOS.map((p) => (
+              <option key={p} value={p}>
+                {PLANO_LABEL[p]}
+                {p === "enterprise"
+                  ? " — sob consulta"
+                  : ` — ${formatValorPlano(PLANO_VALOR_MENSAL[p])}/mês`}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11.5px] text-text-muted">
+            &quot;Uso interno&quot; é só para ViniPlast/Vinitrade — qualquer
+            outro plano cria a assinatura recorrente no Asaas e cobra do
+            cliente a partir de agora.
+          </p>
+        </div>
+
+        {plano === "enterprise" && (
+          <div>
+            <label htmlFor="valorEnterprise" className={labelClass}>
+              Valor mensal negociado (R$)
+            </label>
+            <input
+              id="valorEnterprise"
+              name="valorEnterprise"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              placeholder="Ex: 799.00"
+              className={inputClass}
+            />
+          </div>
+        )}
       </fieldset>
 
       {state.error && (

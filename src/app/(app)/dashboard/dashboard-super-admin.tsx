@@ -316,6 +316,12 @@ export function DashboardSuperAdmin({
               Ver todas as empresas
             </Link>
             <Link
+              href="/assinaturas"
+              className="rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-medium text-foreground transition hover:bg-surface-muted"
+            >
+              Ver assinaturas
+            </Link>
+            <Link
               href="/pagamentos"
               className="rounded-lg border border-border-strong px-3.5 py-2.5 text-[13px] font-medium text-foreground transition hover:bg-surface-muted"
             >

@@ -4,16 +4,33 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
+import { criarCobrancaAvulsaAsaas, AsaasError } from "@/lib/asaas/client";
 
 const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
 export type CriarPagamentoState = { error: string | null };
 
 /**
- * Registra um novo pagamento (mensalidade) pendente pra uma empresa
- * cliente. Só super_admin. Usa o cliente com service role, mesmo padrão de
- * app/(app)/empresas/actions.ts — pagamentos_empresa não tem RLS (ver
- * morsafe-add-pagamentos-empresa.sql), só o super_admin acessa.
+ * Registra um novo pagamento pendente pra uma empresa cliente — usado hoje
+ * sobretudo pra taxa de implantação (cobrada uma vez só, fora do ciclo da
+ * assinatura recorrente — ver NovoPagamentoButton), mas serve pra qualquer
+ * cobrança avulsa. Só super_admin. Usa o cliente com service role, mesmo
+ * padrão de app/(app)/empresas/actions.ts — pagamentos_empresa não tem RLS
+ * (ver morsafe-add-pagamentos-empresa.sql), só o super_admin acessa.
+ *
+ * Quando a empresa já tem cliente Asaas associado (plano comercial
+ * implantado — ver criarEmpresa, setup-empresa/actions.ts), esta função
+ * também cria a cobrança de verdade lá (ver criarCobrancaAvulsaAsaas), pra
+ * o cliente receber um boleto/Pix real, em vez de só um lançamento local
+ * que o super_admin teria que cobrar por fora. Empresa sem cliente Asaas
+ * (plano "interno", ou migração de assinaturas ainda pendente — ver
+ * morsafe-add-assinaturas-asaas.sql) continua só com o controle manual
+ * local, como sempre foi.
+ *
+ * Ordem de segurança do dinheiro — mesmo princípio de criarEmpresa: a
+ * linha local (pendente, sem asaas_payment_id ainda) é criada ANTES da
+ * chamada ao Asaas, pra nunca gerar uma cobrança real sem um jeito de
+ * rastreá-la aqui, mesmo que a gravação do id volte a falhar depois.
  */
 export async function criarPagamento(
   empresaId: string,
@@ -49,13 +66,28 @@ export async function criarPagamento(
     return { error: "Empresa não encontrada." };
   }
 
+  // Cliente Asaas da empresa, se ela já tiver um (ver comentário acima da
+  // função). Erro aqui (inclusive "tabela não existe", migração ainda
+  // pendente) é tratado como "sem cliente Asaas" — igual o resto do
+  // código já faz com colunas/tabelas pendentes — pra nunca bloquear o
+  // controle manual local por causa de uma integração que essa empresa
+  // nem usa.
+  const { data: assinatura } = await admin
+    .from("assinaturas")
+    .select("asaas_customer_id")
+    .eq("empresa_id", empresaId)
+    .maybeSingle();
+  const asaasCustomerId = assinatura?.asaas_customer_id ?? null;
+
+  const observacaoFinal = observacao.trim() || null;
+
   const { data, error } = await admin
     .from("pagamentos_empresa")
     .insert({
       empresa_id: empresaId,
       valor,
       data_vencimento: dataVencimento,
-      observacao: observacao.trim() || null,
+      observacao: observacaoFinal,
     })
     .select("id")
     .maybeSingle();
@@ -63,6 +95,46 @@ export async function criarPagamento(
   if (error || !data) {
     console.error("criarPagamento:", error?.message);
     return { error: "Não foi possível registrar o pagamento." };
+  }
+
+  if (asaasCustomerId) {
+    try {
+      const cobranca = await criarCobrancaAvulsaAsaas({
+        asaasCustomerId,
+        valor,
+        vencimento: dataVencimento,
+        descricao: observacaoFinal ?? `Cobrança MorSafe — ${empresa.nome}`,
+        referenciaExterna: empresa.id,
+      });
+
+      const { error: atualizaError } = await admin
+        .from("pagamentos_empresa")
+        .update({ asaas_payment_id: cobranca.id })
+        .eq("id", data.id);
+
+      if (atualizaError) {
+        // A cobrança JÁ FOI criada de verdade no Asaas a essa altura —
+        // apagar o registro local agora deixaria uma cobrança real sem
+        // nenhum rastro aqui, pior do que só não ter o id gravado. Fica
+        // só o log bem visível pra conferência manual (painel do Asaas
+        // tem o id, visível no log abaixo).
+        console.error(
+          `criarPagamento: cobrança criada no Asaas (${cobranca.id}) mas falhou ao gravar o id localmente (pagamento ${data.id}): ${atualizaError.message}`,
+        );
+      }
+    } catch (e) {
+      // Falha ao criar no Asaas (cliente inválido no Asaas, API fora do
+      // ar etc.) — aqui sim desfaz o registro local, porque nada foi
+      // cobrado de ninguém ainda.
+      await admin.from("pagamentos_empresa").delete().eq("id", data.id);
+      const mensagemAsaas = e instanceof AsaasError ? e.message : null;
+      console.error("criarPagamento (Asaas):", e);
+      return {
+        error: mensagemAsaas
+          ? `Não foi possível criar a cobrança no Asaas: ${mensagemAsaas}`
+          : "Não foi possível criar a cobrança no Asaas. Tente novamente.",
+      };
+    }
   }
 
   await registrarLogAuditoria({

@@ -232,15 +232,23 @@ export async function alterarPlanoAssinatura(
   // Limite de colaboradores sugerido acompanha o novo plano — exceto
   // Enterprise, que não tem limite fixo (sob consulta, ver planos.ts); o
   // super_admin pode ajustar manualmente depois em /empresas/[id], igual
-  // já é feito pra qualquer empresa. Fallback 42703 igual ao de
-  // criarEmpresa — coluna ainda pendente de aplicação em algumas bases.
+  // já é feito pra qualquer empresa. Fallback igual ao de criarEmpresa —
+  // coluna ainda pendente de aplicação em algumas bases. Tolera tanto
+  // 42703 quanto PGRST204 (código real que o PostgREST devolve quando não
+  // acha a coluna no schema cache, confirmado em produção — ver
+  // definirLimiteColaboradores, empresas/actions.ts); só 42703 deixava
+  // esse log disparar à toa mesmo no caso esperado.
   if (novoPlano !== "enterprise") {
     const { error: limiteError } = await admin
       .from("empresas")
       .update({ limite_colaboradores: PLANO_LIMITE_COLABORADORES[novoPlano] })
       .eq("id", assinatura.empresa_id);
 
-    if (limiteError && limiteError.code !== "42703") {
+    if (
+      limiteError &&
+      limiteError.code !== "42703" &&
+      limiteError.code !== "PGRST204"
+    ) {
       console.error(
         `alterarPlanoAssinatura: falha ao atualizar limite_colaboradores (empresa ${assinatura.empresa_id}): ${limiteError.message}`,
       );

@@ -109,7 +109,10 @@ export async function criarPagamento(
 
       const { error: atualizaError } = await admin
         .from("pagamentos_empresa")
-        .update({ asaas_payment_id: cobranca.id })
+        .update({
+          asaas_payment_id: cobranca.id,
+          asaas_invoice_url: cobranca.invoiceUrl,
+        })
         .eq("id", data.id);
 
       if (atualizaError) {

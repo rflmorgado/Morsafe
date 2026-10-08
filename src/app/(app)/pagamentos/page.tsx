@@ -203,18 +203,34 @@ export default async function PagamentosPage() {
                         </span>
                       </td>
                       <td className="px-2.5 py-[9px]">
-                        {p.status === "pendente" ? (
-                          <MarcarPagoButton
-                            pagamentoId={p.id}
-                            empresaNome={p.empresaNome}
-                          />
-                        ) : (
-                          <span className="text-[12px] text-text-muted">
-                            {p.dataPagamento
-                              ? `Pago em ${formatDate(p.dataPagamento)}`
-                              : "Pago"}
-                          </span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {p.status === "pendente" ? (
+                            <MarcarPagoButton
+                              pagamentoId={p.id}
+                              empresaNome={p.empresaNome}
+                            />
+                          ) : (
+                            <span className="text-[12px] text-text-muted">
+                              {p.dataPagamento
+                                ? `Pago em ${formatDate(p.dataPagamento)}`
+                                : "Pago"}
+                            </span>
+                          )}
+                          {p.asaasInvoiceUrl && (
+                            <a
+                              href={p.asaasInvoiceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              // stopPropagation: mesmo motivo de
+                              // marcar-pago-button.tsx — a linha inteira
+                              // leva ao detalhe da empresa.
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[12px] font-semibold text-brand-700 underline-offset-2 hover:underline"
+                            >
+                              Ver fatura
+                            </a>
+                          )}
+                        </div>
                       </td>
                     </ClickableRow>
                   );
@@ -272,6 +288,17 @@ export default async function PagamentosPage() {
                           ? `Pago em ${formatDate(p.dataPagamento)}`
                           : "Pago"}
                       </span>
+                    )}
+                    {p.asaasInvoiceUrl && (
+                      <a
+                        href={p.asaasInvoiceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[12px] font-semibold text-brand-700 underline-offset-2 hover:underline"
+                      >
+                        Ver fatura
+                      </a>
                     )}
                   </div>
                 </ClickableCard>

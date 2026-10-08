@@ -69,7 +69,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "sistema",
   },
   {
-    label: "Pagamentos",
+    // Renomeado de "Pagamentos" em 08/10/2026, depois que a cobrança
+    // recorrente mensal (plano/MRR) passou a ter tela própria em
+    // Assinaturas — "Cobranças" deixa claro que esta tela é o ledger por
+    // fatura (taxa de implantação + o que o webhook do Asaas sincroniza
+    // aqui também), não a visão de plano da empresa. Ver comentário no
+    // topo de pagamentos/page.tsx.
+    label: "Cobranças",
     href: "/pagamentos",
     superAdminOnly: true,
     section: "sistema",

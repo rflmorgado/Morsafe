@@ -27,6 +27,9 @@ export const ACAO_LABEL: Record<string, string> = {
   pagamento_criado: "Pagamento registrado",
   pagamento_recebido: "Pagamento recebido",
   limite_colaboradores_atualizado: "Limite de colaboradores atualizado",
+  assinatura_suspensa: "Assinatura suspensa por inadimplência",
+  assinatura_cancelada: "Assinatura cancelada",
+  plano_alterado: "Plano da assinatura alterado",
   auditoria_registrada: "Auditoria de NR-06 registrada",
   mesclado: "Setor mesclado com outro",
   relatorio_gerado: "Relatório de Auditoria NR-06 gerado",
@@ -48,6 +51,7 @@ export const TABELA_LABEL: Record<string, string> = {
   estoque: "Estoque",
   pagamentos_empresa: "Pagamento",
   auditorias_nr06: "Auditoria de NR-06",
+  assinaturas: "Assinatura",
 };
 
 // Artigo + substantivo por tabela, usado nas frases do histórico ("Cadastrou
@@ -220,6 +224,21 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
     case "limite_colaboradores_atualizado": {
       const limite = item.detalhes?.limite as number | null | undefined;
       return `${limite ? `Definiu o limite de colaboradores de "${nome ?? "empresa"}" para ${limite}` : `Removeu o limite de colaboradores de "${nome ?? "empresa"}"`}`;
+    }
+    case "assinatura_suspensa": {
+      const diasAtraso = item.detalhes?.diasAtraso as number | undefined;
+      return `Suspendeu o acesso de "${nome ?? "empresa"}" por inadimplência${
+        diasAtraso !== undefined ? ` (${diasAtraso} dia${diasAtraso === 1 ? "" : "s"} de atraso)` : ""
+      }`;
+    }
+    case "assinatura_cancelada":
+      return `Cancelou a assinatura de "${nome ?? "empresa"}"`;
+    case "plano_alterado": {
+      const de = item.detalhes?.de as string | undefined;
+      const para = item.detalhes?.para as string | undefined;
+      return `Alterou o plano de "${nome ?? "empresa"}"${
+        de && para ? ` de ${de} para ${para}` : ""
+      }`;
     }
     case "auditoria_registrada": {
       const naoConformidades = item.detalhes?.naoConformidades as

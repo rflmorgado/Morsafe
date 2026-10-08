@@ -39,6 +39,10 @@ type AsaasWebhookPayload = {
     value: number;
     dueDate: string;
     paymentDate?: string | null;
+    // Link da fatura hospedada pelo Asaas — ver comentário de
+    // asaas_invoice_url em types/database.ts. Opcional porque nem todo
+    // evento/cobrança necessariamente traz esse campo preenchido.
+    invoiceUrl?: string | null;
   };
 };
 
@@ -173,6 +177,11 @@ async function processarEventoPagamento(
         data_vencimento: payment.dueDate,
         status: pago ? "pago" : "pendente",
         data_pagamento: payment.paymentDate ?? null,
+        // ?? null em vez de omitir — o Asaas manda esse campo em praticamente
+        // todo evento de pagamento, então sobrescrever com null num evento
+        // raro sem ele não é um risco real, e simplifica (sem precisar
+        // montar o objeto condicionalmente).
+        asaas_invoice_url: payment.invoiceUrl ?? null,
       },
       { onConflict: "asaas_payment_id" },
     );
@@ -256,6 +265,7 @@ async function processarCobrancaAvulsa(
         data_vencimento: payment.dueDate,
         status: pago ? "pago" : "pendente",
         data_pagamento: payment.paymentDate ?? null,
+        asaas_invoice_url: payment.invoiceUrl ?? null,
       },
       { onConflict: "asaas_payment_id" },
     );

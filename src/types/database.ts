@@ -44,6 +44,28 @@ export type TipoSolicitacaoAssinatura = "entrega" | "devolucao";
 // na aplicação a partir de data_vencimento + status (ver
 // lib/data/pagamentos.ts), nunca gravados no banco.
 export type StatusPagamentoEmpresa = "pendente" | "pago";
+// Faixas do modelo comercial (ver MorSafe_Modelo_Comercial_e_Fluxo_de_
+// Cobranca.docx) — "enterprise" não tem valor_mensal fixo ("sob
+// consulta"), mas ainda grava uma linha em assinaturas pra aparecer no
+// painel administrativo igual aos outros planos.
+export type PlanoAssinatura =
+  | "start"
+  | "essencial"
+  | "profissional"
+  | "empresa"
+  | "industrial"
+  | "enterprise";
+// Os 5 estados do documento comercial (seção 7) — nunca pulam etapa
+// sozinhos: o webhook do Asaas só pode levar de pendente a ativa/
+// inadimplente, e suspensa/cancelada só acontecem por decisão
+// explícita (régua de inadimplência ou cancelamento pedido pelo
+// cliente), nunca como efeito colateral de outra coisa.
+export type StatusAssinatura =
+  | "ativa"
+  | "pendente"
+  | "inadimplente"
+  | "suspensa"
+  | "cancelada";
 
 type Relationship = {
   foreignKeyName: string;
@@ -108,6 +130,12 @@ export interface Database {
           status: StatusPagamentoEmpresa;
           data_pagamento: string | null;
           observacao: string | null;
+          // Id da cobrança no Asaas — presente nas cobranças geradas pela
+          // assinatura recorrente (ver lib/asaas), null nas que ainda
+          // existirem do controle 100% manual anterior. Índice único no
+          // banco garante que o webhook nunca duplica linha pro mesmo
+          // pagamento (ver morsafe-add-assinaturas-asaas.sql).
+          asaas_payment_id: string | null;
           criado_em: string;
         },
         "empresa_id" | "valor" | "data_vencimento",
@@ -119,6 +147,48 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ]
+      >;
+
+      // Estado ATUAL da assinatura recorrente de cada empresa cliente —
+      // uma linha por empresa (ver morsafe-add-assinaturas-asaas.sql).
+      // Ainda não aplicada no banco (pendente, junto do resto — ver
+      // morsafe-pendentes-supabase-TUDO.sql).
+      assinaturas: TableDef<
+        {
+          id: string;
+          empresa_id: string;
+          plano: PlanoAssinatura;
+          valor_mensal: number;
+          status: StatusAssinatura;
+          asaas_customer_id: string | null;
+          asaas_subscription_id: string | null;
+          proximo_vencimento: string | null;
+          suspensa_em: string | null;
+          cancelada_em: string | null;
+          criado_em: string;
+          atualizado_em: string;
+        },
+        "empresa_id" | "plano" | "valor_mensal",
+        [
+          {
+            foreignKeyName: "assinaturas_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ]
+      >;
+
+      // Dedup dos webhooks do Asaas já processados (campo "id" do
+      // payload) — ver comentário completo em
+      // morsafe-add-assinaturas-asaas.sql.
+      asaas_webhook_events: TableDef<
+        {
+          evento_id: string;
+          evento_tipo: string;
+          recebido_em: string;
+        },
+        "evento_id" | "evento_tipo"
       >;
 
       unidades: TableDef<

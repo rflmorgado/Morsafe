@@ -86,8 +86,9 @@ export async function criarEmpresa(
   const adminNome = String(formData.get("adminNome") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const senha = String(formData.get("senha") ?? "");
-  // "interno" (fora de PlanoAssinatura) é o único valor que pula a
-  // criação de assinatura no Asaas — ver mesmo texto em actions.ts.
+  // "interno" cobre o caso ViniPlast/Vinitrade (empresas do próprio
+  // Rafael, nunca cobradas) — único valor fora de PlanoAssinatura, só
+  // existe neste formulário pra pular a criação de assinatura no Asaas.
   const plano = String(formData.get("plano") ?? "interno").trim();
   const valorEnterpriseBruto = String(formData.get("valorEnterprise") ?? "").trim();
 
@@ -169,8 +170,13 @@ export async function criarEmpresa(
   // 1) Cria a empresa primeiro (tabela sem RLS, insert sempre permitido).
   // limite_colaboradores vem do plano escolhido, como sugestão inicial —
   // coluna ainda pendente de aplicação (ver morsafe-add-limite-
-  // colaboradores.sql), por isso o fallback 42703 abaixo, mesmo padrão já
-  // usado em movimentacoes/actions.ts pro grupo_entrega_id.
+  // colaboradores.sql), por isso o fallback abaixo, mesmo padrão já usado
+  // em movimentacoes/actions.ts pro grupo_entrega_id. Testa tanto 42703
+  // (Postgres "coluna não existe") quanto PGRST204 (o PostgREST rejeita
+  // antes de chegar no banco, por não achar a coluna no SCHEMA CACHE dele
+  // — é o código real confirmado em produção, ver mesmo ajuste em
+  // definirLimiteColaboradores, empresas/actions.ts); só 42703 deixava
+  // esse fallback nunca disparar de verdade.
   const limiteColaboradoresSugerido =
     comercial && plano !== "enterprise"
       ? PLANO_LIMITE_COLABORADORES[plano as keyof typeof PLANO_LIMITE_COLABORADORES]
@@ -189,7 +195,7 @@ export async function criarEmpresa(
 
   if (
     empresaError &&
-    empresaError.code === "42703" &&
+    (empresaError.code === "42703" || empresaError.code === "PGRST204") &&
     /limite_colaboradores/i.test(empresaError.message ?? "")
   ) {
     ({ data: empresa, error: empresaError } = await admin

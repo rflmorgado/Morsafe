@@ -1,6 +1,6 @@
 /**
- * Cliente mínimo da API do Asaas — só os endpoints que o MorSafe precisa
- * (criar cliente, criar/atualizar/cancelar assinatura recorrente, consultar
+ * Cliente mínimo da API do Asaas — só os 3 endpoints que o MorSafe
+ * precisa (criar cliente, criar assinatura recorrente, consultar
  * cobrança), não um SDK completo. Usado só no servidor (Server Actions,
  * Route Handlers), nunca importado por um componente "use client" — a
  * API key do Asaas não pode vazar pro navegador.
@@ -168,6 +168,58 @@ export async function criarAssinaturaAsaas(dados: {
   });
 }
 
+export type AsaasCobrancaAvulsa = {
+  id: string;
+  customer: string;
+  status: string;
+  value: number;
+  dueDate: string;
+  // Link da fatura hospedada pelo próprio Asaas (Pix/boleto/cartão, quem
+  // vai pagar escolhe lá) — ainda não exibido em nenhuma tela do MorSafe,
+  // mas já vem na resposta pra ficar disponível quando alguma tela
+  // precisar mostrar/copiar o link pro cliente.
+  invoiceUrl: string;
+};
+
+/**
+ * Cria uma cobrança AVULSA no Asaas — uma cobrança única, fora do ciclo de
+ * uma assinatura recorrente (diferente de criarAssinaturaAsaas, que cria
+ * algo que gera cobrança nova sozinho todo mês). Usada hoje só pela taxa
+ * de implantação, cobrada uma vez só na entrada do cliente (ver
+ * criarPagamento, app/(app)/pagamentos/actions.ts) — nunca pela
+ * mensalidade, que é sempre gerada automaticamente pelo Asaas a partir da
+ * assinatura.
+ *
+ * billingType "UNDEFINED" — mesmo motivo de criarAssinaturaAsaas: deixa
+ * quem vai pagar escolher Pix/boleto/cartão na hora, em vez de travar numa
+ * forma só.
+ */
+export async function criarCobrancaAvulsaAsaas(dados: {
+  asaasCustomerId: string;
+  valor: number;
+  vencimento: string;
+  descricao: string;
+  // Id da empresa no MorSafe — mesmo papel do referenciaExterna de
+  // criarClienteAsaas/criarAssinaturaAsaas: ajuda a conferir manualmente
+  // no painel do Asaas, e dá um caminho de volta pro webhook mesmo se o
+  // asaas_payment_id ainda não tiver sido gravado localmente (idempotência
+  // extra, embora o webhook hoje ache a empresa pelo asaas_customer_id —
+  // ver processarEventoPagamento, api/webhooks/asaas/route.ts).
+  referenciaExterna: string;
+}): Promise<AsaasCobrancaAvulsa> {
+  return asaasFetch<AsaasCobrancaAvulsa>("/payments", {
+    method: "POST",
+    body: {
+      customer: dados.asaasCustomerId,
+      billingType: "UNDEFINED",
+      value: dados.valor,
+      dueDate: dados.vencimento,
+      description: dados.descricao,
+      externalReference: dados.referenciaExterna,
+    },
+  });
+}
+
 export type AsaasCobranca = {
   id: string;
   customer: string;
@@ -193,7 +245,7 @@ export async function consultarCobrancaAsaas(
 /**
  * Atualiza o valor (e descrição) de uma assinatura recorrente já
  * existente — usado no fluxo de upgrade/downgrade de plano (ver
- * app/(app)/assinaturas/actions.ts). Confirmado em
+ * app/(app)/assinaturas/alterar-plano-actions.ts). Confirmado em
  * docs.asaas.com/docs/faq-assinaturas ("é possível atualizar
  * configurações como valor, periodicidade, vencimento...") que o PUT
  * /subscriptions/{id} aceita "value" — a tabela de referência da API

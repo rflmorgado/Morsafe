@@ -84,16 +84,27 @@ function IconCalendarSmall(props: React.SVGProps<SVGSVGElement>) {
 }
 
 /**
- * Painel consolidado de pagamentos do super_admin: todas as empresas
- * clientes, um pagamento por linha, ordenado por urgência (atrasado →
- * a vencer → em dia → pago). Pensado pra acompanhar em atrasos/vencimentos
- * sem precisar entrar empresa por empresa — ver também a seção
- * "Pagamentos" dentro de app/(app)/empresas/[id]/page.tsx, pro histórico
- * de uma empresa só. Clicar na linha/cartão leva ao detalhe da empresa
- * daquele pagamento (mesmo destino que o nome da empresa já levava antes,
- * só que agora a linha inteira é clicável — mesmo padrão de
- * empresas/page.tsx); "Marcar como pago" continua um botão à parte, que
- * não navega (ver stopPropagation em marcar-pago-button.tsx).
+ * Painel consolidado de COBRANÇAS do super_admin (menu renomeado de
+ * "Pagamentos" pra "Cobranças" em 08/10/2026 — ver nav-items.ts): todas as
+ * empresas clientes, uma cobrança por linha, ordenado por urgência
+ * (atrasado → a vencer → em dia → pago). Pensado pra acompanhar atrasos/
+ * vencimentos sem precisar entrar empresa por empresa — ver também a seção
+ * "Cobranças" dentro de app/(app)/empresas/[id]/page.tsx, pro histórico de
+ * uma empresa só.
+ *
+ * Diferente de /assinaturas (uma linha por EMPRESA, o estado atual do
+ * plano — ver comentário lá): aqui cada linha é uma cobrança INDIVIDUAL —
+ * tanto a taxa de implantação (lançada manualmente aqui, via "Novo
+ * pagamento", já que não é uma cobrança recorrente do Asaas) quanto toda
+ * mensalidade que o webhook do Asaas sincroniza automaticamente (ver
+ * processarEventoPagamento, api/webhooks/asaas/route.ts) — e qualquer
+ * outra cobrança avulsa que não se encaixe numa assinatura.
+ *
+ * Clicar na linha/cartão leva ao detalhe da empresa daquela cobrança
+ * (mesmo destino que o nome da empresa já levava antes, só que agora a
+ * linha inteira é clicável — mesmo padrão de empresas/page.tsx); "Marcar
+ * como pago" continua um botão à parte, que não navega (ver
+ * stopPropagation em marcar-pago-button.tsx).
  */
 export default async function PagamentosPage() {
   const user = await getCurrentUser();
@@ -117,8 +128,8 @@ export default async function PagamentosPage() {
   return (
     <div>
       <PageHeader
-        title="Pagamentos"
-        description="Mensalidade de cada empresa cliente, com os atrasos e vencimentos próximos primeiro."
+        title="Cobranças"
+        description="Taxa de implantação e cada cobrança individual por empresa (inclusive as mensalidades sincronizadas do Asaas) — atrasos e vencimentos próximos primeiro. Visão de plano/MRR por empresa está em Assinaturas."
         icon={<IconPagamentosHeader className="h-5 w-5" />}
       />
 

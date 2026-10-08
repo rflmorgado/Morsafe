@@ -382,12 +382,15 @@ export async function getColaboradorDetalhe(
   // ficha volta a funcionar normalmente (sem agrupamento, como sempre foi)
   // até a migração ser aplicada, sem precisar mexer em mais nada depois.
   let entregasData = entregasRes.data;
-  // error.code "42703" = "coluna não existe" no Postgres — mais preciso
-  // que testar só um regex na mensagem (ver mesmo ajuste e motivo em
-  // movimentacoes/actions.ts, registrarEntrega).
+  // error.code "42703" = "coluna não existe" no Postgres; PGRST204 = o
+  // PostgREST não achou a coluna no SCHEMA CACHE dele, sem nem chegar no
+  // banco — código real confirmado em produção (ver mesmo ajuste e motivo
+  // em movimentacoes/actions.ts, registrarEntrega, e em
+  // definirLimiteColaboradores, empresas/actions.ts).
   if (
     entregasRes.error &&
-    entregasRes.error.code === "42703" &&
+    (entregasRes.error.code === "42703" ||
+      entregasRes.error.code === "PGRST204") &&
     /grupo_entrega_id/i.test(entregasRes.error.message ?? "")
   ) {
     const retry = await supabase

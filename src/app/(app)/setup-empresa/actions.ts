@@ -3,11 +3,44 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
+import {
+  criarClienteAsaas,
+  criarAssinaturaAsaas,
+  AsaasError,
+} from "@/lib/asaas/client";
+import {
+  PLANO_VALOR_MENSAL,
+  PLANO_LIMITE_COLABORADORES,
+} from "@/lib/data/planos";
+import type { PlanoAssinatura } from "@/types/database";
 
 export type CriarEmpresaState = {
   error: string | null;
   success?: boolean;
 };
+
+const PLANOS_COMERCIAIS = new Set<string>([
+  "start",
+  "essencial",
+  "profissional",
+  "empresa",
+  "industrial",
+  "enterprise",
+]);
+
+/**
+ * Próximo dia 05 a partir de hoje (hoje inclusive) — padrão de vencimento
+ * único definido no modelo comercial (seção 5), pra nunca ter mais de uma
+ * data de vencimento circulando entre os clientes.
+ */
+function proximoDiaVencimento(): string {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth();
+  const dia = hoje.getDate();
+  const data = dia <= 5 ? new Date(ano, mes, 5) : new Date(ano, mes + 1, 5);
+  return data.toISOString().slice(0, 10);
+}
 
 /**
  * Cadastro de nova empresa cliente + seu primeiro usuário admin. Só pode
@@ -53,14 +86,55 @@ export async function criarEmpresa(
   const adminNome = String(formData.get("adminNome") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const senha = String(formData.get("senha") ?? "");
+  // "interno" (fora de PlanoAssinatura) é o único valor que pula a
+  // criação de assinatura no Asaas — ver mesmo texto em actions.ts.
+  const plano = String(formData.get("plano") ?? "interno").trim();
+  const valorEnterpriseBruto = String(formData.get("valorEnterprise") ?? "").trim();
 
   if (!empresaNome || !adminNome || !email || !senha) {
     return {
       error: "Preencha nome da empresa, nome do admin, e-mail e senha.",
     };
   }
-  if (senha.length < 6) {
-    return { error: "A senha do usuário admin deve ter ao menos 6 caracteres." };
+  if (senha.length < 8) {
+    // Mínimo subiu de 6 para 8 — ver auditoria de 06/10/2026, mesmo
+    // ajuste de usuarios/actions.ts (criarUsuario), por consistência: este
+    // formulário também cria um login (o primeiro admin da empresa).
+    return { error: "A senha do usuário admin deve ter ao menos 8 caracteres." };
+  }
+
+  // CNPJ só são 14 dígitos (sem o cálculo dos dígitos verificadores, que
+  // não vale o esforço aqui — CNPJ é usado só pra exibição, não pra
+  // nenhuma integração fiscal) — rejeita algo claramente incompleto/errado
+  // em vez de aceitar qualquer texto. Opcional só pra empresa "interno"
+  // (ViniPlast/Vinitrade); pra qualquer plano comercial é obrigatório —
+  // o Asaas exige cpfCnpj pra processar Pix/boleto/cartão. Ver auditoria
+  // de 06/10/2026 e modelo comercial (06/10/2026).
+  const cnpjDigitos = cnpj.replace(/\D/g, "");
+  const comercial = PLANOS_COMERCIAIS.has(plano);
+  if (cnpj && cnpjDigitos.length !== 14) {
+    return { error: "CNPJ deve ter 14 dígitos (ou deixe em branco)." };
+  }
+  if (comercial && cnpjDigitos.length !== 14) {
+    return {
+      error: "CNPJ é obrigatório pra empresas com plano pago (o Asaas precisa dele pra gerar a cobrança).",
+    };
+  }
+
+  // Valor mensal — fixo por plano, exceto "enterprise" (sob consulta,
+  // negociado manualmente a cada caso).
+  let valorMensal: number | null = null;
+  if (comercial) {
+    if (plano === "enterprise") {
+      valorMensal = Number(valorEnterpriseBruto.replace(",", "."));
+      if (!valorMensal || valorMensal <= 0) {
+        return {
+          error: "Informe o valor mensal negociado pro plano Enterprise.",
+        };
+      }
+    } else {
+      valorMensal = PLANO_VALOR_MENSAL[plano as keyof typeof PLANO_VALOR_MENSAL];
+    }
   }
 
   let admin;
@@ -74,16 +148,56 @@ export async function criarEmpresa(
     };
   }
 
+  // Aviso de nome duplicado — não é uma trava do banco (só `cnpj` é
+  // unique), mas a confirmação exata de nome em resetarDadosEmpresa e
+  // excluirEmpresaPermanentemente (ver empresas/actions.ts) existe
+  // justamente pra evitar errar a empresa na lista — duas com o mesmo
+  // nome tornariam essa lista ambígua de propósito. Comparação sem
+  // diferenciar maiúsculas/espaços nas pontas, porque é isso que ficaria
+  // visualmente idêntico na lista de empresas.
+  const { data: duplicada } = await admin
+    .from("empresas")
+    .select("id")
+    .ilike("nome", empresaNome)
+    .maybeSingle();
+  if (duplicada) {
+    return {
+      error: `Já existe uma empresa chamada "${empresaNome}". Se for mesmo outra empresa (ex.: outra unidade), use um nome que as diferencie na lista.`,
+    };
+  }
+
   // 1) Cria a empresa primeiro (tabela sem RLS, insert sempre permitido).
-  const { data: empresa, error: empresaError } = await admin
+  // limite_colaboradores vem do plano escolhido, como sugestão inicial —
+  // coluna ainda pendente de aplicação (ver morsafe-add-limite-
+  // colaboradores.sql), por isso o fallback 42703 abaixo, mesmo padrão já
+  // usado em movimentacoes/actions.ts pro grupo_entrega_id.
+  const limiteColaboradoresSugerido =
+    comercial && plano !== "enterprise"
+      ? PLANO_LIMITE_COLABORADORES[plano as keyof typeof PLANO_LIMITE_COLABORADORES]
+      : null;
+
+  let { data: empresa, error: empresaError } = await admin
     .from("empresas")
     .insert({
       nome: empresaNome,
       cnpj: cnpj || null,
       endereco: endereco || null,
+      limite_colaboradores: limiteColaboradoresSugerido,
     })
     .select("id")
     .single();
+
+  if (
+    empresaError &&
+    empresaError.code === "42703" &&
+    /limite_colaboradores/i.test(empresaError.message ?? "")
+  ) {
+    ({ data: empresa, error: empresaError } = await admin
+      .from("empresas")
+      .insert({ nome: empresaNome, cnpj: cnpj || null, endereco: endereco || null })
+      .select("id")
+      .single());
+  }
 
   if (empresaError || !empresa) {
     console.error("criarEmpresa (insert empresa):", empresaError?.message);
@@ -134,6 +248,92 @@ export async function criarEmpresa(
     };
   }
 
+  // 4) Plano comercial: cria a assinatura recorrente no Asaas. A ordem
+  // aqui importa pela segurança do dinheiro envolvido — grava a linha de
+  // `assinaturas` ANTES de chamar o Asaas (nunca depois), pra nunca criar
+  // uma cobrança recorrente de verdade sem um jeito de rastreá-la daqui.
+  // Se a tabela ainda não existir (migração pendente — ver
+  // morsafe-add-assinaturas-asaas.sql), falha AQUI, antes de qualquer
+  // chamada ao Asaas, então nada foi cobrado de ninguém.
+  if (comercial && valorMensal !== null) {
+    const plano_ = plano as PlanoAssinatura;
+
+    const { data: assinatura, error: assinaturaInsertError } = await admin
+      .from("assinaturas")
+      .insert({
+        empresa_id: empresa.id,
+        plano: plano_,
+        valor_mensal: valorMensal,
+        status: "pendente",
+      })
+      .select("id")
+      .single();
+
+    if (assinaturaInsertError || !assinatura) {
+      await admin.auth.admin.deleteUser(created.user.id);
+      await admin.from("empresas").delete().eq("id", empresa.id);
+      const tabelaAusente = assinaturaInsertError?.code === "42P01";
+      console.error("criarEmpresa (insert assinatura):", assinaturaInsertError?.message);
+      return {
+        error: tabelaAusente
+          ? "A cobrança recorrente depende de uma migração pendente no banco (acesso ao Supabase bloqueado). Cadastre esta empresa sem plano pago por enquanto, ou avise o suporte do MorSafe."
+          : "Não foi possível criar a assinatura. Tente novamente ou avise o suporte do MorSafe.",
+      };
+    }
+
+    try {
+      const cliente = await criarClienteAsaas({
+        nome: empresaNome,
+        cpfCnpj: cnpjDigitos,
+        email,
+        referenciaExterna: empresa.id,
+      });
+
+      const proximoVencimento = proximoDiaVencimento();
+      const assinaturaAsaas = await criarAssinaturaAsaas({
+        asaasCustomerId: cliente.id,
+        valor: valorMensal,
+        proximoVencimento,
+        descricao: `Assinatura MorSafe — plano ${plano_}`,
+        referenciaExterna: empresa.id,
+      });
+
+      const { error: atualizaAssinaturaError } = await admin
+        .from("assinaturas")
+        .update({
+          asaas_customer_id: cliente.id,
+          asaas_subscription_id: assinaturaAsaas.id,
+          proximo_vencimento: proximoVencimento,
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq("id", assinatura.id);
+
+      if (atualizaAssinaturaError) {
+        // A assinatura JÁ FOI criada de verdade no Asaas a essa altura —
+        // desfazer o cadastro inteiro agora cancelaria uma cobrança real
+        // por um problema só de gravação local, o que é pior. Fica só o
+        // log bem visível pra conferência manual (painel do Asaas tem o
+        // id da assinatura, visível no log abaixo).
+        console.error(
+          `criarEmpresa: assinatura criada no Asaas (${assinaturaAsaas.id}, cliente ${cliente.id}) mas falhou ao gravar os ids localmente (assinatura id ${assinatura.id}): ${atualizaAssinaturaError.message}`,
+        );
+      }
+    } catch (e) {
+      // Falha ao criar no Asaas (CNPJ inválido, API fora do ar, etc.) —
+      // aqui sim desfaz tudo, porque nada foi cobrado de ninguém ainda.
+      await admin.from("assinaturas").delete().eq("id", assinatura.id);
+      await admin.auth.admin.deleteUser(created.user.id);
+      await admin.from("empresas").delete().eq("id", empresa.id);
+      const mensagemAsaas = e instanceof AsaasError ? e.message : null;
+      console.error("criarEmpresa (Asaas):", e);
+      return {
+        error: mensagemAsaas
+          ? `Não foi possível criar a assinatura no Asaas: ${mensagemAsaas}`
+          : "Não foi possível criar a assinatura no Asaas. Confira o CNPJ e tente novamente.",
+      };
+    }
+  }
+
   await registrarLogAuditoria({
     supabase: admin,
     empresaId: empresa.id,
@@ -141,7 +341,7 @@ export async function criarEmpresa(
     registroId: empresa.id,
     acao: "criado",
     usuarioId: requester.id,
-    detalhes: { nome: empresaNome },
+    detalhes: { nome: empresaNome, plano: comercial ? plano : "interno" },
   });
 
   return { error: null, success: true };

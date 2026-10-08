@@ -276,18 +276,30 @@ export default async function EmpresaDetalhePage({
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {p.status === "pendente" ? (
-                          <MarcarPagoButton
-                            pagamentoId={p.id}
-                            empresaNome={p.empresaNome}
-                          />
-                        ) : (
-                          <span className="text-[12.5px] text-text-muted">
-                            {p.dataPagamento
-                              ? `Pago em ${formatDateSemHora(p.dataPagamento)}`
-                              : "Pago"}
-                          </span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {p.status === "pendente" ? (
+                            <MarcarPagoButton
+                              pagamentoId={p.id}
+                              empresaNome={p.empresaNome}
+                            />
+                          ) : (
+                            <span className="text-[12.5px] text-text-muted">
+                              {p.dataPagamento
+                                ? `Pago em ${formatDateSemHora(p.dataPagamento)}`
+                                : "Pago"}
+                            </span>
+                          )}
+                          {p.asaasInvoiceUrl && (
+                            <a
+                              href={p.asaasInvoiceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[12.5px] font-semibold text-brand-700 underline-offset-2 hover:underline"
+                            >
+                              Ver fatura
+                            </a>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

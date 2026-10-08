@@ -196,11 +196,15 @@ export async function registrarEntrega(
   // que mencione "grupo_entrega_id" no texto (ex.: erro de permissão numa
   // policy futura que cite essa coluna), o que engoliria silenciosamente
   // um erro real sem relação com a coluna não existir ainda. Mantém o
-  // teste na mensagem como segunda confirmação, pra não cair num 42703 de
-  // outra coluna qualquer.
+  // teste na mensagem como segunda confirmação, pra não cair num 42703/
+  // PGRST204 de outra coluna qualquer. PGRST204 é o código que o
+  // PostgREST devolve quando não acha a coluna no SCHEMA CACHE dele, sem
+  // nem chegar no banco — confirmado como o código real em produção (ver
+  // definirLimiteColaboradores, empresas/actions.ts); só testar 42703
+  // deixava este fallback nunca disparar de verdade.
   if (
     error &&
-    error.code === "42703" &&
+    (error.code === "42703" || error.code === "PGRST204") &&
     /grupo_entrega_id/i.test(error.message ?? "")
   ) {
     const linhasSemGrupo = linhas.map(({ grupo_entrega_id: _grupo, ...resto }) => resto);

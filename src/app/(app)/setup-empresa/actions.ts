@@ -6,17 +6,25 @@ import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 import {
   criarClienteAsaas,
   criarAssinaturaAsaas,
+  criarCobrancaAvulsaAsaas,
   AsaasError,
 } from "@/lib/asaas/client";
 import {
   PLANO_VALOR_MENSAL,
   PLANO_LIMITE_COLABORADORES,
+  TAXA_IMPLANTACAO,
 } from "@/lib/data/planos";
 import type { PlanoAssinatura } from "@/types/database";
 
 export type CriarEmpresaState = {
   error: string | null;
   success?: boolean;
+  // Aviso não-bloqueante: a empresa E a assinatura recorrente foram
+  // criadas com sucesso (inclusive no Asaas), mas a taxa de implantação
+  // (passo 5, abaixo) falhou ao ser lançada automaticamente. Diferente de
+  // `error`, isto nunca impede o cadastro de ser considerado concluído —
+  // só avisa o super_admin pra lançar manualmente via "+ Novo pagamento".
+  avisoImplantacao?: string;
 };
 
 const PLANOS_COMERCIAIS = new Set<string>([
@@ -261,6 +269,8 @@ export async function criarEmpresa(
   // Se a tabela ainda não existir (migração pendente — ver
   // morsafe-add-assinaturas-asaas.sql), falha AQUI, antes de qualquer
   // chamada ao Asaas, então nada foi cobrado de ninguém.
+  let avisoImplantacao: string | undefined;
+
   if (comercial && valorMensal !== null) {
     const plano_ = plano as PlanoAssinatura;
 
@@ -287,6 +297,13 @@ export async function criarEmpresa(
       };
     }
 
+    // Guardado fora do try pra ficar acessível no passo 5 (taxa de
+    // implantação), logo abaixo — só fica preenchido se o cliente Asaas
+    // foi criado com sucesso, o que só acontece se o try inteiro passar
+    // do ponto de criarClienteAsaas (qualquer falha antes disso retorna
+    // cedo, via catch, então o passo 5 nunca roda com isto nulo).
+    let asaasCustomerId: string | null = null;
+
     try {
       const cliente = await criarClienteAsaas({
         nome: empresaNome,
@@ -294,6 +311,7 @@ export async function criarEmpresa(
         email,
         referenciaExterna: empresa.id,
       });
+      asaasCustomerId = cliente.id;
 
       const proximoVencimento = proximoDiaVencimento();
       const assinaturaAsaas = await criarAssinaturaAsaas({
@@ -338,6 +356,76 @@ export async function criarEmpresa(
           : "Não foi possível criar a assinatura no Asaas. Confira o CNPJ e tente novamente.",
       };
     }
+
+    // 5) Taxa de implantação (cobrança única, valor fixo — ver
+    // TAXA_IMPLANTACAO, lib/data/planos.ts) — lançada automaticamente
+    // aqui pra toda empresa comercial, em vez de depender de alguém
+    // lembrar de criar depois em "+ Novo pagamento" (ver pagamentos/
+    // actions.ts, que segue o mesmo padrão pra qualquer cobrança avulsa
+    // futura). Mesma ordem de segurança do dinheiro: a linha local
+    // (pendente, sem asaas_payment_id ainda) é criada ANTES da chamada ao
+    // Asaas.
+    //
+    // Diferente da falha de assinatura acima, uma falha AQUI não desfaz o
+    // cadastro inteiro — a esta altura a assinatura recorrente JÁ está
+    // ativa de verdade no Asaas; desfazer a empresa deixaria essa
+    // assinatura real órfã, sem nenhum registro local pra cancelá-la
+    // depois. Em vez disso, mantém o cadastro como sucesso e avisa o
+    // super_admin (avisoImplantacao) pra lançar manualmente — e, mesmo se
+    // só o lado Asaas falhar, mantém a linha local "pendente" sem
+    // asaas_payment_id (não apaga, diferente de criarPagamento), porque
+    // aqui ela serve de lembrete visível em /pagamentos de que a taxa
+    // ainda precisa ser cobrada.
+    const vencimentoImplantacao = new Date().toISOString().slice(0, 10);
+    const { data: pagamentoImplantacao, error: implantacaoInsertError } =
+      await admin
+        .from("pagamentos_empresa")
+        .insert({
+          empresa_id: empresa.id,
+          valor: TAXA_IMPLANTACAO,
+          data_vencimento: vencimentoImplantacao,
+          observacao: "Taxa de implantação",
+        })
+        .select("id")
+        .maybeSingle();
+
+    if (implantacaoInsertError || !pagamentoImplantacao) {
+      console.error(
+        `criarEmpresa (insert taxa de implantação, empresa ${empresa.id}): ${implantacaoInsertError?.message}`,
+      );
+      avisoImplantacao =
+        "Empresa e assinatura criadas com sucesso, mas não foi possível registrar a taxa de implantação automaticamente. Lance manualmente em \"+ Novo pagamento\".";
+    } else if (asaasCustomerId) {
+      try {
+        const cobranca = await criarCobrancaAvulsaAsaas({
+          asaasCustomerId,
+          valor: TAXA_IMPLANTACAO,
+          vencimento: vencimentoImplantacao,
+          descricao: `Taxa de implantação MorSafe — ${empresaNome}`,
+          referenciaExterna: empresa.id,
+        });
+
+        const { error: atualizaImplantacaoError } = await admin
+          .from("pagamentos_empresa")
+          .update({
+            asaas_payment_id: cobranca.id,
+            asaas_invoice_url: cobranca.invoiceUrl,
+          })
+          .eq("id", pagamentoImplantacao.id);
+
+        if (atualizaImplantacaoError) {
+          console.error(
+            `criarEmpresa: taxa de implantação criada no Asaas (${cobranca.id}) mas falhou ao gravar o id localmente (pagamento ${pagamentoImplantacao.id}): ${atualizaImplantacaoError.message}`,
+          );
+        }
+      } catch (e) {
+        const mensagemAsaas = e instanceof AsaasError ? e.message : null;
+        console.error("criarEmpresa (taxa de implantação no Asaas):", e);
+        avisoImplantacao = mensagemAsaas
+          ? `Empresa e assinatura criadas com sucesso, mas a taxa de implantação não pôde ser cobrada no Asaas (${mensagemAsaas}). O lançamento ficou pendente em Cobranças — confira o CNPJ/dados do cliente e tente lançar de novo por lá se precisar.`
+          : "Empresa e assinatura criadas com sucesso, mas a taxa de implantação não pôde ser cobrada no Asaas. O lançamento ficou pendente em Cobranças.";
+      }
+    }
   }
 
   await registrarLogAuditoria({
@@ -350,5 +438,5 @@ export async function criarEmpresa(
     detalhes: { nome: empresaNome, plano: comercial ? plano : "interno" },
   });
 
-  return { error: null, success: true };
+  return { error: null, success: true, avisoImplantacao };
 }

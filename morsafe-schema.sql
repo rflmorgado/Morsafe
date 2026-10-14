@@ -23,7 +23,12 @@ create table empresas (
   nome        text not null,
   cnpj        text unique,
   ativo       boolean not null default true,
-  criado_em   timestamptz not null default now()
+  criado_em   timestamptz not null default now(),
+  -- Drift descoberto em 13/10/2026 ao migrar os dados da ViniPlast: colunas
+  -- já usadas pelo app (ver database.ts) e com dado real de produção, mas
+  -- nunca tinham sido adicionadas aqui.
+  endereco    text,
+  logo_url    text
 );
 comment on table empresas is 'Cada empresa cliente do MorSafe (ex: ViniPlast). Todo o restante do sistema é isolado por empresa_id.';
 
@@ -42,23 +47,49 @@ comment on table unidades is 'Filiais/unidades operacionais dentro da mesma empr
 -- ============================================================
 -- 0.1 USUÁRIOS (quem acessa o sistema, vinculado ao Supabase Auth)
 -- ============================================================
-create type papel_usuario as enum ('admin', 'encarregado', 'leitura');
+-- 'super_admin' é o papel da equipe do MorSafe (nunca de uma empresa
+-- cliente) — não pertence a nenhuma empresa (ver empresa_id abaixo,
+-- nullable só por causa dele) e só ele acessa /empresas, /pagamentos e
+-- /setup-empresa (cadastrar empresa nova). Confirmado como drift em
+-- 14/10/2026: existia na produção (código TS já assumia isso, ver
+-- PapelUsuario em src/types/database.ts) mas nunca tinha sido migrado
+-- aqui — só reproduzido manualmente no banco antigo, fora de qualquer
+-- arquivo rastreado.
+create type papel_usuario as enum ('admin', 'encarregado', 'leitura', 'super_admin');
 
 create table usuarios (
   id          uuid primary key references auth.users(id) on delete cascade,
-  empresa_id  uuid not null references empresas(id) on delete restrict,
+  -- null apenas para usuário(s) super_admin, que não pertencem a nenhuma
+  -- empresa cliente (só eles podem cadastrar empresas novas em
+  -- /setup-empresa) — ver comentário do enum acima, mesmo drift.
+  empresa_id  uuid references empresas(id) on delete restrict,
   nome        text not null,
   papel       papel_usuario not null default 'encarregado',
   ativo       boolean not null default true,
   criado_em   timestamptz not null default now()
 );
-comment on table usuarios is 'Perfil de acesso de cada usuário do MorSafe, vinculado a uma única empresa. id é o mesmo do Supabase Auth (auth.users).';
+comment on table usuarios is 'Perfil de acesso de cada usuário do MorSafe, vinculado a uma única empresa (exceto super_admin, sem empresa). id é o mesmo do Supabase Auth (auth.users).';
 
--- Função auxiliar: retorna a empresa do usuário logado (usada em todas as políticas de RLS abaixo)
+-- Função auxiliar: retorna a empresa do usuário logado (usada em todas as
+-- políticas de RLS abaixo, inclusive a própria política de `usuarios`).
+-- security definer + search_path fixo são OBRIGATÓRIOS aqui, não só boa
+-- prática: sem isso, a consulta interna a `usuarios` fica sujeita à RLS
+-- de `usuarios`, cuja política (propria_empresa, abaixo) chama esta
+-- mesma função — recursão infinita ("stack depth limit exceeded").
+-- Rodando como security definer, a consulta interna ignora RLS (não abre
+-- brecha: ela só LÊ empresa_id da própria linha do usuário logado, nunca
+-- grava nem expõe dado de outra linha). Descoberto como drift em
+-- 14/10/2026 ao recriar o banco do zero — a função de produção tinha
+-- isso, mas nunca tinha sido salva num arquivo rastreado.
 create or replace function auth_empresa_id()
-returns uuid as $$
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
   select empresa_id from usuarios where id = auth.uid()
-$$ language sql stable;
+$$;
 
 -- ============================================================
 -- 1. SETORES
@@ -102,6 +133,10 @@ create table colaboradores (
   status        status_colaborador not null default 'ativo',
   criado_em     timestamptz not null default now(),
   atualizado_em timestamptz not null default now(),
+  -- Drift descoberto em 13/10/2026 ao migrar os dados da ViniPlast: coluna
+  -- já usada pelo app (ver database.ts) e com dado real de produção, mas
+  -- nunca tinha sido adicionada aqui.
+  data_integracao_seguranca date,
   unique (empresa_id, cpf)
 );
 comment on table colaboradores is 'Colaboradores cadastrados no sistema de EPI de cada empresa.';
@@ -409,7 +444,14 @@ create policy empresa_isolada on devolucoes using (empresa_id = auth_empresa_id(
 create policy empresa_isolada on recusas using (empresa_id = auth_empresa_id());
 create policy empresa_isolada on auditorias_nr06 using (empresa_id = auth_empresa_id());
 create policy empresa_isolada on log_auditoria using (empresa_id = auth_empresa_id());
-create policy propria_empresa on usuarios using (empresa_id = auth_empresa_id());
+-- id = auth.uid() é essencial, não redundante: sem ele, um super_admin
+-- (empresa_id null) nunca bateria com a própria linha via
+-- empresa_id = auth_empresa_id(), já que null = null nunca é verdadeiro
+-- em SQL — era exatamente isso que travava o login dele (drift
+-- descoberto em 14/10/2026, corrigido junto com auth_empresa_id() acima).
+create policy propria_empresa on usuarios using (
+  id = auth.uid() or empresa_id = auth_empresa_id()
+);
 
 -- ============================================================
 -- FIM DO SCHEMA

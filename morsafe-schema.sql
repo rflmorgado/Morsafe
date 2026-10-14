@@ -317,6 +317,139 @@ create table log_auditoria (
 comment on table log_auditoria is 'Trilha de auditoria: correções geram novo registro e ficam logadas aqui — nada é editado ou apagado silenciosamente.';
 
 -- ============================================================
+-- 14. VERIFICAÇÕES DE DOCUMENTO (QR code)
+-- ============================================================
+-- Ausente deste arquivo até 14/10/2026 — tabela criada direto no SQL
+-- Editor em algum momento, sem nunca ser documentada aqui (mesmo tipo
+-- de drift de empresas.endereco/logo_url acima, só que numa tabela
+-- inteira). Reconstruída a partir de src/types/database.ts e
+-- confirmada coluna a coluna contra a produção. RLS desabilitado por
+-- design, mesmo padrão de empresas: a única forma de achar uma linha
+-- é sabendo o código (aleatório, não sequencial) — ver
+-- lib/data/verificacao-documento.ts.
+create table verificacoes_documento (
+  id                 uuid primary key default gen_random_uuid(),
+  codigo             text not null unique,
+  empresa_id         uuid not null references empresas(id) on delete cascade,
+  empresa_nome       text not null,
+  colaborador_id     uuid not null references colaboradores(id) on delete cascade,
+  colaborador_nome   text not null,
+  tipo_documento     text not null,
+  quantidade_eventos integer not null,
+  hash_conteudo      text not null,
+  gerado_por         uuid references usuarios(id),
+  gerado_em          timestamptz not null default now()
+);
+comment on table verificacoes_documento is 'Snapshot assinado (hash) de uma ficha/documento gerado para verificação pública via QR code. RLS desabilitado por design — só acessível sabendo o código aleatório, nunca por listagem.';
+
+-- ============================================================
+-- 15. ESTAÇÕES E SOLICITAÇÕES DE ASSINATURA (tablet/celular pareado)
+-- ============================================================
+-- Ausentes deste arquivo até 14/10/2026 — mesmo drift de
+-- verificacoes_documento acima. Reconstruídas a partir de
+-- src/types/database.ts e confirmadas coluna a coluna contra a
+-- produção.
+create table estacoes_assinatura (
+  id                 uuid primary key default gen_random_uuid(),
+  empresa_id         uuid not null references empresas(id) on delete cascade,
+  nome               text not null,
+  token              text,
+  codigo_pareamento  text,
+  codigo_expira_em   timestamptz,
+  ativo              boolean not null default true,
+  criado_em          timestamptz not null default now(),
+  pareado_em         timestamptz,
+  ultimo_ping        timestamptz
+);
+comment on table estacoes_assinatura is 'Tablet/celular pareado numa empresa para coletar assinatura em tela. O pareamento e a coleta de assinatura (src/app/estacao/actions.ts) rodam sem usuário logado, só com o token — por isso usam o cliente com service role e ignoram RLS nesse caminho. Mas a tela de administração da empresa (src/app/(app)/estacoes/actions.ts) usa o cliente normal, sujeito a RLS — por isso a policy empresa_isolada abaixo é necessária (achado CRITICAL do Security Advisor em 14/10/2026: faltava RLS aqui).';
+
+create type status_solicitacao_assinatura as enum ('aguardando', 'assinado', 'cancelado', 'expirado');
+create type tipo_solicitacao_assinatura as enum ('entrega', 'devolucao');
+
+create table solicitacoes_assinatura (
+  id                 uuid primary key default gen_random_uuid(),
+  empresa_id         uuid not null references empresas(id) on delete cascade,
+  estacao_id         uuid not null references estacoes_assinatura(id) on delete cascade,
+  status             status_solicitacao_assinatura not null default 'aguardando',
+  tipo               tipo_solicitacao_assinatura not null default 'entrega',
+  colaborador_nome   text not null,
+  epi_nome           text not null,
+  assinatura_url     text,
+  criado_por         uuid references usuarios(id),
+  criado_em          timestamptz not null default now(),
+  respondido_em      timestamptz
+);
+comment on table solicitacoes_assinatura is 'Pedido de assinatura enviado a uma estação pareada — colaborador_nome/epi_nome são snapshot (não FK) porque a estação só tem o token, sem acesso ao resto do banco. Mesmo motivo de estacoes_assinatura acima: policy empresa_isolada necessária pela tela de administração, mesmo a estação em si acessando via service role.';
+create index idx_solicitacoes_assinatura_estacao on solicitacoes_assinatura (estacao_id, status);
+
+-- ============================================================
+-- 16. PAGAMENTOS DA EMPRESA (cobrança via Asaas)
+-- ============================================================
+-- Ausente deste arquivo até 14/10/2026 — mesmo drift das tabelas
+-- acima.
+create table pagamentos_empresa (
+  id               uuid primary key default gen_random_uuid(),
+  empresa_id       uuid not null references empresas(id) on delete cascade,
+  valor            numeric(10,2) not null,
+  data_vencimento  date not null,
+  status           text not null default 'pendente' check (status in ('pendente', 'pago')),
+  data_pagamento   date,
+  observacao       text,
+  asaas_payment_id text,
+  asaas_invoice_url text,
+  criado_em        timestamptz not null default now()
+);
+comment on table pagamentos_empresa is 'Cobranças (recorrentes sincronizadas do Asaas + avulsas, inclusive taxa de implantação) de cada empresa cliente do MorSafe. Acessada só via service role (telas do super_admin) — policy empresa_isolada abaixo é defesa em profundidade, não o caminho real de acesso hoje.';
+create index idx_pagamentos_empresa_empresa_id on pagamentos_empresa(empresa_id);
+create index idx_pagamentos_empresa_vencimento on pagamentos_empresa(data_vencimento);
+comment on column pagamentos_empresa.asaas_payment_id is 'Id da cobrança no Asaas. NULL em cobrança sem Asaas por trás (controle 100% manual anterior).';
+create unique index idx_pagamentos_empresa_asaas_payment_id
+  on pagamentos_empresa(asaas_payment_id)
+  where asaas_payment_id is not null;
+comment on column pagamentos_empresa.asaas_invoice_url is 'Link da fatura hospedada pelo Asaas (Pix/boleto/cartão). NULL em cobrança sem Asaas por trás, ou ainda não sincronizada.';
+
+-- ============================================================
+-- 17. ASSINATURAS (estado do plano comercial)
+-- ============================================================
+create table assinaturas (
+  id                     uuid primary key default gen_random_uuid(),
+  empresa_id             uuid not null references empresas(id) on delete cascade,
+  plano                  text not null check (plano in ('start', 'essencial', 'profissional', 'empresa', 'industrial', 'enterprise')),
+  valor_mensal           numeric(10,2) not null,
+  status                 text not null default 'pendente' check (status in ('ativa', 'pendente', 'inadimplente', 'suspensa', 'cancelada')),
+  asaas_customer_id      text,
+  asaas_subscription_id  text,
+  proximo_vencimento     date,
+  suspensa_em            timestamptz,
+  cancelada_em           timestamptz,
+  criado_em              timestamptz not null default now(),
+  atualizado_em          timestamptz not null default now()
+);
+comment on table assinaturas is 'Estado ATUAL da assinatura mensal recorrente de cada empresa cliente comercial (uma linha por empresa) — espelha o que está no Asaas, sincronizado pelo webhook (ver app/api/webhooks/asaas/route.ts). Mesmo motivo de pagamentos_empresa acima: só acessada via service role, policy empresa_isolada é defesa em profundidade.';
+create unique index idx_assinaturas_empresa_id on assinaturas(empresa_id);
+create index idx_assinaturas_status on assinaturas(status);
+create unique index idx_assinaturas_asaas_customer_id
+  on assinaturas(asaas_customer_id)
+  where asaas_customer_id is not null;
+create unique index idx_assinaturas_asaas_subscription_id
+  on assinaturas(asaas_subscription_id)
+  where asaas_subscription_id is not null;
+
+-- ============================================================
+-- 18. EVENTOS DE WEBHOOK ASAAS (dedup)
+-- ============================================================
+create table asaas_webhook_events (
+  evento_id    text primary key,
+  evento_tipo  text not null,
+  recebido_em  timestamptz not null default now()
+);
+comment on table asaas_webhook_events is 'Dedup de eventos de webhook do Asaas já processados — a segunda tentativa de INSERT com o mesmo evento_id cai em unique_violation (23505) e a rota responde 200 sem reprocessar nada (ver app/api/webhooks/asaas/route.ts). RLS ligado sem nenhuma policy (ver seção RLS abaixo) — só o backend, via service role, grava ou lê; qualquer outro acesso deve ficar totalmente bloqueado.';
+
+alter table empresas
+  add column limite_colaboradores integer;
+comment on column empresas.limite_colaboradores is 'Limite de colaboradores ativos incluído no plano contratado pela empresa cliente. NULL = sem limite definido ainda.';
+
+-- ============================================================
 -- FUNÇÕES E TRIGGERS
 -- ============================================================
 
@@ -347,7 +480,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 create trigger trg_entrada_estoque
   after insert on entradas_estoque
@@ -362,7 +495,7 @@ begin
   update estoque set saldo_atual = saldo_atual - 1, atualizado_em = now() where epi_id = new.epi_id;
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 create trigger trg_entrega_baixa_estoque
   before insert on entregas
@@ -376,7 +509,7 @@ begin
   end if;
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 create trigger trg_devolucao_estoque
   after insert on devolucoes
@@ -413,8 +546,24 @@ where exige_ca = true
   and ca_validade is not null
   and ca_validade <= (current_date + interval '30 days');
 
+-- Achado "Security Definer View" do Security Advisor em 14/10/2026: uma
+-- view sem security_invoker roda com o privilégio de quem CRIOU a view,
+-- não de quem está consultando — na prática ignorando silenciosamente o
+-- RLS das tabelas por trás. src/lib/data/dashboard.ts já filtrava por
+-- empresa_id no código, mas sem isso aqui esse filtro era só defesa de
+-- aplicação, nunca garantido pelo banco — uma falha no filtro vazaria
+-- dado operacional de uma empresa cliente pra outra (ou pro super_admin).
+alter view vw_consumo_mensal set (security_invoker = on);
+alter view vw_estoque_baixo set (security_invoker = on);
+alter view vw_ca_vencendo set (security_invoker = on);
+
 -- ============================================================
 -- ROW LEVEL SECURITY — isolamento total entre empresas
+-- (empresas e verificacoes_documento ficam DE FORA de propósito — RLS
+-- desabilitado por design, motivo documentado em cada comment on table
+-- acima. asaas_webhook_events fica com RLS ligado e SEM nenhuma policy
+-- de propósito — só o backend, via service role, deve conseguir
+-- acessá-la.)
 -- ============================================================
 alter table setores enable row level security;
 alter table unidades enable row level security;
@@ -430,6 +579,14 @@ alter table recusas enable row level security;
 alter table auditorias_nr06 enable row level security;
 alter table log_auditoria enable row level security;
 alter table usuarios enable row level security;
+-- As 5 tabelas abaixo ficaram de fora desta seção até 14/10/2026 —
+-- achado CRITICAL do Security Advisor ("RLS Disabled in Public"),
+-- corrigido na produção e documentado aqui pra fechar o drift.
+alter table estacoes_assinatura enable row level security;
+alter table solicitacoes_assinatura enable row level security;
+alter table pagamentos_empresa enable row level security;
+alter table assinaturas enable row level security;
+alter table asaas_webhook_events enable row level security;
 
 create policy empresa_isolada on setores using (empresa_id = auth_empresa_id());
 create policy empresa_isolada on unidades using (empresa_id = auth_empresa_id());
@@ -452,6 +609,15 @@ create policy empresa_isolada on log_auditoria using (empresa_id = auth_empresa_
 create policy propria_empresa on usuarios using (
   id = auth.uid() or empresa_id = auth_empresa_id()
 );
+
+create policy empresa_isolada on estacoes_assinatura using (empresa_id = auth_empresa_id());
+create policy empresa_isolada on solicitacoes_assinatura using (empresa_id = auth_empresa_id());
+create policy empresa_isolada on pagamentos_empresa using (empresa_id = auth_empresa_id());
+create policy empresa_isolada on assinaturas using (empresa_id = auth_empresa_id());
+-- asaas_webhook_events não recebe nenhuma policy de propósito — RLS
+-- ligado e sem policy bloqueia TODO acesso fora do service role, que é
+-- exatamente o único caminho de acesso real (ver app/api/webhooks/
+-- asaas/route.ts).
 
 -- ============================================================
 -- FIM DO SCHEMA

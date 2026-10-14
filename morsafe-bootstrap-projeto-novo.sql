@@ -337,10 +337,13 @@ comment on table verificacoes_documento is 'Snapshot assinado (hash) de uma fich
 -- ----- 15. ESTAÇÕES DE ASSINATURA (pareamento de tablet/celular) -----
 -- Ausente do morsafe-schema.sql original (criada depois direto no
 -- SQL Editor). Reconstruída a partir de src/types/database.ts.
--- RLS desabilitado por design: o acesso da estação não passa pelo
--- Supabase Auth — é feito por token permanente + createAdminClient(),
--- com a checagem de segurança toda manual no código da aplicação
--- (ver src/app/estacao/actions.ts, comentário no topo do arquivo).
+-- O pareamento e a coleta de assinatura (src/app/estacao/actions.ts)
+-- rodam sem usuário logado, só com o token permanente + createAdminClient()
+-- (ignora RLS nesse caminho, com checagem manual no código). Mas a tela
+-- de administração da empresa (src/app/(app)/estacoes/actions.ts) usa o
+-- cliente normal, sujeito a RLS — por isso a policy empresa_isolada (ver
+-- seção RLS abaixo) é necessária: achado CRITICAL do Security Advisor em
+-- 14/10/2026 ("RLS Disabled in Public"), corrigido nesse dia.
 create table estacoes_assinatura (
   id                 uuid primary key default gen_random_uuid(),
   empresa_id         uuid not null references empresas(id) on delete cascade,
@@ -353,7 +356,7 @@ create table estacoes_assinatura (
   pareado_em         timestamptz,
   ultimo_ping        timestamptz
 );
-comment on table estacoes_assinatura is 'Tablet/celular pareado numa empresa para coletar assinatura em tela. RLS desabilitado por design — acesso via token + checagem manual no código, nunca via Supabase Auth (ver src/app/estacao/actions.ts).';
+comment on table estacoes_assinatura is 'Tablet/celular pareado numa empresa para coletar assinatura em tela. O pareamento/coleta roda via service role (token), mas a administração roda via cliente normal — policy empresa_isolada abaixo é necessária pra esse segundo caminho (ver src/app/(app)/estacoes/actions.ts).';
 
 create type status_solicitacao_assinatura as enum ('aguardando', 'assinado', 'cancelado', 'expirado');
 create type tipo_solicitacao_assinatura as enum ('entrega', 'devolucao');
@@ -371,7 +374,7 @@ create table solicitacoes_assinatura (
   criado_em          timestamptz not null default now(),
   respondido_em      timestamptz
 );
-comment on table solicitacoes_assinatura is 'Pedido de assinatura enviado a uma estação pareada — colaborador_nome/epi_nome são snapshot (não FK) porque a estação só tem o token, sem acesso ao resto do banco. RLS desabilitado por design, mesmo motivo de estacoes_assinatura.';
+comment on table solicitacoes_assinatura is 'Pedido de assinatura enviado a uma estação pareada — colaborador_nome/epi_nome são snapshot (não FK) porque a estação só tem o token, sem acesso ao resto do banco. Mesmo motivo de estacoes_assinatura acima: policy empresa_isolada necessária pela tela de administração.';
 create index idx_solicitacoes_assinatura_estacao on solicitacoes_assinatura (estacao_id, status);
 
 -- ============================================================
@@ -406,7 +409,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 create trigger trg_entrada_estoque
   after insert on entradas_estoque
@@ -430,7 +433,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 create trigger trg_entrega_baixa_estoque
   before insert on entregas
@@ -457,7 +460,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 create trigger trg_devolucao_estoque
   after insert on devolucoes
@@ -494,12 +497,22 @@ where exige_ca = true
   and ca_validade is not null
   and ca_validade <= (current_date + interval '30 days');
 
+-- Achado "Security Definer View" do Security Advisor em 14/10/2026: sem
+-- security_invoker, uma view roda com o privilégio de quem a CRIOU, não
+-- de quem está consultando — ignorando silenciosamente o RLS das
+-- tabelas por trás (src/lib/data/dashboard.ts já filtrava por
+-- empresa_id no código, mas isso sozinho não é garantia de banco).
+alter view vw_consumo_mensal set (security_invoker = on);
+alter view vw_estoque_baixo set (security_invoker = on);
+alter view vw_ca_vencendo set (security_invoker = on);
+
 -- ============================================================
 -- ROW LEVEL SECURITY — isolamento total entre empresas
--- (empresas, verificacoes_documento, estacoes_assinatura e
--- solicitacoes_assinatura ficam DE FORA de propósito — RLS
+-- (empresas e verificacoes_documento ficam DE FORA de propósito — RLS
 -- desabilitado por design, motivo documentado em cada comment on
--- table acima)
+-- table acima. estacoes_assinatura e solicitacoes_assinatura ENTRARAM
+-- aqui em 14/10/2026 — achado CRITICAL do Security Advisor, ver
+-- comment on table de cada uma acima.)
 -- ============================================================
 alter table setores enable row level security;
 alter table unidades enable row level security;
@@ -515,6 +528,8 @@ alter table recusas enable row level security;
 alter table auditorias_nr06 enable row level security;
 alter table log_auditoria enable row level security;
 alter table usuarios enable row level security;
+alter table estacoes_assinatura enable row level security;
+alter table solicitacoes_assinatura enable row level security;
 
 create policy empresa_isolada on setores using (empresa_id = auth_empresa_id());
 create policy empresa_isolada on unidades using (empresa_id = auth_empresa_id());
@@ -538,6 +553,9 @@ create policy propria_empresa on usuarios using (
   id = auth.uid() or empresa_id = auth_empresa_id()
 );
 
+create policy empresa_isolada on estacoes_assinatura using (empresa_id = auth_empresa_id());
+create policy empresa_isolada on solicitacoes_assinatura using (empresa_id = auth_empresa_id());
+
 
 -- ============================================================
 -- PARTE 2 — COBRANÇA VIA ASAAS (morsafe-pendentes-supabase-TUDO.sql)
@@ -555,7 +573,7 @@ create table pagamentos_empresa (
   asaas_invoice_url text,
   criado_em        timestamptz not null default now()
 );
-comment on table pagamentos_empresa is 'Cobranças (recorrentes sincronizadas do Asaas + avulsas, inclusive taxa de implantação) de cada empresa cliente do MorSafe. RLS desabilitado por design: só acessada via service role, nas telas do super_admin.';
+comment on table pagamentos_empresa is 'Cobranças (recorrentes sincronizadas do Asaas + avulsas, inclusive taxa de implantação) de cada empresa cliente do MorSafe. Acessada só via service role (telas do super_admin) — policy empresa_isolada abaixo é defesa em profundidade: achado CRITICAL do Security Advisor em 14/10/2026 ("RLS Disabled in Public"), corrigido nesse dia.';
 
 create index idx_pagamentos_empresa_empresa_id on pagamentos_empresa(empresa_id);
 create index idx_pagamentos_empresa_vencimento on pagamentos_empresa(data_vencimento);
@@ -579,7 +597,7 @@ create table assinaturas (
   criado_em              timestamptz not null default now(),
   atualizado_em          timestamptz not null default now()
 );
-comment on table assinaturas is 'Estado ATUAL da assinatura mensal recorrente de cada empresa cliente comercial (uma linha por empresa) — espelha o que está no Asaas, sincronizado pelo webhook (ver app/api/webhooks/asaas/route.ts). RLS desabilitado por design, mesmo motivo de pagamentos_empresa: só acessada via service role, nas telas do super_admin.';
+comment on table assinaturas is 'Estado ATUAL da assinatura mensal recorrente de cada empresa cliente comercial (uma linha por empresa) — espelha o que está no Asaas, sincronizado pelo webhook (ver app/api/webhooks/asaas/route.ts). Mesmo motivo de pagamentos_empresa acima: só acessada via service role, policy empresa_isolada é defesa em profundidade.';
 
 create unique index idx_assinaturas_empresa_id on assinaturas(empresa_id);
 create index idx_assinaturas_status on assinaturas(status);
@@ -595,7 +613,22 @@ create table asaas_webhook_events (
   evento_tipo  text not null,
   recebido_em  timestamptz not null default now()
 );
-comment on table asaas_webhook_events is 'Dedup de eventos de webhook do Asaas já processados — a segunda tentativa de INSERT com o mesmo evento_id cai em unique_violation (23505) e a rota responde 200 sem reprocessar nada (ver app/api/webhooks/asaas/route.ts).';
+comment on table asaas_webhook_events is 'Dedup de eventos de webhook do Asaas já processados — a segunda tentativa de INSERT com o mesmo evento_id cai em unique_violation (23505) e a rota responde 200 sem reprocessar nada (ver app/api/webhooks/asaas/route.ts). RLS ligado e SEM nenhuma policy de propósito (ver abaixo) — só o backend, via service role, deve conseguir acessá-la.';
+
+-- RLS das 3 tabelas desta Parte 2 — achado CRITICAL do Security Advisor
+-- em 14/10/2026 ("RLS Disabled in Public"), corrigido nesse dia.
+-- pagamentos_empresa e assinaturas recebem a mesma policy
+-- empresa_isolada do resto do sistema (defesa em profundidade, já que o
+-- acesso real de hoje é todo via service role). asaas_webhook_events
+-- fica com RLS ligado e SEM NENHUMA policy — isso bloqueia qualquer
+-- acesso fora do service role, que é exatamente o único caminho de
+-- acesso real (ver app/api/webhooks/asaas/route.ts).
+alter table pagamentos_empresa enable row level security;
+alter table assinaturas enable row level security;
+alter table asaas_webhook_events enable row level security;
+
+create policy empresa_isolada on pagamentos_empresa using (empresa_id = auth_empresa_id());
+create policy empresa_isolada on assinaturas using (empresa_id = auth_empresa_id());
 
 alter table empresas
   add column limite_colaboradores integer;

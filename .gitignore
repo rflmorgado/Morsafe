@@ -1,0 +1,35 @@
+# dependencies
+/node_modules
+
+# next.js build output
+/.next/
+/out/
+
+# production build
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files — nunca committar (mesmo quando só tem chave pública/anon,
+# é convenção nunca versionar .env.local; .env.local.example continua
+# rastreado normalmente, é só o template).
+.env
+.env*.local
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# vercel
+.vercel
+
+# credenciais — senhas e chaves de serviços (Supabase, Asaas, etc.),
+# guardadas em texto só pra consulta local. Nunca commitar.
+/credenciais/

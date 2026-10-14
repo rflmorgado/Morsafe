@@ -5,7 +5,10 @@
  * aplicado no projeto Supabase "morsafe"). Ao alterar o schema no banco,
  * atualize este arquivo — ou, melhor, regenere com o Supabase CLI:
  *
- *   npx supabase gen types typescript --project-id mfvdovlziaqrdcdmbnmi > src/types/database.ts
+ *   npx supabase gen types typescript --project-id kqjvmgexmvvkyoxoagsb > src/types/database.ts
+ *
+ * (project-id atualizado em 14/10/2026 — projeto novo, depois da migração
+ * do projeto antigo mfvdovlziaqrdcdmbnmi, que ficou com acesso bloqueado.)
  *
  * O formato (Row/Insert/Update/Relationships por tabela, Row/Relationships
  * por view) segue o que @supabase/postgrest-js exige em `GenericSchema`

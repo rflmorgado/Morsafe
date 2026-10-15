@@ -403,9 +403,19 @@ comment on table pagamentos_empresa is 'Cobranças (recorrentes sincronizadas do
 create index idx_pagamentos_empresa_empresa_id on pagamentos_empresa(empresa_id);
 create index idx_pagamentos_empresa_vencimento on pagamentos_empresa(data_vencimento);
 comment on column pagamentos_empresa.asaas_payment_id is 'Id da cobrança no Asaas. NULL em cobrança sem Asaas por trás (controle 100% manual anterior).';
+-- Índice único SIMPLES (sem WHERE) de propósito — não é parcial. Um índice
+-- único comum do Postgres já trata todo NULL como distinto dos demais
+-- (não compara NULL = NULL), então várias cobranças sem Asaas por trás
+-- continuam permitidas sem precisar de predicado. A versão parcial
+-- (WHERE asaas_payment_id is not null) quebrava o .upsert(...,
+-- {onConflict: "asaas_payment_id"}) do webhook (src/app/api/webhooks/
+-- asaas/route.ts) com "there is no unique or exclusion constraint
+-- matching the ON CONFLICT specification" — Postgres só casa um ON
+-- CONFLICT com um índice parcial se o mesmo WHERE for repetido na
+-- cláusula ON CONFLICT, e a API do Supabase não permite isso. Corrigido
+-- em produção em 15/10/2026 recriando o índice sem o WHERE.
 create unique index idx_pagamentos_empresa_asaas_payment_id
-  on pagamentos_empresa(asaas_payment_id)
-  where asaas_payment_id is not null;
+  on pagamentos_empresa(asaas_payment_id);
 comment on column pagamentos_empresa.asaas_invoice_url is 'Link da fatura hospedada pelo Asaas (Pix/boleto/cartão). NULL em cobrança sem Asaas por trás, ou ainda não sincronizada.';
 
 -- ============================================================

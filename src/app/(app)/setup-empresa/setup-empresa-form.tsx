@@ -127,4 +127,105 @@ export function SetupEmpresaForm() {
               name="email"
               type="email"
               autoComplete="off"
-              require
+              required
+              placeholder="admin@empresa.com.br"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="senha" className={labelClass}>
+              Senha
+            </label>
+            <input
+              id="senha"
+              name="senha"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              placeholder="••••••••••"
+              className={inputClass}
+            />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-4 border-t border-border-subtle pt-4">
+        <legend className="mb-1 text-[13px] font-bold text-foreground">
+          Plano e cobrança
+        </legend>
+
+        <div>
+          <label htmlFor="plano" className={labelClass}>
+            Plano
+          </label>
+          <select
+            id="plano"
+            name="plano"
+            value={plano}
+            onChange={(e) => setPlano(e.target.value)}
+            className={inputClass}
+          >
+            <option value="interno">Uso interno (sem cobrança)</option>
+            {PLANOS_ORDENADOS.map((p) => (
+              <option key={p} value={p}>
+                {PLANO_LABEL[p]}
+                {p === "enterprise"
+                  ? " — sob consulta"
+                  : ` — ${formatValorPlano(PLANO_VALOR_MENSAL[p])}/mês`}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11.5px] text-text-muted">
+            &quot;Uso interno&quot; é só para ViniPlast/Vinitrade — qualquer
+            outro plano cria a assinatura recorrente no Asaas e cobra do
+            cliente a partir de agora.
+          </p>
+        </div>
+
+        {comercial && (
+          <div className="rounded-lg bg-surface-muted px-3.5 py-3 text-[12.5px] text-text-secondary">
+            Ao salvar, esta empresa já sai com: assinatura mensal recorrente
+            no Asaas (vencimento sempre no dia 05), e a taxa de implantação
+            de <strong>{formatValorPlano(TAXA_IMPLANTACAO)}</strong>{" "}
+            (cobrança única, valor fixo, vencimento em 7 dias — tempo pra
+            implantação ficar pronta) lançada automaticamente — Pix,
+            boleto ou cartão, à escolha do cliente.
+          </div>
+        )}
+
+        {plano === "enterprise" && (
+          <div>
+            <label htmlFor="valorEnterprise" className={labelClass}>
+              Valor mensal negociado (R$)
+            </label>
+            <input
+              id="valorEnterprise"
+              name="valorEnterprise"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              placeholder="Ex: 799.00"
+              className={inputClass}
+            />
+          </div>
+        )}
+      </fieldset>
+
+      {state.error && (
+        <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-text">
+          {state.error}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded-lg bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {pending ? "Criando..." : "Criar empresa e usuário admin"}
+      </button>
+    </form>
+  );
+}

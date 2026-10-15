@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { NovoPagamentoButton } from "./novo-pagamento-button";
 import { MarcarPagoButton } from "./marcar-pago-button";
+import { VerFaturaLink } from "./ver-fatura-link";
 
 // `data_vencimento`/`data_pagamento` são `date` puro (sem hora/fuso) — por
 // isso o "T00:00:00" aqui, igual ao padrão já usado pra `ca_validade` em
@@ -217,18 +218,7 @@ export default async function PagamentosPage() {
                             </span>
                           )}
                           {p.asaasInvoiceUrl && (
-                            <a
-                              href={p.asaasInvoiceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              // stopPropagation: mesmo motivo de
-                              // marcar-pago-button.tsx — a linha inteira
-                              // leva ao detalhe da empresa.
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-[12px] font-semibold text-brand-700 underline-offset-2 hover:underline"
-                            >
-                              Ver fatura
-                            </a>
+                            <VerFaturaLink href={p.asaasInvoiceUrl} />
                           )}
                         </div>
                       </td>
@@ -290,15 +280,7 @@ export default async function PagamentosPage() {
                       </span>
                     )}
                     {p.asaasInvoiceUrl && (
-                      <a
-                        href={p.asaasInvoiceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-[12px] font-semibold text-brand-700 underline-offset-2 hover:underline"
-                      >
-                        Ver fatura
-                      </a>
+                      <VerFaturaLink href={p.asaasInvoiceUrl} />
                     )}
                   </div>
                 </ClickableCard>

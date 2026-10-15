@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import { alterarPlanoAssinatura } from "./actions";
 import {
   PLANO_LABEL,
+  PLANO_LIMITE_COLABORADORES,
   PLANO_VALOR_MENSAL,
   PLANOS_ORDENADOS,
   formatValorPlano,
@@ -100,8 +101,8 @@ export function AlterarPlanoButton({
                 <option key={p} value={p}>
                   {PLANO_LABEL[p]}
                   {p === "enterprise"
-                    ? " — sob consulta"
-                    : ` — ${formatValorPlano(PLANO_VALOR_MENSAL[p])}/mês`}
+                    ? ` — acima de ${PLANO_LIMITE_COLABORADORES.industrial} colaboradores — sob consulta`
+                    : ` — até ${PLANO_LIMITE_COLABORADORES[p]} colaboradores — ${formatValorPlano(PLANO_VALOR_MENSAL[p])}/mês`}
                 </option>
               ))}
             </select>

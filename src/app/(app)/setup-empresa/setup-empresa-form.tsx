@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { criarEmpresa, type CriarEmpresaState } from "./actions";
 import {
   PLANO_LABEL,
+  PLANO_LIMITE_COLABORADORES,
   PLANO_VALOR_MENSAL,
   PLANOS_ORDENADOS,
   TAXA_IMPLANTACAO,
@@ -171,8 +172,8 @@ export function SetupEmpresaForm() {
               <option key={p} value={p}>
                 {PLANO_LABEL[p]}
                 {p === "enterprise"
-                  ? " — sob consulta"
-                  : ` — ${formatValorPlano(PLANO_VALOR_MENSAL[p])}/mês`}
+                  ? ` — acima de ${PLANO_LIMITE_COLABORADORES.industrial} colaboradores — sob consulta`
+                  : ` — até ${PLANO_LIMITE_COLABORADORES[p]} colaboradores — ${formatValorPlano(PLANO_VALOR_MENSAL[p])}/mês`}
               </option>
             ))}
           </select>

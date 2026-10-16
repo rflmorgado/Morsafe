@@ -63,9 +63,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublicPath = PUBLIC_PATHS.some((path) =>
-    request.nextUrl.pathname.startsWith(path),
-  );
+  // "/" (a landing page pública, fora do grupo (app)) é pública só na raiz
+  // exata — nunca via startsWith, porque toda rota do sistema começa com
+  // "/" e isso liberaria o app inteiro para quem não está logado.
+  const isPublicPath =
+    request.nextUrl.pathname === "/" ||
+    PUBLIC_PATHS.some((path) => request.nextUrl.pathname.startsWith(path));
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
@@ -175,7 +178,13 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  if (user && request.nextUrl.pathname === "/login") {
+  // Usuário já logado não precisa ver a tela de login nem a landing page de
+  // divulgação — vai direto pro painel.
+  if (
+    user &&
+    (request.nextUrl.pathname === "/login" ||
+      request.nextUrl.pathname === "/")
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

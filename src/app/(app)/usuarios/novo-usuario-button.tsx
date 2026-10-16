@@ -7,8 +7,9 @@ import { criarUsuario } from "./actions";
 
 /**
  * Cadastra um novo login pra um colega da própria empresa. A senha é
- * definida aqui mesmo pelo admin (não existe convite por e-mail ainda) —
- * o admin repassa a senha diretamente pra pessoa depois de criar.
+ * gerada automaticamente (nunca é vista nem digitada por ninguém aqui) —
+ * a pessoa recebe por e-mail um link pra definir a própria, mesmo fluxo já
+ * usado em "Esqueci minha senha".
  */
 export function NovoUsuarioButton() {
   const router = useRouter();
@@ -30,6 +31,13 @@ export function NovoUsuarioButton() {
         return;
       }
       setOpen(false);
+      // Aviso raro (falha ao enviar o e-mail de definir senha, mesmo com o
+      // login já criado) — sem sistema de toast no app, um alert simples
+      // garante que o admin não perca esse aviso (mesmo padrão de
+      // excluir-usuario-button.tsx).
+      if (result.aviso) {
+        window.alert(result.aviso);
+      }
       router.refresh();
     });
   }
@@ -78,28 +86,9 @@ export function NovoUsuarioButton() {
               placeholder="nome@empresa.com"
               className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition placeholder:text-text-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             />
-          </div>
-
-          <div>
-            <label
-              htmlFor="novo-usuario-senha"
-              className="mb-1.5 block text-[12.5px] font-semibold text-text-secondary"
-            >
-              Senha inicial
-            </label>
-            <input
-              id="novo-usuario-senha"
-              name="senha"
-              type="text"
-              required
-              minLength={6}
-              placeholder="Ao menos 6 caracteres"
-              autoComplete="new-password"
-              className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition placeholder:text-text-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            />
             <p className="mt-1 text-[11.5px] text-text-muted">
-              Repasse essa senha diretamente pra pessoa — ela pode trocar
-              depois de entrar.
+              Vamos enviar pra esse e-mail o link pra a pessoa definir a
+              própria senha.
             </p>
           </div>
 

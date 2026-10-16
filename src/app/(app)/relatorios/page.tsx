@@ -25,11 +25,18 @@ const COR_OUTROS = "var(--text-muted)";
 const MAX_FATIAS_DONUT = 5;
 
 function formatMoney(value: number) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  });
+  // Troca o espaço sem quebra (NBSP) que o toLocaleString põe entre "R$" e o
+  // número por um espaço normal — mesmo ajuste do Dashboard (ver
+  // dashboard/page.tsx): sem isso o valor vira um token só, incapaz de
+  // quebrar linha, e estoura por baixo do ícone do KpiCard em telas/colunas
+  // mais estreitas.
+  return value
+    .toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      maximumFractionDigits: 0,
+    })
+    .replace(/\u00a0/g, " ");
 }
 
 function formatUnidades(value: number) {
@@ -277,6 +284,8 @@ export default async function RelatoriosPage() {
               </h3>
               <BarTrendChart
                 data={r.porMes.map((m) => ({ label: m.label, value: Math.round(m.valor) }))}
+                formatValue={formatMoney}
+                unidadeTooltip=""
               />
             </Card>
           </div>

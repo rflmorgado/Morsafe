@@ -24,12 +24,23 @@ const ALTURA_MAX_PX = 120;
  * o que a maioria dos tons dessa escala não garante sozinha. O rótulo do
  * mês atual também vem em negrito — a diferença nunca depende só da cor.
  *
- * `formatValue`/`unidadeTooltip`: quando este gráfico passou a ser reusado
+ * `formato`/`unidadeTooltip`: quando este gráfico passou a ser reusado
  * também pra "Gasto por mês" (Relatórios, 16/10/2026), o número cru em reais
  * (ex.: "15800", sem formatação) era mais largo que "8" ou "12" — quem usa o
- * gráfico pra dinheiro passa `formatValue={formatMoney}` pra já chegar
- * formatado ("R$ 15.800") em vez do número cru, e o rótulo ganhou
- * `break-words`/`text-center` pra quebrar linha em vez de estourar a coluna.
+ * gráfico pra dinheiro passa `formato="dinheiro"` pra já chegar formatado
+ * ("R$ 15.800") em vez do número cru, e o rótulo ganhou `break-words`/
+ * `text-center` pra quebrar linha em vez de estourar a coluna. É uma string
+ * ("quantidade" | "dinheiro"), não a função de formatação em si — esse
+ * componente é "use client" (ver comentário de rolagem logo abaixo), e um
+ * Server Component (como relatorios/page.tsx) não pode passar uma função
+ * (ex.: `formatValue={formatMoney}`) pra um Client Component: o React quebra
+ * a página inteira em runtime com "Functions cannot be passed directly to
+ * Client Components" — foi exatamente o erro que o Rafael viu em
+ * /relatorios depois do deploy, 16/10/2026 (só nessa tela, porque só ela
+ * passava uma função; o build local não pegou porque /relatorios é uma
+ * rota dinâmica, renderizada só em request, não durante `next build`).
+ * A formatação em si mora aqui dentro agora (`formatarValor`), não mais
+ * recebida de fora.
  *
  * Rolagem horizontal (16/10/2026): a tela de Relatórios mostra 12 meses
  * (Dashboard mostra 6) — 12 colunas de largura mínima num Card de meia
@@ -42,17 +53,31 @@ const ALTURA_MAX_PX = 120;
  * esticando igual antes, sem barra de rolagem; com 12 (Relatórios), o que
  * não cabe fica visível rolando pro lado, nunca invisível cortado na borda.
  * O scroll já abre mostrando o FIM da lista (mês atual, a barra em
- * destaque) — "use client" só pra isso — em vez do começo: sem isso o
- * Rafael abriria a tela e veria 6 meses de 2025 parados em R$ 0, com o mês
- * atual escondido rolagem adentro.
+ * destaque) — "use client" por causa disso (useEffect/useRef) — em vez do
+ * começo: sem isso o Rafael abriria a tela e veria 6 meses de 2025 parados
+ * em R$ 0, com o mês atual escondido rolagem adentro.
  */
+function formatarValor(value: number, formato: "quantidade" | "dinheiro") {
+  if (formato === "quantidade") return String(value);
+  // Mesmo ajuste de NBSP do formatMoney em dashboard/page.tsx e
+  // relatorios/page.tsx: troca o espaço sem quebra por um espaço normal,
+  // senão "R$ 15.800" vira um token só e não quebra linha no break-words.
+  return value
+    .toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      maximumFractionDigits: 0,
+    })
+    .replace(/\u00a0/g, " ");
+}
+
 export function BarTrendChart({
   data,
-  formatValue = (value) => String(value),
+  formato = "quantidade",
   unidadeTooltip = "entrega",
 }: {
   data: BarPoint[];
-  formatValue?: (value: number) => string;
+  formato?: "quantidade" | "dinheiro";
   // Sufixo do tooltip (title) de cada barra, ex.: "entrega(s)". Passe ""
   // quando o valor já não for uma contagem de algo (ex.: dinheiro).
   unidadeTooltip?: string;
@@ -75,7 +100,7 @@ export function BarTrendChart({
           {data.map((d, i) => {
             const altura = Math.max(4, Math.round((d.value / maximo) * ALTURA_MAX_PX));
             const atual = i === data.length - 1;
-            const valorFormatado = formatValue(d.value);
+            const valorFormatado = formatarValor(d.value, formato);
             return (
               <div
                 key={`${d.label}-${i}`}

@@ -284,7 +284,7 @@ export default async function RelatoriosPage() {
               </h3>
               <BarTrendChart
                 data={r.porMes.map((m) => ({ label: m.label, value: Math.round(m.valor) }))}
-                formatValue={formatMoney}
+                formato="dinheiro"
                 unidadeTooltip=""
               />
             </Card>

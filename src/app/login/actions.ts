@@ -1,8 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { getSiteUrl } from "@/lib/supabase/site-url";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
@@ -14,19 +14,6 @@ export type ResetPasswordState = {
   error: string | null;
   success?: boolean;
 };
-
-/**
- * Descobre a URL base do site a partir dos headers da requisição, pra
- * montar o link de redirecionamento do e-mail de recuperação de senha sem
- * precisar de uma variável de ambiente fixa (funciona em preview, produção
- * ou qualquer domínio).
- */
-async function getSiteUrl() {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  return `${proto}://${host}`;
-}
 
 export async function requestPasswordReset(
   _prevState: ResetPasswordState,

@@ -66,6 +66,11 @@ create table usuarios (
   nome        text not null,
   papel       papel_usuario not null default 'encarregado',
   ativo       boolean not null default true,
+  -- Última vez que o usuário fez qualquer request autenticado (atualizado
+  -- no middleware, throttle de 1 min) — base da bolinha de presença em
+  -- /usuarios. Adicionada depois da tabela já existir, ver
+  -- morsafe-add-ultima-atividade-usuarios.sql.
+  ultima_atividade timestamptz,
   criado_em   timestamptz not null default now()
 );
 comment on table usuarios is 'Perfil de acesso de cada usuário do MorSafe, vinculado a uma única empresa (exceto super_admin, sem empresa). id é o mesmo do Supabase Auth (auth.users).';
@@ -256,6 +261,11 @@ create table devolucoes (
   motivo                motivo_devolucao not null,
   destino               destino_devolucao not null default 'nao_aplicavel',
   devolvido_fisicamente boolean not null default true,
+  -- Assinatura de confirmação (igual a entregas.assinatura_url) —
+  -- adicionada depois da tabela já existir, ver
+  -- morsafe-add-assinatura-devolucao.sql. NULL só em devolução registrada
+  -- antes dessa coluna existir.
+  assinatura_url        text,
   criado_em             timestamptz not null default now(),
   criado_por            uuid references usuarios(id)
 );

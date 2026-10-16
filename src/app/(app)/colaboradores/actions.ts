@@ -16,11 +16,27 @@ export type CreateSetorState = {
 
 /**
  * Cria um setor novo "no percurso" (opção "Outro" nos formulários de
- * colaborador), para quando surge um setor que ainda não está cadastrado.
+ * colaborador, e também usado linha a linha pelo importador de planilha —
+ * ver "Importar planilha" em importar-colaboradores-button.tsx), para
+ * quando surge um setor que ainda não está cadastrado. O nome do setor em
+ * si NUNCA é restrito — qualquer texto que a empresa cliente use pros
+ * próprios setores é aceito; cada empresa tem a sua nomenclatura.
+ *
  * setores.unidade_id é obrigatório no banco; como o app ainda não tem uma
  * tela de gestão de unidades, usamos a unidade mais antiga da empresa como
  * padrão — hoje a grande maioria das empresas cadastradas tem uma única
- * unidade.
+ * unidade. BUG REAL encontrado em 16/10/2026 (Rafael, ao importar a
+ * planilha de colaboradores da MorSafe Teste): /setup-empresa cria a
+ * empresa, o usuário admin e a assinatura, mas NUNCA cria essa unidade
+ * padrão — então toda empresa nova cadastrada por ali tem zero linhas em
+ * `unidades`, e a primeira vez que alguém tenta criar QUALQUER setor
+ * (opção "Outro" ou importação em massa) cai no erro abaixo, "Não foi
+ * possível identificar a unidade da empresa" — nada a ver com o nome do
+ * setor digitado, por isso duas empresas diferentes já bateram nisso. Em
+ * vez de só reportar o erro, criamos aqui mesmo a unidade padrão
+ * ("Matriz") na primeira falta — resolve o caso novo e também autocura
+ * qualquer empresa já cadastrada sem unidade, sem precisar de passo manual
+ * no Supabase nem mexer em /setup-empresa.
  *
  * Antes de criar, procura um setor já existente com o MESMO NOME na
  * empresa (ignorando maiúsculas/acentuação de caixa e espaços) e reaproveita
@@ -62,13 +78,28 @@ export async function createSetor(nome: string): Promise<CreateSetorState> {
     return { error: null, id: existente.id, nome: existente.nome };
   }
 
-  const { data: unidade, error: unidadeError } = await supabase
+  let { data: unidade, error: unidadeError } = await supabase
     .from("unidades")
     .select("id")
     .eq("empresa_id", user.empresaId)
     .order("criado_em", { ascending: true })
     .limit(1)
     .maybeSingle();
+
+  // Nenhuma unidade cadastrada ainda pra essa empresa (ver bloco de
+  // comentário acima) — cria a unidade padrão na hora, em vez de travar o
+  // cadastro do setor. `empresa_isolada` (RLS de `unidades`, ver
+  // morsafe-schema.sql) libera esse insert pro próprio usuário, mesmo
+  // padrão já usado no insert de `setores` logo abaixo.
+  if (!unidadeError && !unidade) {
+    const { data: unidadeCriada, error: criarUnidadeError } = await supabase
+      .from("unidades")
+      .insert({ empresa_id: user.empresaId, nome: "Matriz" })
+      .select("id")
+      .single();
+    unidade = unidadeCriada;
+    unidadeError = criarUnidadeError;
+  }
 
   if (unidadeError || !unidade) {
     console.error("createSetor (unidade):", unidadeError?.message);

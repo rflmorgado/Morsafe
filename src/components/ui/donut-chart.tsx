@@ -111,7 +111,15 @@ export function DonutChart({
             textAnchor="middle"
             dominantBaseline="middle"
             fill="currentColor"
-            className="text-text-muted text-[9px] font-semibold tracking-wide uppercase"
+            // 9px + tracking-wide cabia OK pra rótulos curtos ("EPIs", "no
+            // mês"), mas "COLABORADORES" (13 letras, o mais comprido usado)
+            // media ~84px de largura real (medido com a fonte Inter 600 do
+            // app) — mais largo que os ~80px do furo do donut (RADIUS=50,
+            // STROKE=20 → raio interno 40 → diâmetro 80), encostando/
+            // atravessando o anel colorido dos dois lados. Em 8px sem
+            // tracking-wide fica em ~72px, com folga confortável — e os
+            // rótulos mais curtos continuam de boa, só um pouco menores.
+            className="text-text-muted text-[8px] font-semibold uppercase"
           >
             {centerSublabel}
           </text>

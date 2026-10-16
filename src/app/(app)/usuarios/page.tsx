@@ -100,25 +100,29 @@ export default async function UsuariosPage() {
 
   // listUsuariosDaEmpresa usa o cliente admin (service role) — se a
   // variável SUPABASE_SERVICE_ROLE_KEY não estiver configurada no Vercel,
-  // ele lança um erro aqui. Sem este try/catch, isso derrubava a página
-  // inteira com a tela genérica "This page couldn't load" do Next.js.
+  // ele lança um erro aqui; agora também lança se a própria consulta no
+  // banco falhar (ver comentário em listUsuariosDaEmpresa, lib/data/
+  // usuarios.ts) em vez de voltar uma lista vazia enganosa. Sem este
+  // try/catch, qualquer um desses casos derrubava a página inteira com a
+  // tela genérica "This page couldn't load" do Next.js.
   let usuarios: Awaited<ReturnType<typeof listUsuariosDaEmpresa>> = [];
-  let erroConfiguracao = false;
+  let erroCarregamento: string | null = null;
   try {
     usuarios = await listUsuariosDaEmpresa(user.empresaId);
   } catch (e) {
     console.error("UsuariosPage:", e);
-    erroConfiguracao = true;
+    erroCarregamento =
+      e instanceof Error ? e.message : "Erro desconhecido ao carregar.";
   }
 
-  if (erroConfiguracao) {
+  if (erroCarregamento) {
     return (
       <div className="space-y-1">
         <PageHeader title="Usuários" />
         <p className="mt-4 max-w-md rounded-lg bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-text">
-          Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY
-          ausente no Vercel). Adicione essa variável de ambiente em
-          Settings &gt; Environment Variables e faça um novo deploy.
+          {erroCarregamento.includes("SUPABASE_SERVICE_ROLE_KEY")
+            ? "Configuração do servidor incompleta (SUPABASE_SERVICE_ROLE_KEY ausente no Vercel). Adicione essa variável de ambiente em Settings > Environment Variables e faça um novo deploy."
+            : erroCarregamento}
         </p>
       </div>
     );

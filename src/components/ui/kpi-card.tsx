@@ -49,7 +49,7 @@ export function KpiCard({
           <p className="text-[11.5px] font-semibold text-text-secondary">
             {label}
           </p>
-          <p className="mt-2 text-[32px] leading-none font-extrabold tracking-tight tabular-nums text-foreground">
+          <p className="mt-2 break-words text-[32px] leading-none font-extrabold tracking-tight tabular-nums text-foreground">
             {value}
           </p>
         </div>

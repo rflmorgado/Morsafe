@@ -340,7 +340,10 @@ export default async function MovimentacoesPage({
                 colaboradores={colaboradoresAtivos}
                 epis={episAtivos}
               />
-              <RegistrarDevolucaoButton colaboradores={colaboradoresAtivos} />
+              <RegistrarDevolucaoButton
+                colaboradores={colaboradoresAtivos}
+                estacoes={estacoesAtivas}
+              />
               <RegistrarEntregaButton
                 colaboradores={colaboradoresAtivos}
                 epis={episAtivos}

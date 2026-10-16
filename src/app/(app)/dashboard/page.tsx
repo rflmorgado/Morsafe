@@ -165,10 +165,16 @@ function formatDate(value: string) {
 // de dados quando era só exibição. Igual ao formatMoney usado em
 // empresa/pagamentos/assinaturas (sempre com centavos).
 function formatMoney(value: number) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  // Troca o espaço sem quebra (NBSP) que o toLocaleString põe entre "R$" e o
+  // número por um espaço normal — sem isso "R$ 308,15" virava um token só,
+  // incapaz de quebrar linha, e estourava por baixo do ícone do KpiCard em
+  // telas/colunas mais estreitas (ver kpi-card.tsx, break-words).
+  return value
+    .toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })
+    .replace(/\u00a0/g, " ");
 }
 
 // Cores de STATUS (bom/alerta/crítico) dos dois donuts "Situação do NR-06" e

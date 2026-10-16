@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { temPapelMinimo } from "@/lib/auth/permissoes";
+import { gerarSenhaAleatoria } from "@/lib/auth/random-password";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { getSiteUrl } from "@/lib/supabase/site-url";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 
 const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
@@ -18,7 +21,15 @@ function isPapelCriavel(value: string): value is PapelCriavel {
   return (PAPEIS_CRIAVEIS as readonly string[]).includes(value);
 }
 
-export type CriarUsuarioState = { error: string | null; success?: boolean };
+export type CriarUsuarioState = {
+  error: string | null;
+  success?: boolean;
+  // Aviso não-bloqueante: o login foi criado com sucesso, mas o e-mail de
+  // "definir senha" (ver abaixo) não pôde ser enviado. A conta já existe e
+  // funciona — só avisa quem está criando que precisa orientar a pessoa a
+  // usar "Esqueci minha senha" na tela de login pra conseguir entrar.
+  aviso?: string;
+};
 
 /**
  * Cria um novo login pra um colega da MESMA empresa de quem está criando.
@@ -27,6 +38,14 @@ export type CriarUsuarioState = { error: string | null; success?: boolean };
  * de quem está criando. Em /setup-empresa isso é aceitável (ação rara, só
  * do super_admin), mas aqui seria toda vez que um admin cadastra um colega,
  * o que aconteceria com frequência — por isso vale a pena evitar.
+ *
+ * A senha é gerada aleatoriamente (ver gerarSenhaAleatoria) em vez de ser
+ * digitada por quem está criando — antes, o admin escolhia a senha da outra
+ * pessoa no formulário e precisava repassá-la por fora (WhatsApp, e-mail
+ * manual etc.), o que deixava o admin sabendo a senha real de acesso de um
+ * colega e fazia essa senha trafegar em texto puro. Agora a pessoa recebe
+ * por e-mail o mesmo link de "definir senha" usado em "Esqueci minha senha"
+ * (ver login/actions.ts e /redefinir-senha) e escolhe a própria.
  */
 export async function criarUsuario(
   _prevState: CriarUsuarioState,
@@ -42,14 +61,10 @@ export async function criarUsuario(
 
   const nome = String(formData.get("nome") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
-  const senha = String(formData.get("senha") ?? "");
   const papel = String(formData.get("papel") ?? "");
 
-  if (!nome || !email || !senha || !papel) {
-    return { error: "Preencha nome, e-mail, senha e papel." };
-  }
-  if (senha.length < 6) {
-    return { error: "A senha deve ter ao menos 6 caracteres." };
+  if (!nome || !email || !papel) {
+    return { error: "Preencha nome, e-mail e papel." };
   }
   if (!isPapelCriavel(papel)) {
     return { error: "Papel inválido." };
@@ -68,7 +83,7 @@ export async function criarUsuario(
 
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,
-    password: senha,
+    password: gerarSenhaAleatoria(),
     email_confirm: true,
   });
 
@@ -100,6 +115,32 @@ export async function criarUsuario(
     };
   }
 
+  // Envia pro novo usuário o e-mail de "definir senha" — mesmo link de
+  // recuperação já usado em "Esqueci minha senha" (ver login/actions.ts e
+  // /redefinir-senha), não precisa de nenhuma infraestrutura de e-mail
+  // nova. O login já existe e funciona a essa altura, então uma falha aqui
+  // não desfaz a criação — só avisa quem está criando (aviso) pra orientar
+  // a pessoa a usar "Esqueci minha senha" na tela de login, caso o e-mail
+  // automático não chegue.
+  let aviso: string | undefined;
+  try {
+    const siteUrl = await getSiteUrl();
+    const supabaseAuth = await createClient();
+    const { error: resetError } = await supabaseAuth.auth.resetPasswordForEmail(
+      email,
+      { redirectTo: `${siteUrl}/redefinir-senha` },
+    );
+    if (resetError) {
+      console.error("criarUsuario (e-mail de definir senha):", resetError.message);
+      aviso =
+        'Usuário criado com sucesso, mas não foi possível enviar o e-mail de definição de senha automaticamente. Oriente a pessoa a usar "Esqueci minha senha" na tela de login pra conseguir entrar.';
+    }
+  } catch (e) {
+    console.error("criarUsuario (e-mail de definir senha):", e);
+    aviso =
+      'Usuário criado com sucesso, mas não foi possível enviar o e-mail de definição de senha automaticamente. Oriente a pessoa a usar "Esqueci minha senha" na tela de login pra conseguir entrar.';
+  }
+
   await registrarLogAuditoria({
     supabase: admin,
     empresaId: requester.empresaId,
@@ -111,7 +152,7 @@ export async function criarUsuario(
   });
 
   revalidatePath("/usuarios");
-  return { error: null, success: true };
+  return { error: null, success: true, aviso };
 }
 
 export type AtualizarPapelUsuarioState = { error: string | null; success?: boolean };

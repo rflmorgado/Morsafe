@@ -80,7 +80,17 @@ export default async function EmpresaDetalhePage({
     );
   }
 
-  const usuarios = await listUsuariosDaEmpresa(empresa.id);
+  // listUsuariosDaEmpresa agora lança se a consulta no banco falhar (ver
+  // comentário em lib/data/usuarios.ts) em vez de voltar [] silenciosamente
+  // — bom pra avisar na tela de Usuários, mas aqui derrubaria a página
+  // inteira da empresa (pagamentos, entregas recentes etc.) por causa só da
+  // listagem de usuários. Resto da página continua útil mesmo sem ela.
+  let usuarios: Awaited<ReturnType<typeof listUsuariosDaEmpresa>> = [];
+  try {
+    usuarios = await listUsuariosDaEmpresa(empresa.id);
+  } catch (e) {
+    console.error("EmpresaPage usuarios:", e);
+  }
   const pagamentos = await listPagamentosDaEmpresa(empresa.id, empresa.nome);
   const entregasRecentes = await listEntregasRecentesEmpresa(empresa.id);
 

@@ -153,7 +153,7 @@ export async function apurarAuditoriaRegistros(
       .eq("empresa_id", empresaId),
     supabase
       .from("devolucoes")
-      .select("id, colaborador_id, epi_id, data")
+      .select("id, colaborador_id, epi_id, data, assinatura_url")
       .eq("empresa_id", empresaId),
     supabase
       .from("setor_epi")
@@ -256,18 +256,14 @@ export async function apurarAuditoriaRegistros(
   }
 
   // ---- 1. Devoluções sem assinatura (crítico) ----
-  // DESATIVADO por enquanto: a coluna devolucoes.assinatura_url existe no
-  // código (morsafe-add-assinatura-devolucao.sql) mas nunca foi aplicada no
-  // banco de produção — o Rafael está sem acesso ao painel do Supabase pra
-  // rodar essa migração (mesma situação de pagamentos_empresa/
-  // limite_colaboradores, ver CLAUDE.md). Selecionar essa coluna fazia a
-  // consulta inteira de devoluções falhar, derrubando a apuração inteira
-  // (ver extrairDados acima). Em vez de ficar bloqueado esperando acesso,
-  // a verificação fica em espera — devolucoesSemAssinatura sempre vazio —
-  // até a migração rodar; quando rodar, é só voltar a selecionar
-  // "assinatura_url" na consulta acima e trocar a linha abaixo por
-  // `devolucoes.filter((d) => !d.assinatura_url)`.
-  const devolucoesSemAssinatura: typeof devolucoes = [];
+  // Reativado em 16/10/2026 depois de rodar
+  // morsafe-add-assinatura-devolucao.sql e de registrar-devolucao-button.tsx
+  // passar a coletar a assinatura de verdade (antes disso a tela nem tinha
+  // esse campo — toda devolução ficava sem assinatura). Continua
+  // reportando como pendência qualquer devolução registrada antes dessa
+  // mudança (assinatura_url NULL), o que é o esperado: não tem como voltar
+  // no tempo e coletar aquela assinatura agora.
+  const devolucoesSemAssinatura = devolucoes.filter((d) => !d.assinatura_url);
 
   // ---- 2. EPIs ativos sem C.A. completo quando exigem C.A. (crítico) ----
   const episSemCaCompleto = episAtivos.filter(
@@ -401,13 +397,11 @@ export async function apurarAuditoriaRegistros(
     },
     {
       label: "Evidência de recebimento",
-      // "atencao" fixo por enquanto — não dá pra verificar assinatura de
-      // devolução ainda (ver comentário em devolucoesSemAssinatura acima).
-      // Nunca reportar "ok" aqui seria afirmar uma coisa que não foi
-      // checada de verdade.
-      status: "atencao",
+      status: devolucoesSemAssinatura.length > 0 ? "critico" : "ok",
       detalhe:
-        "Entregas sempre exigem assinatura. A verificação de assinatura em devoluções está temporariamente indisponível (pendente de uma atualização no banco de dados).",
+        devolucoesSemAssinatura.length > 0
+          ? `Entregas sempre exigem assinatura. ${devolucoesSemAssinatura.length} devolução(ões) sem assinatura de confirmação — ver aba Pendências.`
+          : "Entregas e devoluções exigem assinatura de confirmação no momento do registro.",
     },
     {
       label: "Substituições/devoluções",

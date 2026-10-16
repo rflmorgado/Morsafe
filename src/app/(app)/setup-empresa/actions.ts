@@ -1,6 +1,9 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { getSiteUrl } from "@/lib/supabase/site-url";
+import { gerarSenhaAleatoria } from "@/lib/auth/random-password";
 import { getCurrentUser } from "@/lib/data/current-user";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 import {
@@ -25,6 +28,12 @@ export type CriarEmpresaState = {
   // `error`, isto nunca impede o cadastro de ser considerado concluído —
   // só avisa o super_admin pra lançar manualmente via "+ Novo pagamento".
   avisoImplantacao?: string;
+  // Aviso não-bloqueante: empresa e usuário admin foram criados com
+  // sucesso, mas o e-mail de "definir senha" (passo 3.5, abaixo) não pôde
+  // ser enviado. A conta já existe e funciona — só avisa o super_admin que
+  // precisa orientar o cliente a usar "Esqueci minha senha" na tela de
+  // login pra conseguir entrar pela primeira vez.
+  avisoSenha?: string;
 };
 
 const PLANOS_COMERCIAIS = new Set<string>([
@@ -109,23 +118,16 @@ export async function criarEmpresa(
   const endereco = String(formData.get("endereco") ?? "").trim();
   const adminNome = String(formData.get("adminNome") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
-  const senha = String(formData.get("senha") ?? "");
   // "interno" cobre o caso ViniPlast/Vinitrade (empresas do próprio
   // Rafael, nunca cobradas) — único valor fora de PlanoAssinatura, só
   // existe neste formulário pra pular a criação de assinatura no Asaas.
   const plano = String(formData.get("plano") ?? "interno").trim();
   const valorEnterpriseBruto = String(formData.get("valorEnterprise") ?? "").trim();
 
-  if (!empresaNome || !adminNome || !email || !senha) {
+  if (!empresaNome || !adminNome || !email) {
     return {
-      error: "Preencha nome da empresa, nome do admin, e-mail e senha.",
+      error: "Preencha nome da empresa, nome do admin e e-mail.",
     };
-  }
-  if (senha.length < 8) {
-    // Mínimo subiu de 6 para 8 — ver auditoria de 06/10/2026, mesmo
-    // ajuste de usuarios/actions.ts (criarUsuario), por consistência: este
-    // formulário também cria um login (o primeiro admin da empresa).
-    return { error: "A senha do usuário admin deve ter ao menos 8 caracteres." };
   }
 
   // CNPJ só são 14 dígitos (sem o cálculo dos dígitos verificadores, que
@@ -236,11 +238,14 @@ export async function criarEmpresa(
     };
   }
 
-  // 2) Cria o usuário no Supabase Auth, já com e-mail confirmado.
+  // 2) Cria o usuário no Supabase Auth, já com e-mail confirmado. A senha
+  // é gerada aleatoriamente — nunca é vista nem repassada por ninguém; o
+  // cliente define a própria no passo 3.5, abaixo, pelo e-mail de "definir
+  // senha" (ver gerarSenhaAleatoria, lib/auth/random-password.ts).
   const { data: created, error: createError } = await admin.auth.admin.createUser(
     {
       email,
-      password: senha,
+      password: gerarSenhaAleatoria(),
       email_confirm: true,
     },
   );
@@ -276,6 +281,35 @@ export async function criarEmpresa(
     return {
       error: "Não foi possível vincular o usuário à empresa. Tente novamente ou avise o suporte do MorSafe.",
     };
+  }
+
+  // 3.5) Envia pro novo admin o e-mail de "definir senha" — mesmo link de
+  // recuperação já usado em "Esqueci minha senha" (ver login/actions.ts e
+  // /redefinir-senha), não precisa de nenhuma infraestrutura de e-mail
+  // nova. A conta já existe e funciona a essa altura, então uma falha aqui
+  // não desfaz o cadastro — só avisa o super_admin (avisoSenha) pra
+  // orientar o cliente a usar "Esqueci minha senha" na tela de login, caso
+  // o e-mail automático não chegue.
+  let avisoSenha: string | undefined;
+  try {
+    const siteUrl = await getSiteUrl();
+    const supabaseAuth = await createClient();
+    const { error: resetError } = await supabaseAuth.auth.resetPasswordForEmail(
+      email,
+      { redirectTo: `${siteUrl}/redefinir-senha` },
+    );
+    if (resetError) {
+      console.error(
+        "criarEmpresa (e-mail de definir senha):",
+        resetError.message,
+      );
+      avisoSenha =
+        'Empresa e usuário admin criados com sucesso, mas não foi possível enviar o e-mail de definição de senha automaticamente. Oriente o cliente a usar "Esqueci minha senha" na tela de login pra conseguir entrar.';
+    }
+  } catch (e) {
+    console.error("criarEmpresa (e-mail de definir senha):", e);
+    avisoSenha =
+      'Empresa e usuário admin criados com sucesso, mas não foi possível enviar o e-mail de definição de senha automaticamente. Oriente o cliente a usar "Esqueci minha senha" na tela de login pra conseguir entrar.';
   }
 
   // 4) Plano comercial: cria a assinatura recorrente no Asaas. A ordem
@@ -454,5 +488,5 @@ export async function criarEmpresa(
     detalhes: { nome: empresaNome, plano: comercial ? plano : "interno" },
   });
 
-  return { error: null, success: true, avisoImplantacao };
+  return { error: null, success: true, avisoImplantacao, avisoSenha };
 }

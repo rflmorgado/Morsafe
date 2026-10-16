@@ -158,11 +158,16 @@ function formatDate(value: string) {
   return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
 }
 
+// Sem "maximumFractionDigits: 0" (como tinha antes) — isso arredondava
+// "Gasto no mês" pro real cheio (ex.: R$13,50 virava "R$14"), um valor
+// diferente do mostrado em Relatórios/no relatório exportado pro MESMO
+// período, mesmo sendo o mesmo número por trás — parecia inconsistência
+// de dados quando era só exibição. Igual ao formatMoney usado em
+// empresa/pagamentos/assinaturas (sempre com centavos).
 function formatMoney(value: number) {
   return value.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
-    maximumFractionDigits: 0,
   });
 }
 
@@ -476,6 +481,7 @@ export default async function DashboardPage() {
               <>
                 <RegistrarDevolucaoButton
                   colaboradores={colaboradoresAtivos}
+                  estacoes={estacoesAtivas}
                   variant="solid"
                 />
                 <RegistrarEntradaButton epis={episAtivos} />

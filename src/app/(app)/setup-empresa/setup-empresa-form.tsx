@@ -32,9 +32,16 @@ export function SetupEmpresaForm() {
     return (
       <div className="space-y-3">
         <div className="rounded-lg bg-brand-50 px-4 py-3.5 text-sm text-brand-800">
-          Empresa e usuário admin criados com sucesso. O novo cliente já pode
-          entrar em <strong>/login</strong> com o e-mail e senha cadastrados.
+          Empresa e usuário admin criados com sucesso. Enviamos um e-mail
+          para o endereço cadastrado com o link para o cliente definir a
+          própria senha — depois disso já pode entrar normalmente em{" "}
+          <strong>/login</strong>.
         </div>
+        {state.avisoSenha && (
+          <div className="rounded-lg bg-warning-bg px-4 py-3.5 text-sm text-warning-text">
+            {state.avisoSenha}
+          </div>
+        )}
         {state.avisoImplantacao && (
           <div className="rounded-lg bg-warning-bg px-4 py-3.5 text-sm text-warning-text">
             {state.avisoImplantacao}
@@ -118,36 +125,23 @@ export function SetupEmpresaForm() {
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="email" className={labelClass}>
-              E-mail
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="off"
-              required
-              placeholder="admin@empresa.com.br"
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="senha" className={labelClass}>
-              Senha
-            </label>
-            <input
-              id="senha"
-              name="senha"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              placeholder="••••••••••"
-              className={inputClass}
-            />
-          </div>
+        <div>
+          <label htmlFor="email" className={labelClass}>
+            E-mail
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="off"
+            required
+            placeholder="admin@empresa.com.br"
+            className={inputClass}
+          />
+          <p className="mt-1 text-[11.5px] text-text-muted">
+            Vamos enviar pra esse e-mail o link pra o cliente definir a
+            própria senha — ele não é escolhido aqui.
+          </p>
         </div>
       </fieldset>
 

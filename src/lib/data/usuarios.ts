@@ -60,10 +60,19 @@ export async function listUsuariosDaEmpresa(
     .eq("empresa_id", empresaId)
     .order("nome", { ascending: true });
 
-  if (error || !data) {
-    console.error("listUsuariosDaEmpresa:", error?.message);
-    return [];
+  // Antes isto engolia o erro e devolvia [] — a tela de Usuários mostrava
+  // "Nenhum usuário encontrado" mesmo pro próprio admin logado (cuja linha
+  // sempre existe), sem nenhum aviso de que a consulta tinha falhado (só
+  // visível nos logs do servidor, que o Rafael não acessa). Lançar o erro
+  // aqui deixa o try/catch de usuarios/page.tsx (e de empresas/[id]/page.tsx)
+  // mostrar o problema de verdade em vez de uma lista vazia enganosa.
+  if (error) {
+    console.error("listUsuariosDaEmpresa:", error.message);
+    throw new Error(
+      `Não foi possível carregar os usuários da empresa: ${error.message}`,
+    );
   }
+  if (!data) return [];
 
   // E-mail não fica na tabela `usuarios` (só existe em auth.users) — busca
   // à parte pela Admin API e junta pelo id. Empresas pequenas (poucos

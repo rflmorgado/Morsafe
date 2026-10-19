@@ -180,16 +180,16 @@ export async function registrarEntrega(
     .insert(linhas)
     .select("id, epi_id, quantidade");
 
-  // grupo_entrega_id é coluna nova (ver morsafe-add-grupo-entrega.sql) e,
-  // enquanto o acesso ao Supabase do Rafael continuar bloqueado (sem como
-  // aplicar a migração — 06/10/2026), ela ainda não existe em produção.
-  // Mesmo raciocínio de getLimiteColaboradores em lib/data/empresas.ts: sem
-  // este fallback, TODA entrega pararia de poder ser registrada — não só a
-  // funcionalidade de vários itens — até a coluna existir. Detecta
-  // especificamente esse erro (mensagem citando a coluna) e tenta de novo
-  // sem ela: a entrega continua sendo gravada normalmente, só sem o
-  // agrupamento visual na ficha, que passa a funcionar sozinho, sem precisar
-  // mexer em mais nada, assim que a migração for aplicada.
+  // grupo_entrega_id é coluna nova (ver morsafe-add-grupo-entrega.sql) —
+  // ainda não criada neste banco até essa migração ser rodada no SQL Editor
+  // do Supabase. Mesmo raciocínio de getLimiteColaboradores em
+  // lib/data/empresas.ts: sem este fallback, TODA entrega pararia de poder
+  // ser registrada — não só a funcionalidade de vários itens — até a
+  // coluna existir. Detecta especificamente esse erro (mensagem citando a
+  // coluna) e tenta de novo sem ela: a entrega continua sendo gravada
+  // normalmente, só sem o agrupamento visual na ficha, que passa a
+  // funcionar sozinho, sem precisar mexer em mais nada, assim que a
+  // migração for aplicada.
   // error.code "42703" é o código padrão do Postgres pra "coluna não
   // existe" (undefined_column) — mais preciso do que testar um regex no
   // texto da mensagem (como era antes): um regex casa com QUALQUER erro

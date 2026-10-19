@@ -107,9 +107,12 @@ export async function updateSession(request: NextRequest) {
     // O embed vem array (join 1:N do ponto de vista do schema, mesmo
     // `assinaturas` tendo índice único por empresa_id garantindo 1:1 na
     // prática) ou objeto único dependendo da versão do PostgREST — trata
-    // os dois formatos. `assinaturas` ainda não existe em produção (ver
-    // morsafe-add-assinaturas-asaas.sql, pendente) — até lá o embed
-    // sempre vem vazio/null e nenhuma empresa é bloqueada por isso.
+    // os dois formatos. `assinaturas` já existe em produção desde a
+    // migração pro Supabase novo (16/10/2026, ver morsafe-schema.sql) —
+    // pra uma empresa sem assinatura cadastrada ainda (ex.: recém-criada,
+    // antes de `criarEmpresa` terminar) o embed vem vazio/null, e
+    // `statusAssinatura` fica `undefined`, que nunca bate com "suspensa"
+    // no bloqueio logo abaixo — não trava ninguém por engano.
     const statusAssinatura = Array.isArray(empresaEmbed?.assinaturas)
       ? empresaEmbed?.assinaturas[0]?.status
       : empresaEmbed?.assinaturas?.status;

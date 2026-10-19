@@ -71,6 +71,31 @@ export default async function LoginPage({
           </div>
           <div className="mt-2.5 flex items-center justify-center gap-3.5 text-[11px] text-text-muted">
             <Link
+              href="/termos-de-uso"
+              className="inline-flex items-center gap-1 hover:text-brand-700 hover:underline"
+            >
+              {/* Sem icon-termos.png em public/brand/ ainda — SVG inline em
+                  vez de inventar um asset binário novo (ver os outros dois
+                  links abaixo, que usam PNG já existente). */}
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="h-3.5 w-3.5 opacity-80"
+              >
+                <path
+                  d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path d="M14 3v4h4" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M9 13h6M9 16.5h6" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+              </svg>
+              Termos de Uso
+            </Link>
+            <span className="text-border-strong">·</span>
+            <Link
               href="/politica-de-privacidade"
               className="inline-flex items-center gap-1 hover:text-brand-700 hover:underline"
             >

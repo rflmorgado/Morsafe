@@ -15,17 +15,19 @@ export type CriarPagamentoState = { error: string | null };
  * sobretudo pra taxa de implantação (cobrada uma vez só, fora do ciclo da
  * assinatura recorrente — ver NovoPagamentoButton), mas serve pra qualquer
  * cobrança avulsa. Só super_admin. Usa o cliente com service role, mesmo
- * padrão de app/(app)/empresas/actions.ts — pagamentos_empresa não tem RLS
- * (ver morsafe-add-pagamentos-empresa.sql), só o super_admin acessa.
+ * padrão de app/(app)/empresas/actions.ts — `pagamentos_empresa` tem RLS
+ * habilitado (policy `empresa_isolada`, ver morsafe-bootstrap-projeto-
+ * novo.sql), mas a trava real aqui é a checagem de papel no código: o
+ * cliente admin (service role) ignora RLS, então é o `super_admin`-only
+ * acima que impede qualquer outro papel de ler/escrever nesta tabela.
  *
  * Quando a empresa já tem cliente Asaas associado (plano comercial
  * implantado — ver criarEmpresa, setup-empresa/actions.ts), esta função
  * também cria a cobrança de verdade lá (ver criarCobrancaAvulsaAsaas), pra
  * o cliente receber um boleto/Pix real, em vez de só um lançamento local
  * que o super_admin teria que cobrar por fora. Empresa sem cliente Asaas
- * (plano "interno", ou migração de assinaturas ainda pendente — ver
- * morsafe-add-assinaturas-asaas.sql) continua só com o controle manual
- * local, como sempre foi.
+ * (plano "interno", ou implantada antes do plano comercial via Asaas
+ * existir) continua só com o controle manual local, como sempre foi.
  *
  * Ordem de segurança do dinheiro — mesmo princípio de criarEmpresa: a
  * linha local (pendente, sem asaas_payment_id ainda) é criada ANTES da

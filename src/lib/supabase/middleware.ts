@@ -18,17 +18,16 @@ const PUBLIC_PATHS = [
   // o link/código impresso no rodapé de uma Ficha de EPI nunca tem login no
   // MorSafe.
   "/verificar",
-  // Toda a API (webhooks/asaas, cron/verificar-inadimplencia, admin/backup)
-  // roda sem sessão do Supabase por design — cada uma se autentica com seu
-  // próprio token (ASAAS_WEBHOOK_TOKEN / CRON_SECRET / BACKUP_SECRET, ver
-  // comentário de cada route.ts), nunca por cookie de login. Sem esta
-  // exceção, toda chamada batia aqui primeiro e era redirecionada (307)
-  // pra /login antes mesmo de chegar na checagem de token da rota — foi
-  // assim que a Vercel registrou "POST /api/webhooks/asaas → 307 /login"
-  // em 15/10/2026: o Asaas mandava o evento de pagamento certinho e o
-  // MorSafe nunca processava, porque a notificação nem chegava no handler
-  // (ver route.ts de cada uma — NENHUMA dessas três rotas espera usuário
-  // logado).
+  // Toda a API (webhooks/asaas, cron/verificar-inadimplencia) roda sem
+  // sessão do Supabase por design — cada uma se autentica com seu próprio
+  // token (ASAAS_WEBHOOK_TOKEN / CRON_SECRET, ver comentário de cada
+  // route.ts), nunca por cookie de login. Sem esta exceção, toda chamada
+  // batia aqui primeiro e era redirecionada (307) pra /login antes mesmo
+  // de chegar na checagem de token da rota — foi assim que a Vercel
+  // registrou "POST /api/webhooks/asaas → 307 /login" em 15/10/2026: o
+  // Asaas mandava o evento de pagamento certinho e o MorSafe nunca
+  // processava, porque a notificação nem chegava no handler (ver route.ts
+  // de cada uma — NENHUMA dessas rotas espera usuário logado).
   "/api",
 ];
 

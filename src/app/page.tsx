@@ -321,6 +321,13 @@ export default function Home() {
 
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
+                  href="/termos-de-uso"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-[13px] font-semibold text-foreground hover:border-brand-500 hover:text-brand-700"
+                >
+                  <IconDocumentoCheck className="h-4 w-4" />
+                  Termos de Uso
+                </Link>
+                <Link
                   href="/politica-de-privacidade"
                   className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-[13px] font-semibold text-foreground hover:border-brand-500 hover:text-brand-700"
                 >
@@ -414,6 +421,9 @@ export default function Home() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-5 text-[12.5px] text-text-secondary">
+            <Link href="/termos-de-uso" className="hover:text-brand-700">
+              Termos de Uso
+            </Link>
             <Link href="/politica-de-privacidade" className="hover:text-brand-700">
               Política de Privacidade
             </Link>

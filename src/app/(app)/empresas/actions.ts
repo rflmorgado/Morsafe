@@ -66,11 +66,11 @@ export type DefinirLimiteColaboradoresState = { error: string | null };
  * lib/data/empresas.ts). Sem limite definido, nenhum alerta é mostrado —
  * por isso o campo em branco (limite null) é uma opção válida, não um erro.
  *
- * limite_colaboradores é uma coluna nova (ver
- * morsafe-add-limite-colaboradores.sql), pendente de aplicação enquanto o
- * acesso ao Supabase continuar bloqueado: até lá, um update aqui falha com
- * o código Postgres 42703 (coluna inexistente), que traduzimos numa
- * mensagem clara em vez de deixar vazar o erro técnico do banco.
+ * limite_colaboradores já existe em produção desde 14/10/2026 (ver
+ * morsafe-bootstrap-projeto-novo.sql) — a checagem de 42703/PGRST204
+ * abaixo fica só como rede de segurança (ex.: um projeto Supabase criado
+ * do zero sem rodar a migração completa), traduzindo o erro técnico do
+ * banco numa mensagem clara em vez de deixar vazar.
  */
 export async function definirLimiteColaboradores(
   empresaId: string,
@@ -101,14 +101,14 @@ export async function definirLimiteColaboradores(
     console.error("definirLimiteColaboradores:", error.message);
     // 42703 = Postgres "coluna inexistente" (erro de verdade do banco).
     // PGRST204 = o PostgREST rejeita antes disso, sem nem chegar no banco:
-    // não encontra `limite_colaboradores` no SCHEMA CACHE dele — é o caso
-    // real aqui enquanto a migração não roda (confirmado em produção; ver
-    // mesmo raciocínio do PGRST205 em excluirEmpresaPermanentemente, logo
-    // abaixo, pra tabela em vez de coluna). Os dois tratamos igual.
+    // não encontra `limite_colaboradores` no SCHEMA CACHE dele. Os dois
+    // tratamos igual — mesmo raciocínio do PGRST205 em
+    // excluirEmpresaPermanentemente, logo abaixo, pra tabela em vez de
+    // coluna.
     if (error.code === "42703" || error.code === "PGRST204") {
       return {
         error:
-          "Essa função depende de uma coluna nova no banco que ainda não foi criada (acesso ao Supabase está bloqueado pelo chamado de suporte em aberto). Assim que o acesso voltar e a migração pendente rodar, isso passa a funcionar.",
+          "Essa função depende de uma coluna que ainda não existe neste banco (ver morsafe-bootstrap-projeto-novo.sql). Rode a migração correspondente no Supabase pra habilitar isso.",
       };
     }
     return { error: "Não foi possível salvar o limite. Tente novamente." };
@@ -300,13 +300,16 @@ export type ExcluirEmpresaState = {
  *    estivesse logado antes mesmo de começar a apagar;
  * 2) nome exato da empresa digitado como confirmação.
  *
- * Limitação conhecida: como o acesso ao painel do Supabase está bloqueado
- * (chamado de suporte em aberto), não dá pra criar agora uma tabela nova só
- * pra guardar um registro permanente de "empresa X foi excluída, por quem,
- * quando" — o ideal seria uma tabela `empresas_excluidas` sem FK pra
- * `empresas` (só um snapshot), pra sobreviver à própria exclusão. Por ora,
- * isso só fica registrado no log do servidor (Vercel). Revisitar quando o
- * acesso ao Supabase voltar.
+ * Registro permanente da exclusão: como `log_auditoria` da própria empresa
+ * é apagado junto com o resto (não tem como preservar o histórico de uma
+ * empresa que deixou de existir — ver comentário em TABELAS_EM_ORDEM_EXCLUSAO
+ * acima), a ÚLTIMA coisa que esta função faz, depois que a empresa já foi
+ * apagada de verdade, é gravar um snapshot mínimo em `empresas_excluidas`
+ * (ver morsafe-add-empresas-excluidas.sql) — sem FK pra `empresas`, de
+ * propósito, pra sobreviver à própria exclusão que ela documenta. Esse
+ * registro é best-effort (ver comentário logo abaixo, perto do insert): se
+ * falhar, não desfaz nem bloqueia a exclusão, que a essa altura já está
+ * completa e é irreversível de qualquer forma.
  */
 export async function excluirEmpresaPermanentemente(
   empresaId: string,
@@ -321,7 +324,7 @@ export async function excluirEmpresaPermanentemente(
 
   const { data: empresa, error: empresaError } = await admin
     .from("empresas")
-    .select("id, nome, ativo")
+    .select("id, nome, ativo, cnpj, criado_em")
     .eq("id", empresaId)
     .maybeSingle();
 
@@ -355,15 +358,16 @@ export async function excluirEmpresaPermanentemente(
 
     if (error) {
       // PGRST205 = o PostgREST não encontra essa tabela no schema cache —
-      // ela ainda não existe de verdade no banco. Acontece hoje com
-      // `pagamentos_empresa` especificamente: é uma migração aditiva
-      // pendente (ver morsafe-add-pagamentos-empresa.sql), esperando o
-      // acesso ao painel do Supabase voltar (chamado de suporte em
-      // aberto). Não tem nada pra apagar numa tabela que não existe —
+      // ela ainda não existe de verdade no banco. `pagamentos_empresa` já
+      // existe em produção desde a migração pro Supabase novo (16/10/2026,
+      // ver morsafe-bootstrap-projeto-novo.sql), então hoje isso só
+      // dispararia se alguém apontasse este código pra um projeto Supabase
+      // criado do zero sem rodar o bootstrap completo — mantido como rede
+      // de segurança: não tem nada pra apagar numa tabela que não existe,
       // conta 0 e segue pro resto, não é motivo pra travar a exclusão.
       if (error.code === "PGRST205") {
         console.warn(
-          `excluirEmpresaPermanentemente (${tabela}): tabela ainda não existe no banco (migração pendente) — pulando.`,
+          `excluirEmpresaPermanentemente (${tabela}): tabela não encontrada no banco — pulando.`,
         );
         resultado[tabela] = 0;
         continue;
@@ -473,17 +477,45 @@ export async function excluirEmpresaPermanentemente(
     };
   }
 
-  // Ver "Limitação conhecida" no comentário da função: isso não vira uma
-  // linha durável no banco (log_auditoria da própria empresa já foi
-  // apagado acima, de propósito), só fica aqui no log do servidor por
-  // enquanto.
-  console.log("EMPRESA EXCLUÍDA PERMANENTEMENTE:", {
-    empresaId: empresa.id,
-    nome: empresa.nome,
-    excluidaPor: user.id,
-    quando: new Date().toISOString(),
-    resultado,
-  });
+  // Registro permanente da exclusão (ver comentário da função) — a empresa
+  // em si já foi apagada acima com sucesso, então este insert é
+  // propositalmente a ÚLTIMA coisa que acontece, e é best-effort: uma falha
+  // aqui não desfaz nem reporta erro pro chamador, porque a exclusão (a
+  // ação irreversível de verdade) já está completa e não tem como "tentar
+  // de novo" sem duplicar o snapshot. Mesmo princípio de funcionalidade
+  // acessória nunca travar o essencial (CLAUDE.md regra 4), aplicado aqui a
+  // um registro de auditoria em vez de um QR code — sempre fica, na pior
+  // das hipóteses, o log do servidor (console.error abaixo) como último
+  // recurso.
+  const { error: registroExclusaoError } = await admin
+    .from("empresas_excluidas")
+    .insert({
+      empresa_id: empresa.id,
+      empresa_nome: empresa.nome,
+      empresa_cnpj: empresa.cnpj,
+      empresa_criada_em: empresa.criado_em,
+      excluida_por_nome: user.nome,
+      excluida_por_email: user.email,
+      resumo: resultado,
+    });
+
+  if (registroExclusaoError) {
+    // PGRST205 = tabela `empresas_excluidas` ainda não existe neste banco
+    // (migração morsafe-add-empresas-excluidas.sql ainda não rodada) — não
+    // é motivo pra reportar erro pro super_admin, já que a exclusão em si
+    // já terminou com sucesso.
+    console.error(
+      "excluirEmpresaPermanentemente (registro em empresas_excluidas):",
+      registroExclusaoError.message,
+    );
+    console.log("EMPRESA EXCLUÍDA PERMANENTEMENTE (sem registro durável):", {
+      empresaId: empresa.id,
+      nome: empresa.nome,
+      excluidaPor: user.id,
+      quando: new Date().toISOString(),
+      resultado,
+    });
+  }
 
   revalidatePath("/empresas");
   return { error: null, resultado, avisoLoginsOrfaos };

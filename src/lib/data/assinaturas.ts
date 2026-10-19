@@ -79,10 +79,13 @@ export type AssinaturaDaEmpresa = {
  * painel completo de todas as empresas, exclusivo do super_admin).
  *
  * Usa o cliente comum (sujeito a RLS, ver lib/supabase/server.ts), não o
- * admin client — `assinaturas` tem RLS desabilitado por design (ver
- * morsafe-add-assinaturas-asaas.sql), então o filtro por empresa_id
- * abaixo É a barreira de isolamento entre empresas aqui, igual já é em
- * getEmpresaAtual (lib/data/empresa.ts).
+ * admin client — `assinaturas` tem RLS habilitado com policy
+ * `empresa_isolada` (ver morsafe-bootstrap-projeto-novo.sql), que já
+ * restringe as linhas à empresa do usuário logado sozinha; o filtro por
+ * empresa_id abaixo repete a mesma condição como defesa em profundidade
+ * (mesmo raciocínio de getEmpresaAtual, lib/data/empresa.ts) — explícito
+ * e fácil de auditar lendo só esta função, sem depender de confiar cegamente
+ * na policy do banco.
  *
  * Retorna null tanto em erro quanto no caso normal de uma empresa
  * "interno" (ViniPlast/Vinitrade, ver setup-empresa/actions.ts), que

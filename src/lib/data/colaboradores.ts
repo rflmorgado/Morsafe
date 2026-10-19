@@ -371,16 +371,16 @@ export async function getColaboradorDetalhe(
       .order("data", { ascending: false }),
   ]);
 
-  // grupo_entrega_id é coluna nova (ver morsafe-add-grupo-entrega.sql) e,
-  // enquanto o acesso ao Supabase do Rafael continuar bloqueado (sem como
-  // aplicar a migração — 06/10/2026), ela ainda não existe em produção.
-  // Mesmo raciocínio de getLimiteColaboradores em lib/data/empresas.ts: sem
-  // este fallback, a consulta INTEIRA falhava (erro de "coluna não existe"
-  // na mesma query que busca todo o histórico de entregas), derrubando a
-  // ficha e a página do colaborador por completo — não só o agrupamento.
-  // Detecta especificamente esse erro e refaz a mesma busca sem a coluna: a
-  // ficha volta a funcionar normalmente (sem agrupamento, como sempre foi)
-  // até a migração ser aplicada, sem precisar mexer em mais nada depois.
+  // grupo_entrega_id é coluna nova (ver morsafe-add-grupo-entrega.sql) —
+  // ainda não criada neste banco até essa migração ser rodada no SQL Editor
+  // do Supabase. Mesmo raciocínio de getLimiteColaboradores em
+  // lib/data/empresas.ts: sem este fallback, a consulta INTEIRA falhava
+  // (erro de "coluna não existe" na mesma query que busca todo o histórico
+  // de entregas), derrubando a ficha e a página do colaborador por
+  // completo — não só o agrupamento. Detecta especificamente esse erro e
+  // refaz a mesma busca sem a coluna: a ficha volta a funcionar normalmente
+  // (sem agrupamento, como sempre foi) até a migração ser aplicada, sem
+  // precisar mexer em mais nada depois.
   let entregasData = entregasRes.data;
   // error.code "42703" = "coluna não existe" no Postgres; PGRST204 = o
   // PostgREST não achou a coluna no SCHEMA CACHE dele, sem nem chegar no

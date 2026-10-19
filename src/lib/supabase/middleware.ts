@@ -185,13 +185,18 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Usuário já logado não precisa ver a tela de boas-vindas, o login, nem a
-  // landing page de divulgação — vai direto pro painel.
+  // Usuário já logado não precisa ver a tela de boas-vindas nem o login —
+  // vai direto pro painel. IMPORTANTE: "/" (a landing page pública de
+  // divulgação, morsafe.com.br) fica de fora de propósito, a pedido do
+  // Rafael (19/10/2026) — "a tela do app não tem vínculo com o nosso
+  // domínio morsafe.com.br". O site público é pra divulgação, mostrado
+  // sempre, pra qualquer visitante, logado ou não; ele nunca entra no app
+  // sozinho — só clicando em "Entrar" (que aí sim passa por "/entrar" e
+  // "/login", onde o redirecionamento abaixo continua valendo).
   if (
     user &&
     (request.nextUrl.pathname === "/login" ||
-      request.nextUrl.pathname === "/entrar" ||
-      request.nextUrl.pathname === "/")
+      request.nextUrl.pathname === "/entrar")
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";

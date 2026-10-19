@@ -56,6 +56,22 @@ const ALTURA_MAX_PX = 120;
  * destaque) — "use client" por causa disso (useEffect/useRef) — em vez do
  * começo: sem isso o Rafael abriria a tela e veria 6 meses de 2025 parados
  * em R$ 0, com o mês atual escondido rolagem adentro.
+ *
+ * Altura mínima, não fixa (19/10/2026): a coluna de cada mês empilha
+ * número + barra + rótulo com gap-1.5 (6px) entre eles; com a barra no
+ * máximo (120px) mais o número em negrito (18px de linha) e o rótulo do
+ * mês (16,5px), a coluna precisa de ~166,5px — 6,5px A MAIS do que os
+ * 160px fixos que esse container tinha antes. Como a rolagem horizontal
+ * (`overflow-x-auto`) logo abaixo faz o navegador tratar a rolagem
+ * vertical como `auto` também (não existe "só eixo X" em CSS puro), esses
+ * 6,5px que sobravam ficavam ACIMA do topo do container e eram cortados
+ * ali mesmo — exatamente os números "10" e "R$ 339" aparecendo com o topo
+ * fatiado no print do Rafael, 19/10/2026 (Relatórios, Entregas/Gasto por
+ * mês). `min-h-[160px]` em vez de `h-[160px]` resolve isso de vez: o
+ * container cresce pra caber o conteúdo real sempre que precisar (barra no
+ * máximo), em vez de confiar numa altura fixa calculada à mão que quebra
+ * de novo se a fonte, o padding ou o gap mudarem no futuro; com valores
+ * baixos (a maioria dos casos) ele continua com os mesmos 160px de antes.
  */
 function formatarValor(value: number, formato: "quantidade" | "dinheiro") {
   if (formato === "quantidade") return String(value);
@@ -96,7 +112,7 @@ export function BarTrendChart({
   return (
     <div>
       <div ref={scrollRef} className="overflow-x-auto overscroll-x-contain">
-        <div className="flex h-[160px] items-end gap-3 sm:gap-5">
+        <div className="flex min-h-[160px] items-end gap-3 sm:gap-5">
           {data.map((d, i) => {
             const altura = Math.max(4, Math.round((d.value / maximo) * ALTURA_MAX_PX));
             const atual = i === data.length - 1;

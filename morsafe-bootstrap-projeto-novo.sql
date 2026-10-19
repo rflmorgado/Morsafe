@@ -32,6 +32,15 @@
 -- O QUE ESTE ARQUIVO NÃO FAZ: não migra nenhum dado real (empresas,
 -- colaboradores, entregas já cadastrados). Isso é um passo separado,
 -- feito depois, puxando os dados de verdade do projeto antigo.
+--
+-- ATUALIZADO em 19/10/2026 (acesso ao Supabase já normalizado, projeto
+-- novo em uso): entregas.grupo_entrega_id adicionada aqui também (ver
+-- morsafe-add-grupo-entrega.sql), e a tabela empresas_excluidas também
+-- (ver morsafe-add-empresas-excluidas.sql) — nenhuma das duas estava
+-- neste arquivo quando ele rodou pela primeira vez em 13-16/10/2026,
+-- então o projeto já em produção precisou dos .sql incrementais
+-- separados; esta atualização é só pra um bootstrap FUTURO, num projeto
+-- do zero, já nascer completo.
 -- ============================================================
 
 
@@ -242,9 +251,15 @@ create table entregas (
   custo_unitario_no_momento numeric(10,2) not null,
   quantidade                integer not null default 1 check (quantidade > 0),
   criado_em                 timestamptz not null default now(),
-  criado_por                uuid references usuarios(id)
+  criado_por                uuid references usuarios(id),
+  -- Agrupa linhas da mesma entrega com vários itens (ver morsafe-add-
+  -- grupo-entrega.sql, 19/10/2026) — incluída aqui também pra um bootstrap
+  -- futuro, num projeto Supabase novo, já nascer completo sem precisar
+  -- rodar aquele arquivo em seguida.
+  grupo_entrega_id          uuid
 );
 comment on table entregas is 'Registro de entrega de EPI. custo_unitario_no_momento é um snapshot imutável. quantidade sempre >= 1 (validado também na aplicação).';
+comment on column entregas.grupo_entrega_id is 'Agrupa as linhas de entregas feitas no mesmo pedido (vários EPIs entregues de uma vez) — ver morsafe-add-grupo-entrega.sql.';
 create index idx_entregas_colaborador on entregas (colaborador_id, data);
 create index idx_entregas_empresa on entregas (empresa_id, data);
 
@@ -635,10 +650,32 @@ alter table empresas
 comment on column empresas.limite_colaboradores is 'Limite de colaboradores ativos incluído no plano contratado pela empresa cliente. NULL = sem limite definido ainda.';
 
 -- ============================================================
--- FIM — depois de rodar, confira no Table Editor: devem existir 19
+-- PARTE 3 — ADICIONADA EM 19/10/2026 (ver morsafe-add-grupo-entrega.sql
+-- e morsafe-add-empresas-excluidas.sql — conteúdo idêntico, só dobrado
+-- aqui pra um bootstrap futuro já nascer completo, ver nota no topo
+-- deste arquivo)
+-- ============================================================
+
+create table empresas_excluidas (
+  id                 uuid primary key default gen_random_uuid(),
+  -- Sem "references empresas(id)" de propósito — ver
+  -- morsafe-add-empresas-excluidas.sql pro raciocínio completo.
+  empresa_id         uuid not null,
+  empresa_nome       text not null,
+  empresa_cnpj       text,
+  empresa_criada_em  timestamptz,
+  excluida_em        timestamptz not null default now(),
+  excluida_por_nome  text not null,
+  excluida_por_email text not null,
+  resumo             jsonb not null default '{}'::jsonb
+);
+comment on table empresas_excluidas is 'Snapshot permanente de cada exclusão definitiva de empresa cliente (ver excluirEmpresaPermanentemente, src/app/(app)/empresas/actions.ts) — a única prova durável no banco de que uma empresa existiu e foi excluída, já que log_auditoria dela é apagado junto no mesmo processo. Nunca editada nem apagada depois de gravada. RLS desabilitado por design (mesmo padrão de empresas) — só acessada via service role.';
+
+-- ============================================================
+-- FIM — depois de rodar, confira no Table Editor: devem existir 20
 -- tabelas (14 do schema original + verificacoes_documento +
 -- estacoes_assinatura + solicitacoes_assinatura + pagamentos_empresa
--- + assinaturas + asaas_webhook_events).
+-- + assinaturas + asaas_webhook_events + empresas_excluidas).
 -- PRÓXIMO PASSO (fora deste arquivo): migrar os dados reais do
 -- projeto antigo pra este — precisa da SUPABASE_SERVICE_ROLE_KEY
 -- (já confirmada existente nas env vars da Vercel).

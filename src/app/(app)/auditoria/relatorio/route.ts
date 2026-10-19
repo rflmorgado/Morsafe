@@ -71,10 +71,12 @@ function sanitizeFileName(nome: string) {
  * ver colaboradores/[id]/ficha/route.ts): aquele mecanismo grava em
  * `verificacoes_documento`, tabela cujas colunas de colaborador são
  * obrigatórias — esse relatório não é sobre um colaborador específico, é
- * um retrato da empresa inteira. Criar uma dependência de schema nova pra
- * isso teria que esperar uma migração que o Rafael não tem como aplicar
- * (ver CLAUDE.md sobre o acesso ao Supabase bloqueado) — melhor manter este
- * primeiro relatório autocontido e sem essa dependência.
+ * um retrato da empresa inteira. Na época em que este relatório foi
+ * criado (06/10/2026), uma migração nova pra acomodar isso teria que
+ * esperar o acesso ao Supabase ser restaurado; hoje o acesso já voltou,
+ * mas a decisão de manter este primeiro relatório autocontido, sem essa
+ * dependência de schema, segue válida — revisitar se um dia fizer
+ * sentido oferecer verificação pública também pra este tipo de documento.
  *
  * Deliberadamente SEM detalhe linha-a-linha de cada colaborador/EPI: isso já
  * existe nas próprias abas (e na ficha individual de cada colaborador) — um

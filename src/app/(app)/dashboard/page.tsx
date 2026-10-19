@@ -266,7 +266,15 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+      {/* xl:grid-cols-4 (não lg:) — mesmo motivo do xl:text-[20px] em
+          kpi-card.tsx: a 4 colunas, o container (travado em 1180px a
+          partir de ~1250px de tela) já fica justo; entre 1024-1279px
+          (lg mas não xl) ficava ainda pior, card estreito e o número
+          quebrando no meio (print do Rafael, 19/10/2026). Já era o
+          padrão usado em auditoria/*-tab.tsx — só o Dashboard, Relatórios
+          e Assinaturas (mesmo componente KpiCard) tinham ficado com
+          lg:grid-cols-4. */}
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Entregas no mês"
           value={data.entregasMes}

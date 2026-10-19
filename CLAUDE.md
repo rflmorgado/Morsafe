@@ -63,13 +63,17 @@ ao mexer neste projeto (Claude ou qualquer outro desenvolvedor):
    `entrega_teste_excluida`) contando o que aconteceu, nunca apagam
    nenhuma linha existente; (c) é a exceção à exceção, pelo motivo acima.
    Como (c) apaga a própria empresa (e com ela todo `log_auditoria` que a
-   registraria), não existe hoje nenhum registro durável no banco de
-   "empresa X foi excluída, por quem, quando" — fica só no log do
-   servidor (Vercel), uma limitação aceita enquanto o acesso ao painel do
-   Supabase estiver bloqueado (sem como criar uma tabela nova só para
-   isso agora; revisitar quando o acesso voltar). Antes de mexer nessa
-   área, confirmar isso com uma busca no código (grep), não só de
-   memória.
+   registraria), o registro durável de "empresa X foi excluída, por quem,
+   quando" não pode viver em `log_auditoria` — desde 19/10/2026, (c) grava
+   esse registro numa tabela separada, `empresas_excluidas` (ver
+   `morsafe-add-empresas-excluidas.sql`), como a ÚLTIMA coisa que faz,
+   depois que a própria empresa já foi apagada: sem FK para `empresas`
+   (de propósito — se tivesse, a própria exclusão apagaria a prova em
+   cascata) e sem RLS (mesma decisão já tomada para `empresas`, só acesso
+   via service role). Esse insert é best-effort: uma falha nele não
+   desfaz nem reporta erro para o chamador, porque a exclusão em si já
+   terminou com sucesso a essa altura. Antes de mexer nessa área,
+   confirmar isso com uma busca no código (grep), não só de memória.
 
 4. Funcionalidade acessória (ex: geração de QR code, código de
    verificação, logo da empresa) nunca pode travar a emissão do

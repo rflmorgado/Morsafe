@@ -255,7 +255,15 @@ export async function desativarUsuario(
   usuarioId: string,
 ): Promise<DesativarUsuarioState> {
   const requester = await getCurrentUser();
-  if (!requester?.empresaId) {
+  // super_admin não pertence a empresa nenhuma (empresaId null), mas
+  // precisa poder desativar usuário de QUALQUER empresa cliente — ver
+  // comentário completo em excluirUsuarioDefinitivamente (mesma mudança,
+  // mesmo motivo: Rafael usa um usuário "admin" próprio pra implantar uma
+  // empresa nova — subir colaboradores/EPIs/estoque antes do cliente ter
+  // acesso — e precisava conseguir remover esse acesso temporário depois
+  // sem pedir pro cliente fazer isso por ele. 19/10/2026).
+  const ehSuperAdmin = requester?.papel === "super_admin";
+  if (!requester || (!ehSuperAdmin && !requester.empresaId)) {
     return { error: "Não foi possível identificar a empresa do usuário." };
   }
   if (!temPapelMinimo(requester.papel, "admin")) {
@@ -283,7 +291,14 @@ export async function desativarUsuario(
     .eq("id", usuarioId)
     .maybeSingle();
 
-  if (!alvo || alvo.empresa_id !== requester.empresaId) {
+  if (!alvo || (!ehSuperAdmin && alvo.empresa_id !== requester.empresaId)) {
+    return { error: "Usuário não encontrado." };
+  }
+  // empresa_id só é null pra um super_admin — nenhum fluxo cria um usuário
+  // de empresa sem empresa_id (ver criarUsuario/setup-empresa), então não
+  // deveria acontecer na prática; guarda só pro log de auditoria logo
+  // abaixo, que exige empresaId não-nulo.
+  if (!alvo.empresa_id) {
     return { error: "Usuário não encontrado." };
   }
 
@@ -315,7 +330,10 @@ export async function desativarUsuario(
 
   await registrarLogAuditoria({
     supabase: admin,
-    empresaId: requester.empresaId,
+    // empresa do ALVO, não de quem fez a ação — difere quando é o
+    // super_admin agindo numa empresa cliente (requester.empresaId é null
+    // nesse caso).
+    empresaId: alvo.empresa_id,
     tabela: "usuarios",
     registroId: usuarioId,
     acao: "desativado",
@@ -333,7 +351,11 @@ export async function reativarUsuario(
   usuarioId: string,
 ): Promise<ReativarUsuarioState> {
   const requester = await getCurrentUser();
-  if (!requester?.empresaId) {
+  // Mesma liberação pro super_admin que desativarUsuario/
+  // excluirUsuarioDefinitivamente logo abaixo — ver comentário completo em
+  // excluirUsuarioDefinitivamente, 19/10/2026.
+  const ehSuperAdmin = requester?.papel === "super_admin";
+  if (!requester || (!ehSuperAdmin && !requester.empresaId)) {
     return { error: "Não foi possível identificar a empresa do usuário." };
   }
   if (!temPapelMinimo(requester.papel, "admin")) {
@@ -357,7 +379,10 @@ export async function reativarUsuario(
     .eq("id", usuarioId)
     .maybeSingle();
 
-  if (!alvo || alvo.empresa_id !== requester.empresaId) {
+  if (!alvo || (!ehSuperAdmin && alvo.empresa_id !== requester.empresaId)) {
+    return { error: "Usuário não encontrado." };
+  }
+  if (!alvo.empresa_id) {
     return { error: "Usuário não encontrado." };
   }
 
@@ -388,7 +413,7 @@ export async function reativarUsuario(
 
   await registrarLogAuditoria({
     supabase: admin,
-    empresaId: requester.empresaId,
+    empresaId: alvo.empresa_id,
     tabela: "usuarios",
     registroId: usuarioId,
     acao: "reativado",
@@ -434,12 +459,30 @@ export type ExcluirUsuarioState = {
  * Se a linha em `usuarios` sai sem problema, o login de autenticação
  * também é removido (auth.admin.deleteUser) — sem isso a pessoa continuaria
  * existindo no Supabase Auth, só sem vínculo com a empresa.
+ *
+ * super_admin pode usar esta ação (e desativarUsuario/reativarUsuario) em
+ * QUALQUER empresa cliente, não só na "própria" (ele nem tem uma — empresa_id
+ * é sempre null pra esse papel). Motivo (Rafael, 19/10/2026): pra implantar
+ * uma empresa nova ele cadastra a empresa com o PRÓPRIO e-mail em
+ * /setup-empresa, loga como admin dela, sobe colaboradores/EPIs/estoque
+ * (importador de planilha) e só DEPOIS cria o admin de verdade do cliente
+ * em /usuarios. Sem esta liberação, o usuário "admin" temporário que ele
+ * criou pra si mesmo ficava permanente — ele não podia se autodesativar/
+ * autoexcluir (trava de "não pode usar na própria conta" logo abaixo, que
+ * continua valendo), e as outras actions bloqueavam qualquer ação de quem
+ * não tivesse a MESMA empresa logada — e o super_admin nunca tem. Pedir pro
+ * cliente apagar o usuário do antigo implantador não fazia sentido. Logado
+ * como super_admin (uma conta DIFERENTE do admin temporário), ele agora
+ * consegue desativar e excluir esse usuário a partir da tela de detalhe da
+ * empresa (ver empresas/[id]/page.tsx) — o bloqueio de "própria conta"
+ * nunca entra em conflito aqui, porque são logins diferentes.
  */
 export async function excluirUsuarioDefinitivamente(
   usuarioId: string,
 ): Promise<ExcluirUsuarioState> {
   const requester = await getCurrentUser();
-  if (!requester?.empresaId) {
+  const ehSuperAdmin = requester?.papel === "super_admin";
+  if (!requester || (!ehSuperAdmin && !requester.empresaId)) {
     return { error: "Não foi possível identificar a empresa do usuário." };
   }
   if (!temPapelMinimo(requester.papel, "admin")) {
@@ -470,8 +513,11 @@ export async function excluirUsuarioDefinitivamente(
   if (
     usuarioError ||
     !usuario ||
-    usuario.empresa_id !== requester.empresaId
+    (!ehSuperAdmin && usuario.empresa_id !== requester.empresaId)
   ) {
+    return { error: "Usuário não encontrado." };
+  }
+  if (!usuario.empresa_id) {
     return { error: "Usuário não encontrado." };
   }
   if (usuario.ativo) {
@@ -537,7 +583,7 @@ export async function excluirUsuarioDefinitivamente(
   // o autor (requester, que continua existindo) é quem entra nessa coluna.
   await registrarLogAuditoria({
     supabase: admin,
-    empresaId: requester.empresaId,
+    empresaId: usuario.empresa_id,
     tabela: "usuarios",
     registroId: usuarioId,
     acao: "excluido",

@@ -108,11 +108,13 @@ export async function buscarStatusSolicitacao(
     .from("solicitacoes_assinatura")
     .select("status, assinatura_url")
     .eq("id", id)
-    // Reconfirma a empresa do pedido, não só o id — sem isso, qualquer
-    // usuário logado (de qualquer empresa) que descobrisse/adivinhasse o
-    // UUID de um pedido de OUTRA empresa conseguiria ler a assinatura dela
-    // (ver auditoria de isolamento entre empresas, 06/10/2026). Esta tabela
-    // ainda não tem RLS própria, então esta checagem é a única barreira.
+    // Reconfirma a empresa do pedido, não só o id — `solicitacoes_assinatura`
+    // tem RLS habilitado com policy `empresa_isolada` (ver
+    // morsafe-bootstrap-projeto-novo.sql), que já restringe as linhas à
+    // empresa do usuário logado sozinha; este filtro repete a mesma condição
+    // como defesa em profundidade (mesmo raciocínio de getEmpresaAtual,
+    // lib/data/empresa.ts) — explícito e fácil de auditar lendo só esta
+    // função, sem depender de confiar cegamente na policy do banco.
     .eq("empresa_id", user.empresaId)
     .maybeSingle();
 

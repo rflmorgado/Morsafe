@@ -195,14 +195,14 @@ export async function criarEmpresa(
 
   // 1) Cria a empresa primeiro (tabela sem RLS, insert sempre permitido).
   // limite_colaboradores vem do plano escolhido, como sugestão inicial —
-  // coluna ainda pendente de aplicação (ver morsafe-add-limite-
-  // colaboradores.sql), por isso o fallback abaixo, mesmo padrão já usado
-  // em movimentacoes/actions.ts pro grupo_entrega_id. Testa tanto 42703
-  // (Postgres "coluna não existe") quanto PGRST204 (o PostgREST rejeita
-  // antes de chegar no banco, por não achar a coluna no SCHEMA CACHE dele
-  // — é o código real confirmado em produção, ver mesmo ajuste em
-  // definirLimiteColaboradores, empresas/actions.ts); só 42703 deixava
-  // esse fallback nunca disparar de verdade.
+  // a coluna já existe em produção desde 14/10/2026 (ver morsafe-
+  // bootstrap-projeto-novo.sql), e o fallback abaixo fica só como rede de
+  // segurança (mesmo padrão já usado em movimentacoes/actions.ts pro
+  // grupo_entrega_id), pra um banco onde a migração ainda não tenha
+  // rodado. Testa tanto 42703 (Postgres "coluna não existe") quanto
+  // PGRST204 (o PostgREST rejeita antes de chegar no banco, por não achar
+  // a coluna no SCHEMA CACHE dele — ver mesmo ajuste em
+  // definirLimiteColaboradores, empresas/actions.ts).
   const limiteColaboradoresSugerido =
     comercial && plano !== "enterprise"
       ? PLANO_LIMITE_COLABORADORES[plano as keyof typeof PLANO_LIMITE_COLABORADORES]
@@ -316,9 +316,12 @@ export async function criarEmpresa(
   // aqui importa pela segurança do dinheiro envolvido — grava a linha de
   // `assinaturas` ANTES de chamar o Asaas (nunca depois), pra nunca criar
   // uma cobrança recorrente de verdade sem um jeito de rastreá-la daqui.
-  // Se a tabela ainda não existir (migração pendente — ver
-  // morsafe-add-assinaturas-asaas.sql), falha AQUI, antes de qualquer
-  // chamada ao Asaas, então nada foi cobrado de ninguém.
+  // `assinaturas` já existe em produção desde a migração pro Supabase
+  // novo (16/10/2026, ver morsafe-bootstrap-projeto-novo.sql) — a
+  // checagem de "tabela ausente" abaixo (42P01) fica só como rede de
+  // segurança (ex.: projeto Supabase novo criado sem rodar a migração
+  // completa); se disparar, falha AQUI, antes de qualquer chamada ao
+  // Asaas, então nada foi cobrado de ninguém.
   let avisoImplantacao: string | undefined;
 
   if (comercial && valorMensal !== null) {
@@ -342,7 +345,7 @@ export async function criarEmpresa(
       console.error("criarEmpresa (insert assinatura):", assinaturaInsertError?.message);
       return {
         error: tabelaAusente
-          ? "A cobrança recorrente depende de uma migração pendente no banco (acesso ao Supabase bloqueado). Cadastre esta empresa sem plano pago por enquanto, ou avise o suporte do MorSafe."
+          ? "A cobrança recorrente depende de uma tabela que ainda não existe neste banco (ver morsafe-bootstrap-projeto-novo.sql). Cadastre esta empresa sem plano pago por enquanto, ou avise o suporte do MorSafe."
           : "Não foi possível criar a assinatura. Tente novamente ou avise o suporte do MorSafe.",
       };
     }

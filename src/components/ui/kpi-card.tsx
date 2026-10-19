@@ -49,7 +49,21 @@ export function KpiCard({
           <p className="text-[11.5px] font-semibold text-text-secondary">
             {label}
           </p>
-          <p className="mt-2 break-words text-[32px] leading-none font-extrabold tracking-tight tabular-nums text-foreground">
+          {/* xl:text-[20px] — a partir de 4 cards na mesma linha (ver
+              grid-cols-4 nas telas que usam este card), o card em si fica
+              estreito demais (~100px de texto disponível, já descontado
+              ícone+padding) pra um valor de 32px tipo "R$ 308,70" sem
+              quebrar feio NO MEIO do número (ex.: "308,7" numa linha e "0"
+              sozinho na próxima) — foi exatamente o que o Rafael viu no
+              Dashboard, 19/10/2026, print do navegador no PC. Medido com
+              Playwright contra o layout real (sidebar 236px + container
+              travado em 1180px): 20px é o maior tamanho em que "R$ 308,70"
+              cabe numa linha só nessa largura, e valores bem maiores (ex.
+              "R$ 12.345,67") no máximo quebram uma vez, sempre no espaço
+              depois do "R$" — nunca dentro do número — graças ao
+              break-words abaixo. Abaixo de xl (1 ou 2 colunas) o card é
+              bem mais largo e o valor continua grande (32px) normalmente. */}
+          <p className="mt-2 break-words text-[32px] leading-none font-extrabold tracking-tight tabular-nums text-foreground xl:text-[20px]">
             {value}
           </p>
         </div>

@@ -3,19 +3,19 @@
 -- Controle de mensalidade/pagamento de cada empresa cliente,
 -- visto só pelo super_admin (telas /pagamentos e /empresas/[id]).
 --
+-- JÁ APLICADO em produção, na migração pro Supabase novo (16/10/2026, ver
+-- morsafe-bootstrap-projeto-novo.sql, que inclui esta mesma tabela — lá
+-- com RLS habilitado e policy `empresa_isolada`, correção de segurança
+-- feita em 14/10/2026, diferente do "RLS desabilitado por design" ainda
+-- descrito abaixo neste arquivo histórico). Este arquivo fica como
+-- registro do incremento original; usa "if not exists" pra poder rodar
+-- de novo sem erro num banco onde a tabela já exista.
+--
 -- COMO USAR: copie este arquivo inteiro e cole no SQL Editor do
 -- Supabase (Project > SQL Editor > New query), clique em "Run".
---
--- PENDENTE: só pode ser aplicado quando o acesso ao painel do
--- Supabase for recuperado (chamado de suporte aberto desde
--- 28/09/2026, ainda sem resposta). Até lá, o código da aplicação
--- (actions.ts, lib/data/pagamentos.ts etc.) já está pronto e
--- referenciando esta tabela, mas não vai funcionar em produção
--- até este script ser rodado — as telas novas vão ficar vazias
--- ou dar erro de "relation does not exist" ao tentar ler/gravar.
 -- ============================================================
 
-create table pagamentos_empresa (
+create table if not exists pagamentos_empresa (
   id               uuid primary key default gen_random_uuid(),
   empresa_id       uuid not null references empresas(id) on delete cascade,
   valor            numeric(10,2) not null,
@@ -32,10 +32,10 @@ create table pagamentos_empresa (
   observacao       text,
   criado_em        timestamptz not null default now()
 );
-comment on table pagamentos_empresa is 'Controle manual de mensalidade de cada empresa cliente do MorSafe — não é um gateway de pagamento, é um registro que o super_admin cria e marca como pago. RLS desabilitado por design (mesma decisão já tomada para a tabela empresas): só acessada via service role, nas telas do super_admin, que nunca pertence a uma empresa_id pra uma policy baseada em auth_empresa_id() bater com nada.';
+comment on table pagamentos_empresa is 'Controle manual de mensalidade de cada empresa cliente do MorSafe — não é um gateway de pagamento, é um registro que o super_admin cria e marca como pago. Só acessada via service role, nas telas do super_admin. RLS habilitado com policy empresa_isolada (correção de segurança de 14/10/2026, ver morsafe-bootstrap-projeto-novo.sql) — defesa em profundidade, já que o acesso real de hoje é todo via service role, que ignora RLS de qualquer forma.';
 
-create index idx_pagamentos_empresa_empresa_id on pagamentos_empresa(empresa_id);
-create index idx_pagamentos_empresa_vencimento on pagamentos_empresa(data_vencimento);
+create index if not exists idx_pagamentos_empresa_empresa_id on pagamentos_empresa(empresa_id);
+create index if not exists idx_pagamentos_empresa_vencimento on pagamentos_empresa(data_vencimento);
 
 -- ============================================================
 -- FIM

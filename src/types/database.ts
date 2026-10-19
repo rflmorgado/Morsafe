@@ -1,4 +1,3 @@
-
 /**
  * Tipos do banco MorSafe (Supabase / PostgreSQL).
  *

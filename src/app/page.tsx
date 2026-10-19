@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ShieldIcon } from "@/components/brand/shield-icon";
 import {
@@ -31,11 +32,28 @@ import {
 // "Sem fidelidade" é afirmado abaixo porque o Rafael confirmou que é
 // verdade (sem período mínimo de contrato).
 //
-// Sem fotografia nenhuma (os mockups das telas são recriados em
-// HTML/Tailwind, não capturas de tela nem fotos de estoque) — garante que
-// fica legível e nítido em qualquer tamanho de tela, e que a marca nunca
-// aparece errada (ver o problema do logo redesenhado nas artes que o
-// Rafael mandou, resumo da conversa).
+// Atualização de 19/10/2026 — a pedido do Rafael ("vc não consegue colocar
+// algumas fotos das telas reais... para o pessoal ver de verdade como é
+// cada tela" + "vamos evidenciar algumas coisas com mais impacto, nossos
+// diferenciais"), a seção de funcionalidades trocou os mockups desenhados
+// em HTML/Tailwind por CAPTURAS REAIS do sistema (public/marketing/*.webp),
+// recortadas das próprias telas do MorSafe — não são os cards de marketing
+// inteiros que o Rafael mandou (aqueles tinham, em volta da captura real,
+// uma marca "MorSafe" solta redesenhada por IA, com o escudo errado —
+// comparado com public/brand/Logo escudo.png, o ícone de verdade é um
+// escudo com checkmark, não a folha/montanha que aparecia nessas artes).
+// A PRÓPRIA captura de tela (barra lateral, cabeçalho do sistema) é
+// confiável — é um recorte de tela de verdade, não redesenho — só a arte
+// solta ao redor que não. Por isso cada imagem aqui foi recortada só até a
+// borda da janela/app, descartando o texto de marketing e qualquer logo
+// solto ao lado.
+//
+// Uma delas (controle de usuários) tinha o e-mail pessoal do Rafael
+// (morgadorafael225@...) visível na tabela de exemplo — borrado antes de
+// publicar, pra não expor o e-mail dele num site público.
+//
+// Os mockups desenhados em HTML/Tailwind (BrowserChrome, MockDashboard
+// etc.) foram removidos — ver histórico do git se precisar recuperá-los.
 
 const CONTATO_EMAIL = "contato.morsafe.br@gmail.com";
 const CONTATO_TELEFONE_EXIBICAO = "(11) 94776-6392";
@@ -68,6 +86,11 @@ const POR_QUE_CARDS = [
     title: "Decisões baseadas em dados",
     desc: "Relatórios claros sobre consumo, custos e uso de EPI.",
   },
+  {
+    icon: IconFolderSearch,
+    title: "Tudo em um só lugar",
+    desc: "Entregas, estoque, auditoria e documentos no mesmo sistema — sem pastas soltas nem planilha paralela para encontrar o que precisa.",
+  },
 ];
 
 const FUNCIONALIDADES = [
@@ -81,7 +104,11 @@ const FUNCIONALIDADES = [
       "Histórico completo",
       "Emissão de ficha de entrega",
     ],
-    mock: MockEntrega,
+    image: "/marketing/estacoes-assinatura.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando as estações de assinatura, usadas para coletar a assinatura do colaborador no ponto de entrega",
+    imageWidth: 996,
+    imageHeight: 920,
   },
   {
     eyebrow: "RELATÓRIOS",
@@ -93,7 +120,11 @@ const FUNCIONALIDADES = [
       "Entradas e saídas de estoque",
       "Relatórios em PDF",
     ],
-    mock: MockRelatorios,
+    image: "/marketing/relatorios-dados-decisao.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando os relatórios de consumo, gasto por mês e consumo por unidade de proteção",
+    imageWidth: 1044,
+    imageHeight: 805,
   },
   {
     eyebrow: "DOCUMENTAÇÃO",
@@ -103,9 +134,13 @@ const FUNCIONALIDADES = [
       "Layout claro e objetivo",
       "Dados atualizados",
       "Pronto para imprimir ou anexar",
-      "Evidência organizada",
+      "Verificação por QR Code",
     ],
-    mock: MockDocumento,
+    image: "/marketing/ficha-entrega-epi.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando o histórico de movimentações e a Ficha de Entrega de EPI em PDF, com QR Code de verificação",
+    imageWidth: 1112,
+    imageHeight: 840,
   },
   {
     eyebrow: "ESTOQUE",
@@ -117,7 +152,11 @@ const FUNCIONALIDADES = [
       "Alertas de reposição",
       "Controle por lote e validade",
     ],
-    mock: MockEstoque,
+    image: "/marketing/controle-estoque.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando o controle de estoque de EPIs, com saldo atual, limite de alerta e custo médio",
+    imageWidth: 1127,
+    imageHeight: 855,
   },
   {
     eyebrow: "AUDITORIA NR-06",
@@ -129,7 +168,11 @@ const FUNCIONALIDADES = [
       "Checklist de campo",
       "Relatório em PDF",
     ],
-    mock: MockAuditoria,
+    image: "/marketing/auditoria-visao-geral.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando o diagnóstico de auditoria NR-06, com índice de controle, pendências e raio-x dos controles",
+    imageWidth: 1132,
+    imageHeight: 785,
   },
   {
     eyebrow: "ACESSO E SEGURANÇA",
@@ -141,7 +184,11 @@ const FUNCIONALIDADES = [
       "Registro de atividades",
       "Dados protegidos na nuvem",
     ],
-    mock: MockDispositivos,
+    image: "/marketing/controle-usuarios.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando o gerenciamento de usuários, com papéis de Admin e Encarregado",
+    imageWidth: 1120,
+    imageHeight: 765,
   },
 ];
 
@@ -292,7 +339,16 @@ export default function Home() {
             </div>
           </div>
 
-          <MockDashboard />
+          <div className="relative">
+            <Image
+              src="/marketing/hero-dashboard.webp"
+              alt="Painel do MorSafe mostrando entregas do mês, situação do estoque, auditoria NR-06 e gasto por setor"
+              width={1400}
+              height={933}
+              priority
+              className="h-auto w-full rounded-2xl shadow-[0_1px_2px_rgba(18,53,36,0.06),0_16px_40px_rgba(18,53,36,0.14)]"
+            />
+          </div>
         </div>
       </section>
 
@@ -301,7 +357,7 @@ export default function Home() {
         <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 lg:grid-cols-[1fr_1.1fr] lg:items-start lg:py-20">
           <div>
             <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-brand-700">
-              Por que o MorSafe
+              Diferenciais
             </div>
             <h2 className="mt-3 text-[26px] font-bold leading-tight tracking-tight text-foreground sm:text-[30px]">
               Mais organização, segurança e praticidade na gestão de EPIs.
@@ -320,7 +376,7 @@ export default function Home() {
             </a>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             {POR_QUE_CARDS.map((card) => (
               <div
                 key={card.title}
@@ -352,35 +408,56 @@ export default function Home() {
               Funcionalidades
             </div>
             <h2 className="mt-3 text-[26px] font-bold leading-tight tracking-tight text-foreground sm:text-[30px]">
-              Tudo o que sua empresa precisa para controlar EPIs.
+              Veja o MorSafe por dentro — direto da tela real do sistema.
             </h2>
+            <p className="mt-4 text-[14.5px] leading-relaxed text-text-secondary">
+              Sem ilustração nem protótipo: as imagens abaixo são capturas
+              reais das telas do MorSafe em uso.
+            </p>
           </div>
 
-          <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-12">
-            {FUNCIONALIDADES.map((f) => (
-              <div key={f.eyebrow}>
-                <div className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-brand-700">
-                  {f.eyebrow}
+          <div className="mt-12 flex flex-col gap-16 lg:gap-20">
+            {FUNCIONALIDADES.map((f, i) => (
+              <div
+                key={f.eyebrow}
+                className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14"
+              >
+                <div className={i % 2 === 1 ? "lg:order-2" : ""}>
+                  <div className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-brand-700">
+                    {f.eyebrow}
+                  </div>
+                  <h3 className="mt-2 text-[21px] font-bold leading-snug tracking-tight text-foreground sm:text-[24px]">
+                    {f.title}
+                  </h3>
+                  <p className="mt-3 text-[14px] leading-relaxed text-text-secondary">
+                    {f.desc}
+                  </p>
+                  <ul className="mt-4 space-y-2">
+                    {f.bullets.map((b) => (
+                      <li
+                        key={b}
+                        className="flex items-start gap-2 text-[13.5px] text-text-secondary"
+                      >
+                        <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <h3 className="mt-2 text-[17px] font-bold leading-snug text-foreground">
-                  {f.title}
-                </h3>
-                <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">
-                  {f.desc}
-                </p>
-                <ul className="mt-3.5 space-y-1.5">
-                  {f.bullets.map((b) => (
-                    <li
-                      key={b}
-                      className="flex items-start gap-1.5 text-[12.5px] text-text-secondary"
-                    >
-                      <IconCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-600" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-4">
-                  <f.mock />
+
+                <div className={i % 2 === 1 ? "lg:order-1" : ""}>
+                  <div className="relative overflow-hidden rounded-2xl border border-border-subtle shadow-[0_1px_2px_rgba(18,53,36,0.06),0_16px_40px_rgba(18,53,36,0.1)]">
+                    <span className="absolute left-4 top-4 z-10 rounded-full bg-brand-950/85 px-3 py-1 text-[10.5px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
+                      Tela real do sistema
+                    </span>
+                    <Image
+                      src={f.image}
+                      alt={f.imageAlt}
+                      width={f.imageWidth}
+                      height={f.imageHeight}
+                      className="h-auto w-full"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -638,231 +715,6 @@ export default function Home() {
   );
 }
 
-// ===== Mockups das telas (HTML/Tailwind, não são capturas de tela nem
-// fotos — ver comentário no topo do arquivo sobre o motivo) =====
-
-function BrowserChrome({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-[0_1px_2px_rgba(18,53,36,0.06),0_8px_24px_rgba(18,53,36,0.08)]">
-      <div className="flex items-center gap-1.5 border-b border-border-subtle bg-surface-muted px-3 py-2">
-        <span className="h-2.5 w-2.5 rounded-full bg-danger-text/40" />
-        <span className="h-2.5 w-2.5 rounded-full bg-warning-text/40" />
-        <span className="h-2.5 w-2.5 rounded-full bg-brand-600/40" />
-      </div>
-      <div className="p-3.5">{children}</div>
-    </div>
-  );
-}
-
-function MockDashboard() {
-  const barras = [48, 62, 71, 68, 71, 80];
-  const meses = ["Mai", "Jun", "Jul", "Ago", "Set", "Out"];
-  return (
-    <BrowserChrome>
-      <div className="mb-3 text-[11px] font-semibold text-text-secondary">
-        Dashboard
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Colaboradores ativos", value: "95" },
-          { label: "EPIs entregues este mês", value: "120" },
-          { label: "Pendências", value: "12", danger: true },
-        ].map((kpi) => (
-          <div
-            key={kpi.label}
-            className="rounded-lg border border-border-subtle p-2.5"
-          >
-            <div className="text-[9.5px] leading-tight text-text-muted">
-              {kpi.label}
-            </div>
-            <div
-              className={`mt-1 text-[16px] font-bold ${kpi.danger ? "text-danger-text" : "text-foreground"}`}
-            >
-              {kpi.value}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 rounded-lg border border-border-subtle p-2.5">
-        <div className="mb-2 text-[9.5px] text-text-muted">
-          Entregas nos últimos 6 meses
-        </div>
-        <div className="flex h-16 items-end gap-2">
-          {barras.map((h, i) => (
-            <div
-              key={meses[i]}
-              className="flex flex-1 flex-col items-center justify-end gap-1"
-            >
-              {/* Altura em px fixo, não em % — dentro de um flex column sem
-                  altura própria definida, uma altura em % não tem contra
-                  qual se resolver e o navegador trata como 0 (foi exatamente
-                  o que aconteceu aqui: barras invisíveis, só os meses
-                  apareciam, confirmado com screenshot do build local em
-                  19/10/2026 antes de entregar). */}
-              <div
-                className="w-full rounded-t bg-brand-500"
-                style={{ height: `${Math.round((h / 100) * 48)}px` }}
-              />
-              <span className="text-[8px] text-text-muted">{meses[i]}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </BrowserChrome>
-  );
-}
-
-function MockEntrega() {
-  return (
-    <BrowserChrome>
-      <div className="text-[11px] font-semibold text-text-secondary">
-        Nova entrega de EPI
-      </div>
-      <div className="mt-2.5 space-y-1.5">
-        {["Colaborador", "Setor", "EPI", "Quantidade"].map((label) => (
-          <div key={label}>
-            <div className="text-[8.5px] text-text-muted">{label}</div>
-            <div className="h-5 rounded border border-border-subtle" />
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 text-[8.5px] text-text-muted">
-        Assinatura do colaborador
-      </div>
-      <div className="mt-1 h-7 rounded border border-border-subtle" />
-      <div className="mt-2.5 rounded bg-brand-700 py-1.5 text-center text-[9.5px] font-semibold text-white">
-        Registrar entrega
-      </div>
-    </BrowserChrome>
-  );
-}
-
-function MockRelatorios() {
-  return (
-    <BrowserChrome>
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { label: "Entregas", value: "10" },
-          { label: "Gasto total", value: "R$ 339" },
-        ].map((kpi) => (
-          <div key={kpi.label} className="rounded-lg border border-border-subtle p-2">
-            <div className="text-[8.5px] text-text-muted">{kpi.label}</div>
-            <div className="mt-0.5 text-[13px] font-bold text-foreground">
-              {kpi.value}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex h-12 items-end gap-1.5 rounded-lg border border-border-subtle p-2">
-        {[20, 35, 15, 40, 55, 30].map((h, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-t bg-brand-500"
-            style={{ height: `${Math.round((h / 100) * 32)}px` }}
-          />
-        ))}
-      </div>
-    </BrowserChrome>
-  );
-}
-
-function MockDocumento() {
-  return (
-    <BrowserChrome>
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] font-bold text-foreground">MorSafe</div>
-        <ShieldIcon className="h-3.5 w-3.5" invert />
-      </div>
-      <div className="mt-2 text-[10px] font-semibold text-foreground">
-        Relatório de Consumo de EPI
-      </div>
-      <div className="mt-2 space-y-1">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-1.5 w-full rounded bg-border-subtle" />
-        ))}
-        <div className="h-1.5 w-2/3 rounded bg-border-subtle" />
-      </div>
-    </BrowserChrome>
-  );
-}
-
-function MockEstoque() {
-  const linhas = [
-    { epi: "Luva de látex", status: "ok" },
-    { epi: "Óculos de proteção", status: "ok" },
-    { epi: "Respirador PFF2", status: "danger" },
-    { epi: "Capacete", status: "ok" },
-  ];
-  return (
-    <BrowserChrome>
-      <div className="text-[9px] font-semibold text-text-muted">
-        EPI · Estoque · Status
-      </div>
-      <div className="mt-1.5 space-y-1.5">
-        {linhas.map((linha) => (
-          <div
-            key={linha.epi}
-            className="flex items-center justify-between rounded border border-border-subtle px-2 py-1"
-          >
-            <span className="text-[9.5px] text-foreground">{linha.epi}</span>
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${linha.status === "danger" ? "bg-danger-text" : "bg-brand-600"}`}
-            />
-          </div>
-        ))}
-      </div>
-    </BrowserChrome>
-  );
-}
-
-function MockAuditoria() {
-  return (
-    <BrowserChrome>
-      <div className="text-[11px] font-semibold text-text-secondary">
-        Auditoria NR-06
-      </div>
-      <div className="mt-2 grid grid-cols-3 gap-1.5">
-        <div className="rounded-lg border border-border-subtle p-2">
-          <div className="text-[8px] text-text-muted">Índice</div>
-          <div className="text-[13px] font-bold text-foreground">54%</div>
-        </div>
-        <div className="rounded-lg border border-border-subtle p-2">
-          <div className="text-[8px] text-text-muted">Atenção</div>
-          <div className="text-[13px] font-bold text-warning-text">0</div>
-        </div>
-        <div className="rounded-lg border border-border-subtle p-2">
-          <div className="text-[8px] text-text-muted">Críticos</div>
-          <div className="text-[13px] font-bold text-danger-text">25</div>
-        </div>
-      </div>
-    </BrowserChrome>
-  );
-}
-
-function MockDispositivos() {
-  return (
-    <div className="flex items-end gap-3">
-      <div className="h-20 w-28 rounded-lg border border-border-subtle bg-surface p-1.5 shadow-[0_1px_2px_rgba(18,53,36,0.06),0_8px_24px_rgba(18,53,36,0.08)]">
-        <div className="h-full rounded border border-border-subtle bg-brand-950 p-1.5">
-          <div className="space-y-1">
-            <div className="h-1 w-3/4 rounded bg-white/40" />
-            <div className="h-1 w-1/2 rounded bg-white/25" />
-            <div className="h-1 w-2/3 rounded bg-white/25" />
-          </div>
-        </div>
-      </div>
-      <div className="h-24 w-12 rounded-lg border border-border-subtle bg-surface p-1 shadow-[0_1px_2px_rgba(18,53,36,0.06),0_8px_24px_rgba(18,53,36,0.08)]">
-        <div className="h-full rounded border border-border-subtle bg-brand-950 p-1">
-          <div className="space-y-1">
-            <div className="h-1 w-full rounded bg-white/40" />
-            <div className="h-1 w-2/3 rounded bg-white/25" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ===== Ícones (SVG inline, sem dependência externa) =====
 
 function IconCheck({ className }: { className?: string }) {
@@ -924,6 +776,27 @@ function IconChartBar({ className }: { className?: string }) {
         strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconFolderSearch({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M3 7a1.5 1.5 0 0 1 1.5-1.5h4l1.6 2H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 18.5H4.5A1.5 1.5 0 0 1 3 17V7Z"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="13.2" cy="13" r="2.4" stroke="currentColor" strokeWidth={1.6} />
+      <path
+        d="M15.1 14.9 17 16.8"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
       />
     </svg>
   );

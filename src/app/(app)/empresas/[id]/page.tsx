@@ -9,6 +9,9 @@ import { AlternarAtivoButton } from "../ativar-empresa-button";
 import { ResetarEmpresaButton } from "../resetar-empresa-button";
 import { DefinirLimiteButton } from "../definir-limite-button";
 import { ExcluirEmpresaButton } from "../excluir-empresa-button";
+import { DesativarUsuarioButton } from "../../usuarios/desativar-usuario-button";
+import { ReativarUsuarioButton } from "../../usuarios/reativar-usuario-button";
+import { ExcluirUsuarioButton } from "../../usuarios/excluir-usuario-button";
 import { NovoPagamentoButton } from "../../pagamentos/novo-pagamento-button";
 import { MarcarPagoButton } from "../../pagamentos/marcar-pago-button";
 import { ExcluirEntregaTesteButton } from "../../movimentacoes/excluir-entrega-teste-button";
@@ -177,6 +180,15 @@ export default async function EmpresaDetalhePage({
         <h3 className="mb-3 text-[15px] font-bold tracking-tight text-foreground">
           Usuários
         </h3>
+        {/* Desativar/Reativar/Excluir aqui usam as MESMAS actions de
+            /usuarios (ver usuarios/actions.ts) — liberadas pro super_admin
+            agir em usuário de QUALQUER empresa, não só a "própria" (ele não
+            tem uma). Serve sobretudo pro Rafael tirar, depois da implantação,
+            o usuário "admin" que ele mesmo criou com seu e-mail só pra subir
+            colaboradores/EPIs/estoque de uma empresa nova antes do cliente
+            ter acesso — antes disso só o próprio cliente (logado como admin
+            da empresa) conseguia remover esse acesso, o que não fazia
+            sentido pedir pra ele fazer. 19/10/2026. */}
         {usuarios.length === 0 ? (
           <p className="rounded-2xl border border-border-subtle bg-surface p-6 text-center text-[13.5px] text-text-secondary shadow-card">
             Nenhum usuário cadastrado nesta empresa.
@@ -197,6 +209,9 @@ export default async function EmpresaDetalhePage({
                   </th>
                   <th className="px-4 py-3 text-[12.5px] font-semibold text-text-secondary">
                     Status
+                  </th>
+                  <th className="px-4 py-3 text-right text-[12.5px] font-semibold text-text-secondary">
+                    Ação
                   </th>
                 </tr>
               </thead>
@@ -225,6 +240,27 @@ export default async function EmpresaDetalhePage({
                       >
                         {u.ativo ? "Ativo" : "Desativado"}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {u.ativo ? (
+                          <DesativarUsuarioButton
+                            usuarioId={u.id}
+                            usuarioNome={u.nome}
+                          />
+                        ) : (
+                          <>
+                            <ReativarUsuarioButton
+                              usuarioId={u.id}
+                              usuarioNome={u.nome}
+                            />
+                            <ExcluirUsuarioButton
+                              usuarioId={u.id}
+                              usuarioNome={u.nome}
+                            />
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

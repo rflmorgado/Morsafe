@@ -1,3 +1,4 @@
+
 /**
  * Tipos do banco MorSafe (Supabase / PostgreSQL).
  *
@@ -110,9 +111,9 @@ export interface Database {
           ativo: boolean;
           // Quantos colaboradores ATIVOS o plano contratado cobre — null
           // significa "sem limite definido ainda" (nenhum alerta é
-          // disparado). Ver morsafe-add-limite-colaboradores.sql — coluna
-          // nova, pendente de aplicação (lib/data/empresas.ts já trata a
-          // ausência dela sem quebrar o resto da tela).
+          // disparado). Já existe em produção desde 14/10/2026 (ver
+          // morsafe-bootstrap-projeto-novo.sql) — lib/data/empresas.ts
+          // continua tratando a ausência dela como rede de segurança.
           limite_colaboradores: number | null;
           criado_em: string;
         },
@@ -121,9 +122,8 @@ export interface Database {
 
       // Mensalidade/pagamento de cada empresa cliente — controle manual do
       // super_admin (ver app/(app)/pagamentos e a seção "Pagamentos" dentro
-      // de app/(app)/empresas/[id]). Ainda não aplicada no banco (ver
-      // morsafe-add-pagamentos-empresa.sql — pendente até o acesso ao
-      // Supabase ser recuperado).
+      // de app/(app)/empresas/[id]). Já existe em produção desde a migração
+      // pro Supabase novo (16/10/2026, ver morsafe-bootstrap-projeto-novo.sql).
       pagamentos_empresa: TableDef<
         {
           id: string;
@@ -137,9 +137,9 @@ export interface Database {
           // assinatura recorrente (ver lib/asaas), null nas que ainda
           // existirem do controle 100% manual anterior. Índice único no
           // banco garante que o webhook nunca duplica linha pro mesmo
-          // pagamento (ver morsafe-pendentes-supabase-TUDO.sql — o antigo
-          // morsafe-add-assinaturas-asaas.sql citado aqui antes nunca foi
-          // encontrado no repositório ao revisar tudo em 08/10/2026).
+          // pagamento (ver morsafe-bootstrap-projeto-novo.sql, a cópia
+          // reconciliada e efetivamente aplicada do que estava em
+          // morsafe-pendentes-supabase-TUDO.sql — arquivo hoje obsoleto).
           asaas_payment_id: string | null;
           // Link da fatura hospedada pelo Asaas (Pix/boleto/cartão) — pra
           // exibir na tela de Cobranças/empresa sem precisar abrir o
@@ -163,9 +163,8 @@ export interface Database {
       >;
 
       // Estado ATUAL da assinatura recorrente de cada empresa cliente —
-      // uma linha por empresa (ver morsafe-add-assinaturas-asaas.sql).
-      // Ainda não aplicada no banco (pendente, junto do resto — ver
-      // morsafe-pendentes-supabase-TUDO.sql).
+      // uma linha por empresa. Já existe em produção desde a migração pro
+      // Supabase novo (16/10/2026, ver morsafe-bootstrap-projeto-novo.sql).
       assinaturas: TableDef<
         {
           id: string;
@@ -202,6 +201,29 @@ export interface Database {
           recebido_em: string;
         },
         "evento_id" | "evento_tipo"
+      >;
+
+      // Snapshot permanente de cada exclusão definitiva de empresa cliente
+      // (ver excluirEmpresaPermanentemente, empresas/actions.ts e
+      // morsafe-add-empresas-excluidas.sql) — a única prova durável no
+      // banco de que uma empresa existiu e foi excluída, já que
+      // log_auditoria dela é apagado junto no mesmo processo. Sem
+      // Relationships de propósito: nenhuma FK pra `empresas` (se
+      // tivesse, a própria exclusão que este registro documenta apagaria
+      // a prova em cascata).
+      empresas_excluidas: TableDef<
+        {
+          id: string;
+          empresa_id: string;
+          empresa_nome: string;
+          empresa_cnpj: string | null;
+          empresa_criada_em: string | null;
+          excluida_em: string;
+          excluida_por_nome: string;
+          excluida_por_email: string;
+          resumo: Record<string, unknown>;
+        },
+        "empresa_id" | "empresa_nome" | "excluida_por_nome" | "excluida_por_email"
       >;
 
       unidades: TableDef<

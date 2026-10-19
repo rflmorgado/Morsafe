@@ -206,7 +206,10 @@ export default async function RelatoriosPage() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* xl:grid-cols-4 — ver comentário equivalente em
+              dashboard/page.tsx, 19/10/2026 (número quebrando no meio
+              com lg:grid-cols-4, card estreito demais a 4 colunas). */}
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard
               label={`Entregas nos últimos ${r.janela.meses} meses`}
               value={r.totalQuantidade}

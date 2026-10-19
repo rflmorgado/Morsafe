@@ -33,14 +33,14 @@ type EmpresaRow = {
 
 /**
  * Busca limite_colaboradores EM UMA CONSULTA SEPARADA do resto do resumo —
- * de propósito. Essa coluna é nova (ver
- * morsafe-add-limite-colaboradores.sql) e ainda não existe em produção
- * enquanto o acesso ao Supabase continuar bloqueado; se ela estivesse no
- * mesmo .select() que busca id/nome/cnpj/ativo/criado_em, UM erro de
- * "coluna não existe" faria a empresa inteira sumir da lista (comResumo/
- * listEmpresasComResumo não teriam como separar "empresa não encontrada"
- * de "essa coluna nova ainda não existe"). Isolada aqui, a mesma falha vira
- * só "sem limite definido" (null), sem afetar nada mais da tela.
+ * de propósito. A coluna já existe em produção desde 14/10/2026 (ver
+ * morsafe-bootstrap-projeto-novo.sql), mas se ela estivesse no mesmo
+ * .select() que busca id/nome/cnpj/ativo/criado_em, UM erro de "coluna não
+ * existe" (ex.: num projeto Supabase criado do zero sem a migração) faria
+ * a empresa inteira sumir da lista (comResumo/listEmpresasComResumo não
+ * teriam como separar "empresa não encontrada" de "essa coluna não
+ * existe"). Isolada aqui, a mesma falha vira só "sem limite definido"
+ * (null), sem afetar nada mais da tela.
  */
 async function getLimiteColaboradores(
   admin: AdminClient,
@@ -213,10 +213,10 @@ export async function getEmpresaComResumo(
  * app, carregada em toda navegação pós-login — contribuindo pra lentidão
  * percebida ao trocar de tela.
  *
- * Mesmo cuidado de getLimiteColaboradores acima: a coluna
- * `limite_colaboradores` é nova (ver morsafe-add-limite-colaboradores.sql)
- * e pode ainda não existir em produção — qualquer erro nessa primeira
- * consulta degrada pra 0 (nenhum alerta), nunca quebra o Dashboard.
+ * Mesmo cuidado de getLimiteColaboradores acima: qualquer erro nessa
+ * primeira consulta (ex.: a coluna `limite_colaboradores` não existir
+ * ainda num projeto Supabase criado do zero sem a migração) degrada pra
+ * 0 (nenhum alerta), nunca quebra o Dashboard.
  */
 export async function contarEmpresasNoLimite(): Promise<number> {
   const admin = createAdminClient();

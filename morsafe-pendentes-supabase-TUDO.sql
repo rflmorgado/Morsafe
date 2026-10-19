@@ -1,4 +1,21 @@
 -- ============================================================
+-- MorSafe — OBSOLETO / HISTÓRICO (atualizado em 19/10/2026)
+--
+-- Este arquivo foi de fato rodado — confirmado em 16/10/2026, na migração
+-- pro Supabase novo (projeto kqjvmgexmvvkyoxoagsb, ver
+-- morsafe-bootstrap-projeto-novo.sql): `assinaturas`, `asaas_webhook_events`
+-- e `pagamentos_empresa.asaas_payment_id`/`asaas_invoice_url` já existem em
+-- produção, com RLS habilitado e testados de ponta a ponta (inclusive um
+-- pagamento real do próprio Rafael via Asaas). O conteúdo deste arquivo foi
+-- reconciliado dentro de morsafe-bootstrap-projeto-novo.sql, que é hoje a
+-- referência pra "o que está de verdade em produção" — este arquivo fica
+-- só como registro histórico do incremento original, não precisa ser
+-- rodado de novo em nenhum banco já migrado.
+--
+-- Texto original do arquivo preservado abaixo pra contexto histórico (a
+-- dúvida sobre "isto já rodou?" que ele levanta já foi respondida: sim).
+-- ============================================================
+--
 -- MorSafe — TODAS as migrações pendentes da cobrança via Asaas,
 -- consolidadas num arquivo só.
 --

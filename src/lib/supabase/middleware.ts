@@ -3,6 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = [
   "/login",
+  // Tela de boas-vindas do app, antes do login (ver src/app/entrar/page.tsx)
+  // — a pedido do Rafael (19/10/2026), diferente da landing page pública de
+  // divulgação em "/".
+  "/entrar",
   "/redefinir-senha",
   "/politica-de-privacidade",
   "/seguranca-da-informacao",
@@ -181,11 +185,12 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Usuário já logado não precisa ver a tela de login nem a landing page de
-  // divulgação — vai direto pro painel.
+  // Usuário já logado não precisa ver a tela de boas-vindas, o login, nem a
+  // landing page de divulgação — vai direto pro painel.
   if (
     user &&
     (request.nextUrl.pathname === "/login" ||
+      request.nextUrl.pathname === "/entrar" ||
       request.nextUrl.pathname === "/")
   ) {
     const url = request.nextUrl.clone();

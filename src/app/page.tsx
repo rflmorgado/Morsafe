@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ShieldIcon } from "@/components/brand/shield-icon";
 import { MoraWidget } from "@/components/mora/mora-widget";
+import { MobileNav } from "@/components/landing/mobile-nav";
 import {
   PLANO_LABEL,
   PLANO_VALOR_MENSAL,
@@ -332,6 +333,7 @@ export default function Home() {
             >
               Falar com a gente
             </a>
+            <MobileNav />
           </div>
         </div>
       </header>

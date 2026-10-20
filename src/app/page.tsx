@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ShieldIcon } from "@/components/brand/shield-icon";
+import { MoraWidget } from "@/components/mora/mora-widget";
 import {
   PLANO_LABEL,
   PLANO_VALOR_MENSAL,
@@ -916,6 +917,11 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Mora — assistente de IA do MorSafe (20/10/2026, a pedido do Rafael).
+          Widget flutuante, conversa com /api/mora. Ver
+          src/components/mora/mora-widget.tsx. */}
+      <MoraWidget />
     </div>
   );
 }

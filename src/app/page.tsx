@@ -36,24 +36,26 @@ import {
 // algumas fotos das telas reais... para o pessoal ver de verdade como é
 // cada tela" + "vamos evidenciar algumas coisas com mais impacto, nossos
 // diferenciais"), a seção de funcionalidades trocou os mockups desenhados
-// em HTML/Tailwind por CAPTURAS REAIS do sistema (public/marketing/*.webp),
-// recortadas das próprias telas do MorSafe — não são os cards de marketing
-// inteiros que o Rafael mandou (aqueles tinham, em volta da captura real,
-// uma marca "MorSafe" solta redesenhada por IA, com o escudo errado —
-// comparado com public/brand/Logo escudo.png, o ícone de verdade é um
-// escudo com checkmark, não a folha/montanha que aparecia nessas artes).
-// A PRÓPRIA captura de tela (barra lateral, cabeçalho do sistema) é
-// confiável — é um recorte de tela de verdade, não redesenho — só a arte
-// solta ao redor que não. Por isso cada imagem aqui foi recortada só até a
-// borda da janela/app, descartando o texto de marketing e qualquer logo
-// solto ao lado.
-//
-// Uma delas (controle de usuários) tinha o e-mail pessoal do Rafael
-// (morgadorafael225@...) visível na tabela de exemplo — borrado antes de
-// publicar, pra não expor o e-mail dele num site público.
-//
+// em HTML/Tailwind por CAPTURAS REAIS do sistema (public/marketing/*.webp).
 // Os mockups desenhados em HTML/Tailwind (BrowserChrome, MockDashboard
 // etc.) foram removidos — ver histórico do git se precisar recuperá-los.
+//
+// Atualização de 20/10/2026 — Rafael reclamou do formato das capturas da
+// atualização acima ("de lado, cortando dados", layout não ficou bonito) e
+// mandou um conjunto novo: composições premium em "janela flutuante" sobre
+// o fundo verde da marca + padrão de pontos (não são mais recortes crus de
+// tela — a arte ao redor da janela agora é intencional e aprovada por ele,
+// diferente das artes com logo errado da rodada anterior). Junto com esse
+// conjunto ele pediu explicitamente para MANTER os e-mails visíveis nas
+// imagens (ao contrário da rodada anterior, em que o e-mail pessoal dele
+// tinha sido borrado) — não voltar a borrar sem ele pedir de novo. Também
+// pediu pra separar Movimentações e Ficha de Entrega de EPI (antes uma
+// imagem só, sobrepondo as duas janelas) em duas seções evidenciadas
+// separadamente, e acrescentar Colaboradores e EPIs homologados, que
+// faltavam. A estrutura ficou: 6 seções grandes alternadas (FUNCIONALIDADES,
+// a jornada principal) + uma grade "Gestão do dia a dia" logo depois
+// (GESTAO_DIA_A_DIA) com Colaboradores, EPIs homologados, Estoque e
+// Usuários, pra não virar uma página de 10 seções gigantes repetidas.
 
 const CONTATO_EMAIL = "contato.morsafe.br@gmail.com";
 const CONTATO_TELEFONE_EXIBICAO = "(11) 94776-6392";
@@ -93,70 +95,75 @@ const POR_QUE_CARDS = [
   },
 ];
 
+// Conjunto de imagens renovado em 20/10/2026 a pedido do Rafael — composições
+// "janela flutuante" sobre o fundo verde da marca (não são mais capturas de
+// tela cruas). As 6 abaixo contam a jornada principal do sistema, da entrega
+// até o relatório; o restante das telas (Colaboradores, EPIs homologados,
+// Estoque, Usuários) está na grade "Gestão do dia a dia" logo depois.
 const FUNCIONALIDADES = [
+  {
+    eyebrow: "VISÃO GERAL",
+    title: "O dia a dia da operação em um único painel.",
+    desc: "Entregas do mês, gastos, EPIs com estoque baixo e CAs vencendo — tudo visível assim que você entra no sistema, sem precisar caçar informação em telas diferentes.",
+    bullets: [
+      "Indicadores do mês em destaque",
+      "Situação do NR-06 e do estoque",
+      "Alertas e ações rápidas",
+      "Entregas dos últimos 6 meses",
+    ],
+    image: "/marketing/dashboard-visao-operacao.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando o dashboard, com entregas do mês, situação do NR-06, do estoque e gasto por setor",
+    imageWidth: 1448,
+    imageHeight: 1086,
+  },
   {
     eyebrow: "ENTREGA DE EPI",
     title: "Registro de entregas com assinatura digital.",
-    desc: "Registre a entrega de EPIs com a assinatura do colaborador, diretamente no sistema ou em estações de assinatura. Tudo fica armazenado de forma segura e rastreável.",
+    desc: "Registre a entrega de EPIs com a assinatura do colaborador, diretamente no sistema ou em estações de assinatura fixas no ponto de entrega. Tudo fica armazenado de forma segura e rastreável.",
     bullets: [
       "Registro por colaborador e setor",
-      "Assinatura na entrega",
-      "Histórico completo",
-      "Emissão de ficha de entrega",
+      "Assinatura no momento da entrega",
+      "Estações de assinatura dedicadas",
+      "Histórico completo e rastreável",
     ],
     image: "/marketing/estacoes-assinatura.webp",
     imageAlt:
       "Tela real do MorSafe mostrando as estações de assinatura, usadas para coletar a assinatura do colaborador no ponto de entrega",
-    imageWidth: 996,
-    imageHeight: 920,
+    imageWidth: 1448,
+    imageHeight: 1086,
   },
   {
-    eyebrow: "RELATÓRIOS",
-    title: "Relatórios completos para facilitar sua gestão.",
-    desc: "Acompanhe o consumo de EPIs, gastos, movimentações e motivos das entregas em gráficos e relatórios detalhados. Exporte em PDF e mantenha tudo organizado para consultas, auditorias e tomadas de decisão.",
+    eyebrow: "MOVIMENTAÇÕES",
+    title: "Histórico completo de entregas, devoluções e recusas.",
+    desc: "Cada entrega, devolução ou recusa de EPI fica registrada com data, motivo e responsável — do mais recente ao mais antigo, sempre disponível para consulta ou exportação.",
     bullets: [
-      "Consumo por período e por setor",
-      "Gastos por tipo de EPI",
-      "Entradas e saídas de estoque",
-      "Relatórios em PDF",
+      "Entregas, devoluções e recusas",
+      "Filtro por colaborador, EPI e período",
+      "Motivo de cada movimentação",
+      "Exportação em CSV",
     ],
-    image: "/marketing/relatorios-dados-decisao.webp",
+    image: "/marketing/historico-movimentacoes.webp",
     imageAlt:
-      "Tela real do MorSafe mostrando os relatórios de consumo, gasto por mês e consumo por unidade de proteção",
-    imageWidth: 1044,
-    imageHeight: 805,
+      "Tela real do MorSafe mostrando o histórico de movimentações, com entregas, devoluções e recusas de EPI",
+    imageWidth: 1448,
+    imageHeight: 1086,
   },
   {
     eyebrow: "DOCUMENTAÇÃO",
-    title: "Relatórios em PDF prontos para anexar.",
-    desc: "Gere relatórios completos com o resumo da auditoria NR-06, consumo de EPIs, movimentações, pendências e checklist de campo. Ideais para auditorias, fiscalizações e arquivo interno.",
+    title: "Ficha de entrega gerada automaticamente, pronta para assinar.",
+    desc: "A cada entrega, o MorSafe gera a Ficha de Entrega de EPI com o termo de responsabilidade, o histórico do colaborador e um QR Code de verificação — pronta para imprimir, assinar ou anexar numa fiscalização.",
     bullets: [
-      "Layout claro e objetivo",
-      "Dados atualizados",
-      "Pronto para imprimir ou anexar",
+      "Termo de responsabilidade NR-06",
+      "Histórico de entregas do colaborador",
       "Verificação por QR Code",
+      "Pronta para imprimir ou anexar",
     ],
     image: "/marketing/ficha-entrega-epi.webp",
     imageAlt:
-      "Tela real do MorSafe mostrando o histórico de movimentações e a Ficha de Entrega de EPI em PDF, com QR Code de verificação",
-    imageWidth: 1112,
-    imageHeight: 840,
-  },
-  {
-    eyebrow: "ESTOQUE",
-    title: "Controle de estoque e alertas de reposição.",
-    desc: "Tenha sempre os EPIs disponíveis. O MorSafe controla o estoque, registra entradas e saídas e mostra alertas de baixo estoque, evitando a falta de itens essenciais.",
-    bullets: [
-      "Cadastro de EPIs homologados",
-      "Entradas e saídas de estoque",
-      "Alertas de reposição",
-      "Controle por lote e validade",
-    ],
-    image: "/marketing/controle-estoque.webp",
-    imageAlt:
-      "Tela real do MorSafe mostrando o controle de estoque de EPIs, com saldo atual, limite de alerta e custo médio",
-    imageWidth: 1127,
-    imageHeight: 855,
+      "Tela real do MorSafe mostrando a Ficha de Entrega de EPI em PDF, com termo de responsabilidade e QR Code de verificação",
+    imageWidth: 758,
+    imageHeight: 1086,
   },
   {
     eyebrow: "AUDITORIA NR-06",
@@ -171,24 +178,66 @@ const FUNCIONALIDADES = [
     image: "/marketing/auditoria-visao-geral.webp",
     imageAlt:
       "Tela real do MorSafe mostrando o diagnóstico de auditoria NR-06, com índice de controle, pendências e raio-x dos controles",
-    imageWidth: 1132,
-    imageHeight: 785,
+    imageWidth: 1448,
+    imageHeight: 1086,
   },
   {
-    eyebrow: "ACESSO E SEGURANÇA",
-    title: "Simples, seguro e em qualquer dispositivo.",
-    desc: "Use o MorSafe no computador, tablet ou celular. Com acesso seguro, perfis de usuário e registro de todas as ações, sua empresa tem mais controle e tranquilidade.",
+    eyebrow: "RELATÓRIOS",
+    title: "Relatórios completos para facilitar sua gestão.",
+    desc: "Acompanhe o consumo de EPIs, gastos, movimentações e motivos das entregas em gráficos e relatórios detalhados. Exporte em PDF e mantenha tudo organizado para consultas, auditorias e tomadas de decisão.",
     bullets: [
-      "Acesso por navegador",
-      "Permissões por usuário",
-      "Registro de atividades",
-      "Dados protegidos na nuvem",
+      "Consumo por período e por setor",
+      "Gastos por tipo de EPI",
+      "Entradas e saídas de estoque",
+      "Relatórios em PDF",
     ],
+    image: "/marketing/relatorios-dados-decisao.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando os relatórios de consumo, gasto por mês e consumo por unidade de proteção",
+    imageWidth: 1448,
+    imageHeight: 1086,
+  },
+];
+
+// Grade secundária — telas de gestão e cadastro que complementam a jornada
+// principal acima. Adicionada em 20/10/2026 junto com Colaboradores e EPIs
+// homologados, que faltavam no site.
+const GESTAO_DIA_A_DIA = [
+  {
+    title: "Colaboradores",
+    desc: "Lista completa com busca rápida, filtro por setor, status e situação da NR-06 — com importação em planilha para cadastrar todo mundo de uma vez.",
+    image: "/marketing/gestao-colaboradores.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando a lista de colaboradores, com setor, cargo, status e situação da NR-06",
+    imageWidth: 1448,
+    imageHeight: 1086,
+  },
+  {
+    title: "EPIs homologados",
+    desc: "Cadastro mestre dos EPIs homologados pela empresa, com número e validade do C.A., tipo de proteção e custo médio — a base de tudo que o sistema controla.",
+    image: "/marketing/gestao-epis.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando o cadastro de EPIs homologados, com C.A., tipo e custo médio",
+    imageWidth: 1448,
+    imageHeight: 1086,
+  },
+  {
+    title: "Estoque",
+    desc: "Saldo atual por EPI, histórico de compras e alertas de reposição — para os itens essenciais nunca faltarem no almoxarifado.",
+    image: "/marketing/controle-estoque.webp",
+    imageAlt:
+      "Tela real do MorSafe mostrando o controle de estoque de EPIs, com saldo atual, limite de alerta e custo médio",
+    imageWidth: 1448,
+    imageHeight: 1086,
+  },
+  {
+    title: "Usuários",
+    desc: "Defina quem tem acesso ao MorSafe na sua empresa, com papéis de Admin e Encarregado e registro de todas as ações.",
     image: "/marketing/controle-usuarios.webp",
     imageAlt:
       "Tela real do MorSafe mostrando o gerenciamento de usuários, com papéis de Admin e Encarregado",
-    imageWidth: 1120,
-    imageHeight: 765,
+    imageWidth: 1680,
+    imageHeight: 840,
   },
 ];
 
@@ -446,7 +495,8 @@ export default function Home() {
             </h2>
             <p className="mt-4 text-[14.5px] leading-relaxed text-text-secondary">
               Sem ilustração nem protótipo: as imagens abaixo são capturas
-              reais das telas do MorSafe em uso.
+              reais das telas do MorSafe em uso, da entrega de EPI com
+              assinatura digital até o relatório pronto para auditoria.
             </p>
           </div>
 
@@ -480,10 +530,7 @@ export default function Home() {
                 </div>
 
                 <div className={i % 2 === 1 ? "lg:order-1" : ""}>
-                  <div className="relative overflow-hidden rounded-2xl border border-border-subtle shadow-[0_1px_2px_rgba(18,53,36,0.06),0_16px_40px_rgba(18,53,36,0.1)]">
-                    <span className="absolute left-4 top-4 z-10 rounded-full bg-brand-950/85 px-3 py-1 text-[10.5px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
-                      Tela real do sistema
-                    </span>
+                  <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(18,53,36,0.06),0_20px_48px_rgba(18,53,36,0.16)]">
                     <Image
                       src={f.image}
                       alt={f.imageAlt}
@@ -495,6 +542,48 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* ----- Gestão do dia a dia (grade secundária) -----
+              Adicionada em 20/10/2026 com Colaboradores e EPIs homologados,
+              que faltavam, mais Estoque e Usuários — telas de apoio que
+              complementam a jornada principal acima sem repetir imagem. */}
+          <div className="mt-20 border-t border-border-subtle pt-16 lg:mt-24 lg:pt-20">
+            <div className="max-w-xl">
+              <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+                Gestão do dia a dia
+              </div>
+              <h3 className="mt-3 text-[22px] font-bold leading-tight tracking-tight text-foreground sm:text-[25px]">
+                E o cadastro completo por trás de tudo isso.
+              </h3>
+              <p className="mt-3 text-[14px] leading-relaxed text-text-secondary">
+                Colaboradores, EPIs homologados, estoque e usuários — a base
+                de dados que sustenta as entregas, os relatórios e a
+                auditoria.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {GESTAO_DIA_A_DIA.map((g) => (
+                <div key={g.title} className="flex flex-col">
+                  <div className="overflow-hidden rounded-xl shadow-[0_1px_2px_rgba(18,53,36,0.06),0_10px_24px_rgba(18,53,36,0.12)]">
+                    <Image
+                      src={g.image}
+                      alt={g.imageAlt}
+                      width={g.imageWidth}
+                      height={g.imageHeight}
+                      className="h-auto w-full"
+                    />
+                  </div>
+                  <div className="mt-4 text-[14.5px] font-semibold text-foreground">
+                    {g.title}
+                  </div>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-text-secondary">
+                    {g.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

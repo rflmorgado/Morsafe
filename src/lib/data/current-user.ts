@@ -1,4 +1,5 @@
 import { cache } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -32,13 +33,24 @@ export const getCurrentUser = cache(async function getCurrentUser() {
     .eq("id", user.id)
     .single();
 
+  const empresaNome =
+    (perfil?.empresas as unknown as { nome: string } | null)?.nome ?? null;
+
+  // Marca todo erro capturado pelo Sentry nesta requisição com a empresa e
+  // o papel do usuário logado, pra conseguirmos filtrar os erros por
+  // cliente (e priorizar alertas de empresas pagantes reais, não da
+  // "MorSafe Teste") sem precisar de um projeto Sentry separado por empresa.
+  Sentry.setUser({ id: user.id, email: user.email ?? undefined });
+  Sentry.setTag("empresa_id", perfil?.empresa_id ?? "sem_empresa");
+  Sentry.setTag("empresa_nome", empresaNome ?? "sem_empresa");
+  Sentry.setTag("papel", perfil?.papel ?? "leitura");
+
   return {
     id: user.id,
     email: user.email ?? "",
     nome: perfil?.nome ?? user.email ?? "Usuário",
     papel: perfil?.papel ?? "leitura",
     empresaId: perfil?.empresa_id ?? null,
-    empresaNome:
-      (perfil?.empresas as unknown as { nome: string } | null)?.nome ?? null,
+    empresaNome,
   };
 });

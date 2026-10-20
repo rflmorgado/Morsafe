@@ -47,11 +47,23 @@ export function MoraWidget() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Balão de "oi, posso ajudar?" aparece uma vez, alguns segundos depois do
-  // carregamento — some sozinho ou ao abrir o chat.
+  // carregamento — e some sozinho pouco depois se ninguém clicar nele.
+  // Antes ele ficava aberto pra sempre até o chat ser aberto, e como o
+  // widget é fixed (acompanha a tela, não a página), isso significava que
+  // ele acabava cobrindo qualquer título que estivesse naquele canto
+  // quando o visitante rolasse a página — reportado pelo Rafael (20/10/2026)
+  // cobrindo o título "Um resumo em vídeo..." no mobile. Com o auto-hide,
+  // a janela em que isso pode acontecer cai de "indefinida" pra ~8s.
   useEffect(() => {
     const t = setTimeout(() => setShowBubble(true), 3500);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!showBubble) return;
+    const t = setTimeout(() => setShowBubble(false), 8000);
+    return () => clearTimeout(t);
+  }, [showBubble]);
 
   useEffect(() => {
     if (open) {

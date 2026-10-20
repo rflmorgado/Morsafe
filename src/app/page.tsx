@@ -352,6 +352,40 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ===== Vídeo institucional =====
+          Adicionado em 20/10/2026 a pedido do Rafael — resumo em vídeo (~20s)
+          montado a partir das mesmas capturas reais de tela já usadas nas
+          seções de Funcionalidades abaixo, com trilha original composta do
+          zero (sem música de terceiros, sem questão de licenciamento). */}
+      <section className="border-b border-border-subtle">
+        <div className="mx-auto max-w-5xl px-5 py-16 text-center lg:py-20">
+          <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+            Veja na prática
+          </div>
+          <h2 className="mt-3 text-[26px] font-bold leading-tight tracking-tight text-foreground sm:text-[30px]">
+            Um resumo em vídeo do MorSafe por dentro.
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-[14.5px] leading-relaxed text-text-secondary">
+            As principais telas do sistema em menos de meio minuto — da
+            entrega de EPI com assinatura digital até a auditoria NR-06.
+          </p>
+
+          <div className="relative mx-auto mt-10 max-w-3xl overflow-hidden rounded-2xl border border-border-subtle shadow-[0_1px_2px_rgba(18,53,36,0.06),0_16px_40px_rgba(18,53,36,0.14)]">
+            <video
+              controls
+              preload="metadata"
+              poster="/video/morsafe-institucional-poster.jpg"
+              width={1920}
+              height={1080}
+              className="h-auto w-full bg-brand-950"
+            >
+              <source src="/video/morsafe-institucional.mp4" type="video/mp4" />
+              Seu navegador não suporta vídeo HTML5.
+            </video>
+          </div>
+        </div>
+      </section>
+
       {/* ===== Por que o MorSafe ===== */}
       <section className="border-b border-border-subtle">
         <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 lg:grid-cols-[1fr_1.1fr] lg:items-start lg:py-20">

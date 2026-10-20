@@ -19,6 +19,14 @@ export const config = {
     // lugar do JSON do manifest e nunca oferecia instalar como app de
     // verdade, então o "ícone" virava só um favorito comum que não segura
     // o pareamento entre uma abertura e outra.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|webmanifest)$).*)",
+    //
+    // .mp4/.webm incluídos em 20/10/2026: o vídeo institucional da landing
+    // page pública (public/video/morsafe-institucional.mp4) estava caindo
+    // na mesma armadilha — como ".mp4" não estava nesta lista de extensões
+    // isentas, o pedido do <video> era tratado como rota protegida e
+    // redirecionado pra /login (confirmado: o vídeo sumia no site mesmo
+    // com o arquivo já publicado certinho no GitHub). .mov incluído por
+    // precaução, caso algum vídeo futuro seja exportado nesse formato.
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|webmanifest|mp4|webm|mov)$).*)",
   ],
 };

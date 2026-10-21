@@ -94,15 +94,25 @@ export async function updateSession(request: NextRequest) {
   // super_admin (sem empresa_id) o embed vem null, então empresaAtiva fica
   // undefined — nunca bloqueia esse papel.
   if (user && !isPublicPath) {
+    // nome/papel/empresa_id e empresas.nome foram adicionados a este select
+    // em 21/10/2026 (antes só vinha ativo/ultima_atividade/empresas.ativo/
+    // assinaturas.status) — não é uma consulta nova, é a MESMA consulta já
+    // paga aqui embaixo, só pedindo mais colunas dela. O motivo: esse é
+    // exatamente o mesmo perfil que getCurrentUser() (current-user.ts) ia
+    // buscar de novo, do zero, a cada navegação — repetindo tanto o
+    // auth.getUser() quanto este select. Ver o bloco de headers logo
+    // abaixo, que repassa esse resultado pro resto do request em vez de
+    // deixar getCurrentUser() buscar tudo de novo.
     const { data: perfil, error: perfilError } = await supabase
       .from("usuarios")
       .select(
-        "ativo, ultima_atividade, empresas ( ativo, assinaturas ( status ) )",
+        "nome, papel, empresa_id, ativo, ultima_atividade, empresas ( nome, ativo, assinaturas ( status ) )",
       )
       .eq("id", user.id)
       .maybeSingle();
 
     const empresaEmbed = perfil?.empresas as unknown as {
+      nome: string;
       ativo: boolean;
       assinaturas: { status: string }[] | { status: string } | null;
     } | null;
@@ -182,6 +192,58 @@ export async function updateSession(request: NextRequest) {
         .from("usuarios")
         .update({ ultima_atividade: new Date().toISOString() })
         .eq("id", user.id);
+    }
+
+    // Repassa o perfil já buscado aqui em cima pro resto do request via
+    // headers — pedido do Rafael, 21/10/2026 ("transições de tela e salvar
+    // estão demorando"): sem isso, getCurrentUser() (current-user.ts),
+    // chamada em todo Server Component protegido e em toda Server Action
+    // (que também passa por este middleware), refazia do ZERO o MESMO
+    // auth.getUser() + select em usuarios que acabamos de fazer acima — 2
+    // idas-e-voltas ao Supabase a mais em CADA navegação e em CADA
+    // salvamento, uma delas validando o token no servidor de Auth (a mais
+    // lenta das duas). getCurrentUser() lê esses headers primeiro e só cai
+    // de volta pra buscar do banco se, por algum motivo, eles não
+    // existirem (rede de segurança, não o caminho normal).
+    //
+    // `new Headers(request.headers)` clona os headers que o CLIENTE mandou
+    // antes de sobrescrever os nomes abaixo — isso é o que garante que um
+    // request malicioso não consiga simplesmente mandar
+    // "x-morsafe-user-papel: admin" por fora: qualquer valor que o cliente
+    // tenha mandado pra esses nomes é substituído aqui pelo valor validado
+    // no servidor, e só o QUE SOBRA depois dessa substituição é o que
+    // getCurrentUser() consegue ler. encodeURIComponent no nome/empresa
+    // evita que um acento ou caractere fora do padrão ASCII quebre o
+    // header (nomes de pessoa/empresa não são garantidos ASCII puro).
+    if (perfil) {
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set("x-morsafe-user-id", user.id);
+      requestHeaders.set(
+        "x-morsafe-user-email",
+        encodeURIComponent(user.email ?? ""),
+      );
+      requestHeaders.set(
+        "x-morsafe-user-nome",
+        encodeURIComponent(perfil.nome ?? ""),
+      );
+      requestHeaders.set("x-morsafe-user-papel", perfil.papel);
+      requestHeaders.set("x-morsafe-empresa-id", perfil.empresa_id ?? "");
+      requestHeaders.set(
+        "x-morsafe-empresa-nome",
+        encodeURIComponent(empresaEmbed?.nome ?? ""),
+      );
+
+      const respostaComHeaders = NextResponse.next({
+        request: { headers: requestHeaders },
+      });
+      // NextResponse.next() cria uma resposta NOVA, sem os cookies de
+      // sessão que o bloco de cookies lá em cima já pode ter definido em
+      // `supabaseResponse` (refresh do Supabase Auth) — copia o que já
+      // existe antes de trocar qual resposta o middleware devolve.
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        respostaComHeaders.cookies.set(cookie);
+      });
+      supabaseResponse = respostaComHeaders;
     }
   }
 

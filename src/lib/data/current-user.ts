@@ -1,6 +1,8 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
+import type { PapelUsuario } from "@/types/database";
 
 /**
  * Usuário logado + empresa. Usado nos Server Components das rotas
@@ -8,17 +10,56 @@ import { createClient } from "@/lib/supabase/server";
  * (o isolamento real de dados é garantido pelo RLS no banco).
  *
  * Envolvida em `cache()` (API do próprio React, não o `fetch` cache do
- * Next): hoje ela é chamada duas vezes em toda navegação — uma em
- * app/(app)/layout.tsx (pra montar a barra lateral) e outra de novo dentro
- * de cada page.tsx (pra conferir o papel do usuário, ex. empresas/page.tsx,
- * pagamentos/page.tsx) — cada chamada fazendo seu próprio
- * `auth.getUser()` + select em `usuarios`. `cache()` faz com que as
- * chamadas dentro de UMA MESMA renderização (layout + page da mesma
- * navegação) reaproveitem o mesmo resultado em vez de repetir as duas
- * consultas ao Supabase; a cada navegação nova o cache é descartado e tudo
+ * Next): dentro de UMA MESMA renderização (layout + page da mesma
+ * navegação, ou uma Server Action), chamadas repetidas reaproveitam o
+ * mesmo resultado; a cada navegação/ação nova o cache é descartado e tudo
  * busca de novo, então nenhum dado fica desatualizado.
+ *
+ * CAMINHO RÁPIDO (21/10/2026, pedido do Rafael — "transições de tela e
+ * salvar estão demorando"): o middleware (lib/supabase/middleware.ts) já
+ * valida a sessão E busca este mesmo perfil em TODO request protegido
+ * (página ou Server Action), repassando o resultado via headers. Antes
+ * desta mudança, esta função ignorava isso e refazia do zero o mesmo
+ * auth.getUser() + select em usuarios — 2 idas-e-voltas ao Supabase a mais
+ * em cima das que o middleware já tinha acabado de pagar, em toda
+ * navegação e em todo salvamento. Lendo os headers primeiro, essas duas
+ * consultas somem por completo no caminho normal.
+ *
+ * O fallback abaixo (busca direto no Supabase, do jeito antigo) continua
+ * existindo só como rede de segurança, pra qualquer contexto em que o
+ * middleware por algum motivo não tenha rodado antes — não deveria
+ * acontecer em nenhuma rota protegida normal, mas é mais seguro manter do
+ * que deixar a função quebrar se os headers não vierem.
  */
 export const getCurrentUser = cache(async function getCurrentUser() {
+  const headerList = await headers();
+  const userId = headerList.get("x-morsafe-user-id");
+
+  if (userId) {
+    const email = decodeURIComponent(
+      headerList.get("x-morsafe-user-email") ?? "",
+    );
+    const nome =
+      decodeURIComponent(headerList.get("x-morsafe-user-nome") ?? "") ||
+      email ||
+      "Usuário";
+    const papel = (headerList.get("x-morsafe-user-papel") ??
+      "leitura") as PapelUsuario;
+    const empresaId = headerList.get("x-morsafe-empresa-id") || null;
+    const empresaNome =
+      decodeURIComponent(headerList.get("x-morsafe-empresa-nome") ?? "") ||
+      null;
+
+    Sentry.setUser({ id: userId, email: email || undefined });
+    Sentry.setTag("empresa_id", empresaId ?? "sem_empresa");
+    Sentry.setTag("empresa_nome", empresaNome ?? "sem_empresa");
+    Sentry.setTag("papel", papel);
+
+    return { id: userId, email, nome, papel, empresaId, empresaNome };
+  }
+
+  // Rede de segurança — ver comentário acima. Mantém exatamente o
+  // comportamento de antes desta mudança.
   const supabase = await createClient();
 
   const {
@@ -36,10 +77,6 @@ export const getCurrentUser = cache(async function getCurrentUser() {
   const empresaNome =
     (perfil?.empresas as unknown as { nome: string } | null)?.nome ?? null;
 
-  // Marca todo erro capturado pelo Sentry nesta requisição com a empresa e
-  // o papel do usuário logado, pra conseguirmos filtrar os erros por
-  // cliente (e priorizar alertas de empresas pagantes reais, não da
-  // "MorSafe Teste") sem precisar de um projeto Sentry separado por empresa.
   Sentry.setUser({ id: user.id, email: user.email ?? undefined });
   Sentry.setTag("empresa_id", perfil?.empresa_id ?? "sem_empresa");
   Sentry.setTag("empresa_nome", empresaNome ?? "sem_empresa");

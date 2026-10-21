@@ -58,6 +58,12 @@ import {
 // a jornada principal) + uma grade "Gestão do dia a dia" logo depois
 // (GESTAO_DIA_A_DIA) com Colaboradores, EPIs homologados, Estoque e
 // Usuários, pra não virar uma página de 10 seções gigantes repetidas.
+//
+// Atualização de 21/10/2026 — selo "Criado por um Técnico em Segurança do
+// Trabalho" (public/brand/selo-tecnico-seguranca.png) adicionado no canto
+// superior direito da imagem do hero, a pedido do Rafael — reforça logo de
+// cara que o produto foi feito por quem tem registro profissional na área
+// (MTE 0066256/SP), não só por uma empresa de software genérica.
 
 const CONTATO_EMAIL = "contato.morsafe.br@gmail.com";
 const CONTATO_TELEFONE_EXIBICAO = "(11) 92750-0869";
@@ -399,6 +405,17 @@ export default function Home() {
               height={933}
               priority
               className="h-auto w-full rounded-2xl shadow-[0_1px_2px_rgba(18,53,36,0.06),0_16px_40px_rgba(18,53,36,0.14)]"
+            />
+            {/* Selo "Criado por um Técnico em Segurança do Trabalho" — ver
+                nota de 21/10/2026 no topo do arquivo. Sobreposto no canto
+                superior direito do mockup, como um adesivo, sem cortar em
+                telas pequenas (escala junto com o breakpoint). */}
+            <Image
+              src="/brand/selo-tecnico-seguranca.png"
+              alt="Selo: criado por um Técnico em Segurança do Trabalho registrado — MTE 0066256/SP"
+              width={1177}
+              height={1128}
+              className="absolute -right-3 -top-3 h-auto w-20 drop-shadow-lg sm:-right-5 sm:-top-5 sm:w-24 lg:-right-6 lg:-top-6 lg:w-28"
             />
           </div>
         </div>

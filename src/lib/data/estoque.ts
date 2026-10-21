@@ -3,6 +3,7 @@ import { listEpis, listEpisParaExportar, type Epi } from "./epis";
 
 export const ESTOQUE_PAGE_SIZE = 20;
 export const ENTRADAS_ESTOQUE_PAGE_SIZE = 10;
+export const AJUSTES_ESTOQUE_PAGE_SIZE = 10;
 
 // Mesmos defaults da coluna em `estoque` (ver morsafe-schema.sql) — usados
 // aqui só pra EPI que ainda não tem linha na tabela (nenhuma entrada de
@@ -351,6 +352,152 @@ export async function listEntradasEstoque({
       criadoEm: e.criado_em,
       registradoPorNome:
         (e.usuarios as unknown as { nome: string } | null)?.nome ?? null,
+    })),
+    total: count ?? data.length,
+  };
+}
+
+export type ItemEstoqueParaAjuste = {
+  id: string;
+  nome: string;
+  tipo: string | null;
+  ca: string | null;
+  saldoAtual: number;
+};
+
+/**
+ * Todo EPI ativo com seu saldo atual, SEM paginação — usado só pela tela
+ * de "Registrar contagem de estoque" (ver registrar-contagem-button.tsx),
+ * que precisa listar TODOS de uma vez pra Rafael digitar a contagem
+ * mensal completa, não só os 20 de uma página de /estoque. Mesmo
+ * raciocínio de listItensParaReporEstoque (reaproveita
+ * listEpisParaExportar, busca `estoque` à parte e junta em memória por
+ * epi_id) — só que aqui sem o filtro "abaixo do limite", porque a
+ * contagem cobre todo o catálogo, não só quem precisa de reposição.
+ */
+export async function listEstoqueParaAjuste(
+  empresaId: string | null,
+): Promise<ItemEstoqueParaAjuste[]> {
+  if (!empresaId) return [];
+
+  const epis = await listEpisParaExportar({
+    empresaId,
+    status: "ativo",
+    sort: "nome",
+    dir: "asc",
+  });
+
+  if (epis.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data: linhasEstoque, error } = await supabase
+    .from("estoque")
+    .select("epi_id, saldo_atual")
+    .eq("empresa_id", empresaId)
+    .in(
+      "epi_id",
+      epis.map((e) => e.id),
+    );
+
+  if (error) {
+    console.error("listEstoqueParaAjuste:", error.message);
+  }
+
+  const porEpiId = new Map((linhasEstoque ?? []).map((l) => [l.epi_id, l]));
+
+  return epis.map((e) => ({
+    id: e.id,
+    nome: e.nome,
+    tipo: e.tipo,
+    ca: e.ca,
+    saldoAtual: porEpiId.get(e.id)?.saldo_atual ?? SALDO_PADRAO,
+  }));
+}
+
+export type AjusteEstoque = {
+  id: string;
+  epiId: string;
+  epiNome: string;
+  epiCa: string | null;
+  epiTipo: string | null;
+  saldoAnterior: number;
+  saldoNovo: number;
+  motivo: string;
+  criadoEm: string;
+  registradoPorNome: string | null;
+};
+
+/**
+ * Histórico de ajustes de estoque (correções a partir de contagem física),
+ * mais recente primeiro — mesmo padrão paginado direto no banco de
+ * listEntradasEstoque, exibido junto na tela /estoque numa seção própria
+ * ("Últimos ajustes"), pra deixar visível pra qualquer um que olhe a tela
+ * que o saldo não é só fruto de compra/entrega: correções pontuais também
+ * ficam registradas, com motivo e quem fez.
+ */
+export async function listAjustesEstoque({
+  empresaId,
+  page = 1,
+}: {
+  empresaId: string | null;
+  page?: number;
+}): Promise<{ ajustes: AjusteEstoque[]; total: number }> {
+  if (!empresaId) return { ajustes: [], total: 0 };
+
+  const supabase = await createClient();
+  const currentPage = page > 0 ? page : 1;
+  const from = (currentPage - 1) * AJUSTES_ESTOQUE_PAGE_SIZE;
+  const to = from + AJUSTES_ESTOQUE_PAGE_SIZE - 1;
+
+  const { data, error, count } = await supabase
+    .from("ajustes_estoque")
+    .select(
+      "id, epi_id, saldo_anterior, saldo_novo, motivo, criado_em, epis ( nome, ca, tipo ), usuarios ( nome )",
+      { count: "exact" },
+    )
+    .eq("empresa_id", empresaId)
+    .order("criado_em", { ascending: false })
+    .range(from, to);
+
+  if (error || !data) {
+    console.error("listAjustesEstoque:", error?.message);
+    return { ajustes: [], total: 0 };
+  }
+
+  return {
+    ajustes: data.map((a) => ({
+      id: a.id,
+      epiId: a.epi_id,
+      epiNome:
+        (
+          a.epis as unknown as {
+            nome: string;
+            ca: string | null;
+            tipo: string | null;
+          } | null
+        )?.nome ?? "—",
+      epiCa:
+        (
+          a.epis as unknown as {
+            nome: string;
+            ca: string | null;
+            tipo: string | null;
+          } | null
+        )?.ca ?? null,
+      epiTipo:
+        (
+          a.epis as unknown as {
+            nome: string;
+            ca: string | null;
+            tipo: string | null;
+          } | null
+        )?.tipo ?? null,
+      saldoAnterior: a.saldo_anterior,
+      saldoNovo: a.saldo_novo,
+      motivo: a.motivo,
+      criadoEm: a.criado_em,
+      registradoPorNome:
+        (a.usuarios as unknown as { nome: string } | null)?.nome ?? null,
     })),
     total: count ?? data.length,
   };

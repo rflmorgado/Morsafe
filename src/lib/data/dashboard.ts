@@ -43,6 +43,13 @@ const DASHBOARD_VAZIO = {
     ca_validade: string | null;
   }[],
   caVencendoTotal: 0,
+  ajustesRecorrentes: [] as {
+    epi_id: string;
+    nome: string;
+    ca: string | null;
+    quantidade_ajustes: number;
+  }[],
+  ajustesRecorrentesTotal: 0,
   nr06: { emDia: 0, pendente: 0 } as Nr06StatusCounts,
 };
 
@@ -82,6 +89,7 @@ export async function getDashboardData(empresaId: string | null) {
     consumoMensal,
     estoqueBaixo,
     caVencendo,
+    ajustesRecorrentes,
     estoqueStatus,
     nr06,
   ] = await Promise.all([
@@ -126,6 +134,17 @@ export async function getDashboardData(empresaId: string | null) {
       .select("epi_id, nome, ca, ca_validade", { count: "exact" })
       .eq("empresa_id", empresaId)
       .order("ca_validade", { ascending: true })
+      .limit(6),
+    // EPIs com 2+ ajustes manuais de estoque nos últimos 90 dias (ver
+    // vw_ajustes_recorrentes, morsafe-add-vw-ajustes-recorrentes.sql) —
+    // pedido do Rafael, 21/10/2026, logo depois de testar "Registrar
+    // contagem de estoque": sinaliza possível processo quebrado (ex.:
+    // entrega não registrada), não só uma divergência pontual.
+    supabase
+      .from("vw_ajustes_recorrentes")
+      .select("epi_id, nome, ca, quantidade_ajustes", { count: "exact" })
+      .eq("empresa_id", empresaId)
+      .order("quantidade_ajustes", { ascending: false })
       .limit(6),
     getEstoqueStatusCounts(empresaId),
     getNr06StatusCounts(empresaId),
@@ -211,6 +230,9 @@ export async function getDashboardData(empresaId: string | null) {
     estoqueStatus,
     caVencendo: caVencendo.data ?? [],
     caVencendoTotal: caVencendo.count ?? caVencendo.data?.length ?? 0,
+    ajustesRecorrentes: ajustesRecorrentes.data ?? [],
+    ajustesRecorrentesTotal:
+      ajustesRecorrentes.count ?? ajustesRecorrentes.data?.length ?? 0,
     nr06,
   };
 }

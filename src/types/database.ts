@@ -483,6 +483,40 @@ export interface Database {
         ]
       >;
 
+      ajustes_estoque: TableDef<
+        {
+          id: string;
+          empresa_id: string;
+          epi_id: string;
+          saldo_anterior: number;
+          saldo_novo: number;
+          motivo: string;
+          criado_em: string;
+          criado_por: string | null;
+        },
+        "empresa_id" | "epi_id" | "saldo_anterior" | "saldo_novo" | "motivo",
+        [
+          {
+            foreignKeyName: "ajustes_estoque_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ajustes_estoque_epi_id_fkey";
+            columns: ["epi_id"];
+            referencedRelation: "epis";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ajustes_estoque_criado_por_fkey";
+            columns: ["criado_por"];
+            referencedRelation: "usuarios";
+            referencedColumns: ["id"];
+          },
+        ]
+      >;
+
       entregas: TableDef<
         {
           id: string;

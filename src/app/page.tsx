@@ -75,6 +75,19 @@ import {
 // deslocamento negativo (-right/-top) foi reduzido para o selo ficar
 // predominantemente DENTRO da foto, como um adesivo colado de verdade, não
 // pairando acima dela; (3) o tamanho em cada breakpoint foi aumentado.
+//
+// Segundo ajuste do mesmo dia — a primeira remoção de fundo usava
+// "distância da cor branca" pixel a pixel pra decidir o que virava
+// transparente, e isso também deixava o TEXTO branco do selo (mesma cor
+// clara do fundo) parcialmente transparente, vazando o fundo da página por
+// trás das letras e tornando o texto quase ilegível quando ampliado — não
+// era corte, era transparência indevida no texto. Reprocessado com
+// flood-fill a partir da borda da imagem (só o fundo de verdade, conectado
+// à borda, vira transparente; qualquer área clara isolada no interior,
+// como o texto, continua 100% opaca). Arquivo trocado de nome
+// (selo-tecnico-seguranca.png → selo-tecnico-seguranca-v2.png) de
+// propósito, só pra forçar o cache da Vercel/navegador a buscar a versão
+// nova em vez de servir a imagem antiga com o mesmo nome.
 
 const CONTATO_EMAIL = "contato.morsafe.br@gmail.com";
 const CONTATO_TELEFONE_EXIBICAO = "(11) 92750-0869";
@@ -425,7 +438,7 @@ export default function Home() {
                 breakpoint). PNG com recorte justo (sem sobra de fundo
                 transparente ao redor) para ficar legível mesmo pequeno. */}
             <Image
-              src="/brand/selo-tecnico-seguranca.png"
+              src="/brand/selo-tecnico-seguranca-v2.png"
               alt="Selo: criado por um Técnico em Segurança do Trabalho registrado — MTE 0066256/SP"
               width={1141}
               height={1092}

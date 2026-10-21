@@ -892,6 +892,15 @@ export interface Database {
         ca: string | null;
         ca_validade: string | null;
       }>;
+      vw_ajustes_recorrentes: ViewDef<{
+        empresa_id: string;
+        epi_id: string;
+        nome: string;
+        ca: string | null;
+        tipo: string | null;
+        quantidade_ajustes: number;
+        ultimo_ajuste_em: string;
+      }>;
     };
 
     Functions: Record<string, never>;

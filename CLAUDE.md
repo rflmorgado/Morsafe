@@ -95,6 +95,35 @@ ao mexer neste projeto (Claude ou qualquer outro desenvolvedor):
    destrutiva sem confirmação explícita — preferir sempre migração
    aditiva a algo que possa apagar dado já existente.
 
+8. Desde 30/10/2026 (aviso da Supabase por e-mail, 21/10/2026), toda tabela
+   NOVA criada no schema `public` deixou de ganhar acesso automático à Data
+   API (supabase-js/PostgREST/GraphQL) — mesmo com RLS habilitado e
+   policies corretas (regra 2 acima), sem um `grant` explícito a API
+   responde "permission denied" antes mesmo de chegar na RLS. Tabelas já
+   existentes antes dessa data não são afetadas (mantêm o acesso que já
+   tinham — nenhuma ação necessária nelas). Por isso, toda migração que
+   criar uma tabela nova a partir de agora precisa incluir os `grant`s na
+   mesma migração, logo depois do `enable row level security` / das
+   policies, nunca como passo separado:
+
+```sql
+   grant select on public.nome_da_tabela to anon;        -- só se a tabela
+                                                            -- precisar ser
+                                                            -- lida sem login
+                                                            -- (ex: o mesmo
+                                                            -- caso de
+                                                            -- verificacoes_documento)
+   grant select, insert, update, delete on public.nome_da_tabela to authenticated;
+   grant select, insert, update, delete on public.nome_da_tabela to service_role;
+```
+
+   `grant` e policy de RLS são independentes e as duas são necessárias:
+   sem `grant`, a API nega antes de chegar na RLS; com `grant` mas sem
+   policy, a RLS nega depois (ou libera geral, se a tabela ficar sem RLS
+   habilitada — daí a regra 2). Ajustar os verbos do `grant` (select /
+   insert / update / delete) conforme o que aquele papel realmente precisa
+   fazer, igual já se decide hoje pra cada policy.
+
 Isso não elimina todo risco — nenhum sistema é livre de bug —, mas fecha as
 duas categorias de falha que já pegaram este projeto (falha silenciosa de
 banco e erro de implantação) e vira prática padrão daqui pra frente, não só

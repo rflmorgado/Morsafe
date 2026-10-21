@@ -64,6 +64,17 @@ import {
 // superior direito da imagem do hero, a pedido do Rafael — reforça logo de
 // cara que o produto foi feito por quem tem registro profissional na área
 // (MTE 0066256/SP), não só por uma empresa de software genérica.
+//
+// Ajuste do mesmo dia — Rafael achou o selo "flutuando" acima do mockup
+// (deslocamento negativo grande demais, sobrando fundo cinza da seção
+// acima da foto) e o texto pouco legível. Correções: (1) o PNG do selo foi
+// reprocessado com um recorte bem mais justo ao redor do cartão verde (o
+// corte antigo mantinha quase toda a tela quadrada original por causa do
+// degradê suave da sombra, então o "selo de verdade" ocupava uma fração
+// pequena da imagem e ficava minúsculo/ilegível quando reduzido); (2) o
+// deslocamento negativo (-right/-top) foi reduzido para o selo ficar
+// predominantemente DENTRO da foto, como um adesivo colado de verdade, não
+// pairando acima dela; (3) o tamanho em cada breakpoint foi aumentado.
 
 const CONTATO_EMAIL = "contato.morsafe.br@gmail.com";
 const CONTATO_TELEFONE_EXIBICAO = "(11) 92750-0869";
@@ -407,15 +418,18 @@ export default function Home() {
               className="h-auto w-full rounded-2xl shadow-[0_1px_2px_rgba(18,53,36,0.06),0_16px_40px_rgba(18,53,36,0.14)]"
             />
             {/* Selo "Criado por um Técnico em Segurança do Trabalho" — ver
-                nota de 21/10/2026 no topo do arquivo. Sobreposto no canto
-                superior direito do mockup, como um adesivo, sem cortar em
-                telas pequenas (escala junto com o breakpoint). */}
+                notas de 21/10/2026 no topo do arquivo. Sobreposto no canto
+                superior direito do mockup, como um adesivo colado nele
+                (deslocamento negativo pequeno, maior parte do selo dentro
+                da foto), sem cortar em telas pequenas (escala junto com o
+                breakpoint). PNG com recorte justo (sem sobra de fundo
+                transparente ao redor) para ficar legível mesmo pequeno. */}
             <Image
               src="/brand/selo-tecnico-seguranca.png"
               alt="Selo: criado por um Técnico em Segurança do Trabalho registrado — MTE 0066256/SP"
-              width={1177}
-              height={1128}
-              className="absolute -right-3 -top-3 h-auto w-20 drop-shadow-lg sm:-right-5 sm:-top-5 sm:w-24 lg:-right-6 lg:-top-6 lg:w-28"
+              width={1141}
+              height={1092}
+              className="absolute -right-2 -top-2 h-auto w-24 drop-shadow-lg sm:-right-3 sm:-top-3 sm:w-32 lg:-right-4 lg:-top-4 lg:w-40"
             />
           </div>
         </div>

@@ -426,7 +426,9 @@ export default async function DashboardPage() {
             Alertas
           </h3>
 
-          {data.estoqueBaixo.length === 0 && data.caVencendo.length === 0 ? (
+          {data.estoqueBaixo.length === 0 &&
+          data.caVencendo.length === 0 &&
+          data.ajustesRecorrentes.length === 0 ? (
             <p className="text-sm text-text-muted">
               Nenhum alerta no momento.
             </p>
@@ -465,6 +467,27 @@ export default async function DashboardPage() {
                   </span>
                   <span className="rounded-full bg-warning-bg px-2.5 py-0.5 text-[11px] font-semibold text-warning-text">
                     Vencendo
+                  </span>
+                </div>
+              ))}
+              {/* Ajuste recorrente — ver vw_ajustes_recorrentes (2+ ajustes
+                  manuais de estoque do mesmo EPI nos últimos 90 dias).
+                  Diferente dos dois tipos acima (que apontam uma ação
+                  simples: repor estoque, renovar C.A.), este é um sinal de
+                  investigação — por isso o texto nomeia explicitamente que
+                  é sobre correções manuais repetidas, não estoque baixo. */}
+              {data.ajustesRecorrentes.map((item) => (
+                <div
+                  key={`ajuste-${item.epi_id}`}
+                  className="flex items-center justify-between border-b border-border-subtle py-2.5 text-[13px] transition-colors last:border-b-0 hover:bg-surface-muted/60"
+                >
+                  <span>
+                    {item.nome}
+                    {item.ca ? ` (C.A. ${item.ca})` : ""} — ajustado{" "}
+                    {item.quantidade_ajustes}x manualmente nos últimos 90 dias
+                  </span>
+                  <span className="rounded-full bg-warning-bg px-2.5 py-0.5 text-[11px] font-semibold text-warning-text">
+                    Ajuste recorrente
                   </span>
                 </div>
               ))}

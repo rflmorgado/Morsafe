@@ -54,7 +54,7 @@ export default function PoliticaDePrivacidadePage() {
           >
             contato.morsafe.br@gmail.com
           </a>{" "}
-          · (11) 94776-6392.
+          · (11) 92750-0869.
         </p>
       </LegalSection>
 

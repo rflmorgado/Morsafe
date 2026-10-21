@@ -2,8 +2,11 @@ import Link from "next/link";
 import {
   listEstoquePorEpi,
   listEntradasEstoque,
+  listEstoqueParaAjuste,
+  listAjustesEstoque,
   ESTOQUE_PAGE_SIZE,
   ENTRADAS_ESTOQUE_PAGE_SIZE,
+  AJUSTES_ESTOQUE_PAGE_SIZE,
 } from "@/lib/data/estoque";
 import { listEpisAtivos } from "@/lib/data/movimentacoes";
 import { getCurrentUser } from "@/lib/data/current-user";
@@ -15,6 +18,8 @@ import { RegistrarEntradaButton } from "./registrar-entrada-button";
 import { ImportarEstoqueButton } from "./importar-estoque-button";
 import { ImportarCatalogoEstoqueButton } from "./importar-catalogo-estoque-button";
 import { EditarLimiteButton } from "./editar-limite-button";
+import { AjustarSaldoButton } from "./ajustar-saldo-button";
+import { RegistrarContagemButton } from "./registrar-contagem-button";
 
 // Ícone vibrante do cabeçalho (mesmo tratamento de Dashboard/Colaboradores/
 // EPIs/Movimentações/Estações/Empresa/Usuários) — uma caixa em perspectiva
@@ -207,6 +212,7 @@ type Filtros = {
   dir?: string;
   page?: number;
   entradasPage?: number;
+  ajustesPage?: number;
 };
 
 function buildHref(atual: Filtros, overrides: Partial<Filtros>) {
@@ -219,6 +225,8 @@ function buildHref(atual: Filtros, overrides: Partial<Filtros>) {
   if (m.page && m.page > 1) params.set("page", String(m.page));
   if (m.entradasPage && m.entradasPage > 1)
     params.set("entradasPage", String(m.entradasPage));
+  if (m.ajustesPage && m.ajustesPage > 1)
+    params.set("ajustesPage", String(m.ajustesPage));
   const qs = params.toString();
   return `/estoque${qs ? `?${qs}` : ""}`;
 }
@@ -245,6 +253,7 @@ export default async function EstoquePage({
     dir?: string;
     page?: string;
     entradasPage?: string;
+    ajustesPage?: string;
   }>;
 }) {
   const {
@@ -254,30 +263,47 @@ export default async function EstoquePage({
     dir,
     page: pageParam,
     entradasPage: entradasPageParam,
+    ajustesPage: ajustesPageParam,
   } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
   const entradasPage = Math.max(1, Number(entradasPageParam) || 1);
+  const ajustesPage = Math.max(1, Number(ajustesPageParam) || 1);
   const sortAtual = sort ?? "nome";
   const dirAtual = dir ?? "asc";
 
-  const filtros: Filtros = { q, tipo, sort, dir, page, entradasPage };
+  const filtros: Filtros = { q, tipo, sort, dir, page, entradasPage, ajustesPage };
 
   // Precisa da empresa do usuário logado antes de disparar o resto (mesmo
   // raciocínio de epis/page.tsx e movimentacoes/page.tsx).
   const user = await getCurrentUser();
   const empresaId = user?.empresaId ?? null;
 
-  const [{ itens, total }, { entradas, total: totalEntradas }, episAtivos] =
-    await Promise.all([
-      listEstoquePorEpi({ empresaId, query: q, tipo, sort, dir, page }),
-      listEntradasEstoque({ empresaId, page: entradasPage }),
-      listEpisAtivos(empresaId),
-    ]);
+  const [
+    { itens, total },
+    { entradas, total: totalEntradas },
+    episAtivos,
+    itensParaAjuste,
+    { ajustes, total: totalAjustes },
+  ] = await Promise.all([
+    listEstoquePorEpi({ empresaId, query: q, tipo, sort, dir, page }),
+    listEntradasEstoque({ empresaId, page: entradasPage }),
+    listEpisAtivos(empresaId),
+    // Sempre buscado, igual episAtivos acima — só é usado pelo botão
+    // "Registrar contagem de estoque" (que já não aparece pra quem não
+    // pode gerenciar), mas a lista em si é pequena (catálogo ativo da
+    // empresa) e Promise.all pede estrutura fixa.
+    listEstoqueParaAjuste(empresaId),
+    listAjustesEstoque({ empresaId, page: ajustesPage }),
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(total / ESTOQUE_PAGE_SIZE));
   const totalPaginasEntradas = Math.max(
     1,
     Math.ceil(totalEntradas / ENTRADAS_ESTOQUE_PAGE_SIZE),
+  );
+  const totalPaginasAjustes = Math.max(
+    1,
+    Math.ceil(totalAjustes / AJUSTES_ESTOQUE_PAGE_SIZE),
   );
 
   // Mesma regra de EPIs/Movimentações: "encarregado"+ registra entrada e
@@ -335,6 +361,7 @@ export default async function EstoquePage({
                       <ImportarEstoqueButton epis={episAtivos} />
                     </>
                   )}
+                  <RegistrarContagemButton itens={itensParaAjuste} />
                   <RegistrarEntradaButton epis={episAtivos} />
                 </>
               )}
@@ -424,17 +451,29 @@ export default async function EstoquePage({
                           a coluna larga o bastante pra estourar os 820px
                           disponíveis a `xl` com 7 colunas (mesma lição de
                           usuarios/page.tsx: competir por largura na horizontal
-                          é o que mais facilmente derruba esse layout). */}
-                      <div
-                        className={
-                          item.statusEstoque === "critico"
-                            ? "font-semibold text-danger-text"
-                            : item.statusEstoque === "alerta"
-                              ? "font-semibold text-warning-text"
-                              : "text-brand-700"
-                        }
-                      >
-                        {item.saldoAtual}
+                          é o que mais facilmente derruba esse layout). Por
+                          isso o lápis de ajuste de saldo (AjustarSaldoButton)
+                          fica ao lado do número, não numa coluna própria —
+                          evitaria somar uma 8ª coluna só pra ele. */}
+                      <div className="flex items-center gap-1">
+                        <div
+                          className={
+                            item.statusEstoque === "critico"
+                              ? "font-semibold text-danger-text"
+                              : item.statusEstoque === "alerta"
+                                ? "font-semibold text-warning-text"
+                                : "text-brand-700"
+                          }
+                        >
+                          {item.saldoAtual}
+                        </div>
+                        {podeGerenciar && (
+                          <AjustarSaldoButton
+                            epiId={item.id}
+                            epiNome={item.nome}
+                            saldoAtual={item.saldoAtual}
+                          />
+                        )}
                       </div>
                       {item.statusEstoque === "critico" && (
                         <div className="text-[10px] font-semibold text-danger-text">
@@ -514,20 +553,29 @@ export default async function EstoquePage({
                 </div>
 
                 <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2.5">
-                  <span
-                    className={`text-[12.5px] font-semibold ${
-                      item.statusEstoque === "critico"
-                        ? "text-danger-text"
-                        : item.statusEstoque === "alerta"
-                          ? "text-warning-text"
-                          : "text-brand-700"
-                    }`}
-                  >
-                    Saldo: {item.saldoAtual}
-                    <span className="font-normal text-text-secondary">
-                      {" "}
-                      / limite {item.limiteAlerta}
+                  <span className="flex items-center gap-1">
+                    <span
+                      className={`text-[12.5px] font-semibold ${
+                        item.statusEstoque === "critico"
+                          ? "text-danger-text"
+                          : item.statusEstoque === "alerta"
+                            ? "text-warning-text"
+                            : "text-brand-700"
+                      }`}
+                    >
+                      Saldo: {item.saldoAtual}
+                      <span className="font-normal text-text-secondary">
+                        {" "}
+                        / limite {item.limiteAlerta}
+                      </span>
                     </span>
+                    {podeGerenciar && (
+                      <AjustarSaldoButton
+                        epiId={item.id}
+                        epiNome={item.nome}
+                        saldoAtual={item.saldoAtual}
+                      />
+                    )}
                   </span>
                   {item.statusEstoque === "critico" && (
                     <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[10.5px] font-semibold text-danger-text">
@@ -644,6 +692,93 @@ export default async function EstoquePage({
                 tabIndex={entradasPage >= totalPaginasEntradas ? -1 : undefined}
                 className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
                   entradasPage >= totalPaginasEntradas
+                    ? "pointer-events-none opacity-40"
+                    : "hover:bg-surface-muted"
+                }`}
+              >
+                Próxima →
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Últimos ajustes de estoque — correções manuais a partir de
+          contagem física (lápis ao lado do saldo, ou "Registrar contagem
+          de estoque"), separado de "Últimas entradas" (compras) porque são
+          dois tipos de movimento diferentes: aqui aparece o motivo e a
+          variação (de → para), não quantidade/preço/fornecedor. Mesma
+          estrutura e paginação de "Últimas entradas" logo acima. */}
+      <div>
+        <h3 className="mb-3 text-[15px] font-bold text-foreground">
+          Últimos ajustes de estoque
+        </h3>
+
+        <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-card">
+          {ajustes.length === 0 ? (
+            <p className="px-6 py-6 text-sm text-text-muted">
+              Nenhum ajuste de estoque registrado ainda.
+            </p>
+          ) : (
+            ajustes.map((a) => (
+              <div
+                key={a.id}
+                className="flex items-start gap-2.5 border-b border-border-subtle px-6 py-4 transition-colors last:border-b-0 hover:bg-surface-muted/70"
+              >
+                <IconeDoTipo
+                  tipo={a.epiTipo}
+                  className="mt-0.5 h-4 w-4 shrink-0 text-text-muted"
+                />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-[13.5px] font-semibold text-foreground">
+                    {a.epiNome}
+                    {a.epiCa ? ` (C.A. ${a.epiCa})` : ""} · {a.saldoAnterior}{" "}
+                    →{" "}
+                    <span
+                      className={
+                        a.saldoNovo > a.saldoAnterior
+                          ? "text-brand-700"
+                          : "text-danger-text"
+                      }
+                    >
+                      {a.saldoNovo}
+                    </span>
+                  </span>
+                  <span className="text-xs text-text-secondary">
+                    {a.motivo} · Registrado por {a.registradoPorNome ?? "—"}{" "}
+                    em {formatDateTime(a.criadoEm)}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {totalAjustes > 0 && (
+          <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+            <span className="text-[12.5px] text-text-secondary">
+              Página {ajustesPage} de {totalPaginasAjustes} · {totalAjustes}{" "}
+              ajuste{totalAjustes === 1 ? "" : "s"}
+            </span>
+            <div className="flex gap-2">
+              <Link
+                href={buildHref(filtros, { ajustesPage: ajustesPage - 1 })}
+                aria-disabled={ajustesPage <= 1}
+                tabIndex={ajustesPage <= 1 ? -1 : undefined}
+                className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+                  ajustesPage <= 1
+                    ? "pointer-events-none opacity-40"
+                    : "hover:bg-surface-muted"
+                }`}
+              >
+                ← Anterior
+              </Link>
+              <Link
+                href={buildHref(filtros, { ajustesPage: ajustesPage + 1 })}
+                aria-disabled={ajustesPage >= totalPaginasAjustes}
+                tabIndex={ajustesPage >= totalPaginasAjustes ? -1 : undefined}
+                className={`rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition ${
+                  ajustesPage >= totalPaginasAjustes
                     ? "pointer-events-none opacity-40"
                     : "hover:bg-surface-muted"
                 }`}

@@ -20,9 +20,13 @@ export async function requestPasswordReset(
   formData: FormData,
 ): Promise<ResetPasswordState> {
   const email = String(formData.get("resetEmail") ?? "").trim();
+  const captchaToken = String(formData.get("captchaToken") ?? "");
 
   if (!email) {
     return { error: "Informe seu e-mail." };
+  }
+  if (!captchaToken) {
+    return { error: "Verificação de segurança pendente. Aguarde um instante e tente de novo." };
   }
 
   const supabase = await createClient();
@@ -30,6 +34,7 @@ export async function requestPasswordReset(
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${siteUrl}/redefinir-senha`,
+    captchaToken,
   });
 
   // Não revelamos se o e-mail existe ou não na base, por segurança — a
@@ -47,15 +52,20 @@ export async function login(
 ): Promise<LoginState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const captchaToken = String(formData.get("captchaToken") ?? "");
 
   if (!email || !password) {
     return { error: "Informe e-mail e senha." };
+  }
+  if (!captchaToken) {
+    return { error: "Verificação de segurança pendente. Aguarde um instante e tente de novo." };
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
+    options: { captchaToken },
   });
 
   if (error) {

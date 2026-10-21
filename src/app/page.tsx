@@ -60,8 +60,8 @@ import {
 // Usuários, pra não virar uma página de 10 seções gigantes repetidas.
 
 const CONTATO_EMAIL = "contato.morsafe.br@gmail.com";
-const CONTATO_TELEFONE_EXIBICAO = "(11) 94776-6392";
-const WHATSAPP_URL = `https://wa.me/5511947766392?text=${encodeURIComponent(
+const CONTATO_TELEFONE_EXIBICAO = "(11) 92750-0869";
+const WHATSAPP_URL = `https://wa.me/5511927500869?text=${encodeURIComponent(
   "Olá! Quero conhecer o MorSafe.",
 )}`;
 const TAGLINE = "Protegendo pessoas. Comprovando conformidade.";

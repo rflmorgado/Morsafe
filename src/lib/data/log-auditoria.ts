@@ -22,6 +22,8 @@ export const ACAO_LABEL: Record<string, string> = {
   logout: "Logout",
   entrada_registrada: "Entrada de estoque registrada",
   limite_atualizado: "Limite de alerta de estoque atualizado",
+  ajuste_estoque_registrado: "Ajuste de estoque registrado",
+  contagem_estoque_registrada: "Contagem de estoque registrada",
   dados_resetados: "Dados de teste resetados",
   entrega_teste_excluida: "Entrega de teste excluída",
   pagamento_criado: "Pagamento registrado",
@@ -49,6 +51,7 @@ export const TABELA_LABEL: Record<string, string> = {
   empresas: "Empresa",
   entradas_estoque: "Entrada de estoque",
   estoque: "Estoque",
+  ajustes_estoque: "Ajuste de estoque",
   pagamentos_empresa: "Pagamento",
   auditorias_nr06: "Auditoria de NR-06",
   assinaturas: "Assinatura",
@@ -198,6 +201,23 @@ export function descreverLogAuditoria(item: LogAuditoriaItem): string {
       return nome
         ? `Atualizou o limite de alerta de estoque de "${nome}"${limite !== undefined ? ` para ${limite}` : ""}`
         : "Atualizou um limite de alerta de estoque";
+    }
+    case "ajuste_estoque_registrado": {
+      const saldoAnterior = item.detalhes?.saldoAnterior as number | undefined;
+      const saldoNovo = item.detalhes?.saldoNovo as number | undefined;
+      const motivo = item.detalhes?.motivo as string | undefined;
+      const variacao =
+        saldoAnterior !== undefined && saldoNovo !== undefined
+          ? ` de ${saldoAnterior} para ${saldoNovo}`
+          : "";
+      return nome
+        ? `Ajustou o saldo de estoque de "${nome}"${variacao}${motivo ? ` — ${motivo}` : ""}`
+        : "Ajustou um saldo de estoque";
+    }
+    case "contagem_estoque_registrada": {
+      const qtd = item.detalhes?.quantidade as number | undefined;
+      const motivo = item.detalhes?.motivo as string | undefined;
+      return `Registrou uma contagem de estoque, ajustando ${qtd ?? "vários"} EPI${qtd === 1 ? "" : "s"}${motivo ? ` — ${motivo}` : ""}`;
     }
     case "dados_resetados": {
       const d = item.detalhes ?? {};

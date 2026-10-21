@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { login, requestPasswordReset, type LoginState, type ResetPasswordState } from "./actions";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 const initialLoginState: LoginState = { error: null };
 const initialResetState: ResetPasswordState = { error: null };
@@ -34,6 +35,7 @@ function RecuperarSenhaForm({ onVoltar }: { onVoltar: () => void }) {
     requestPasswordReset,
     initialResetState,
   );
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   if (state.success) {
     return (
@@ -75,6 +77,9 @@ function RecuperarSenhaForm({ onVoltar }: { onVoltar: () => void }) {
         />
       </div>
 
+      <input type="hidden" name="captchaToken" value={captchaToken ?? ""} />
+      <TurnstileWidget onToken={setCaptchaToken} />
+
       {state.error && (
         <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-text">
           {state.error}
@@ -91,7 +96,7 @@ function RecuperarSenhaForm({ onVoltar }: { onVoltar: () => void }) {
         </button>
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !captchaToken}
           className="rounded-lg bg-brand-700 px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? "Enviando..." : "Enviar link"}
@@ -105,6 +110,7 @@ export function LoginForm() {
   const [state, formAction, pending] = useActionState(login, initialLoginState);
   const [mode, setMode] = useState<"login" | "recuperar">("login");
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   if (mode === "recuperar") {
     return <RecuperarSenhaForm onVoltar={() => setMode("login")} />;
@@ -168,6 +174,9 @@ export function LoginForm() {
         </button>
       </div>
 
+      <input type="hidden" name="captchaToken" value={captchaToken ?? ""} />
+      <TurnstileWidget onToken={setCaptchaToken} />
+
       {state.error && (
         <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-text">
           {state.error}
@@ -176,7 +185,7 @@ export function LoginForm() {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !captchaToken}
         className="w-full rounded-lg bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Entrando..." : "Entrar"}

@@ -182,6 +182,26 @@ export function AppShell({
                 isSuperAdmin={isSuperAdmin}
                 isAdmin={isAdmin}
               />
+
+              {/* Nome do usuário + "Sair" — existia só na barra lateral de
+                  desktop (aside abaixo); no menu mobile faltava por
+                  completo, então no celular não tinha como fazer logout
+                  (bug relatado pelo Rafael, 22/10/2026). */}
+              <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                <div className="px-2.5">
+                  <p className="truncate text-[13px] font-medium text-white">
+                    {userNome}
+                  </p>
+                </div>
+                <form action={logout}>
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-white/50 transition hover:bg-white/5 hover:text-white/80"
+                  >
+                    Sair
+                  </button>
+                </form>
+              </div>
             </div>
           )}
         </div>

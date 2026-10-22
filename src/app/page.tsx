@@ -482,9 +482,9 @@ export default function Home() {
 
           <a
             href="/tour"
-            className="mt-6 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-brand-700 hover:underline"
+            className="mt-8 inline-flex items-center gap-2 rounded-lg bg-brand-700 px-6 py-3 text-[13.5px] font-semibold text-white shadow-btn transition hover:bg-brand-800"
           >
-            Ou explore as telas você mesmo →
+            Explorar as telas você mesmo →
           </a>
         </div>
       </section>

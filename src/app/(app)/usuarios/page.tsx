@@ -11,11 +11,77 @@ import { AutoRefresh } from "./auto-refresh";
 import { PageHeader } from "@/components/ui/page-header";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 
+// Nomes renomeados em 22/10/2026 a pedido do Rafael — "Admin/Encarregado/
+// Leitura" descreviam bem o nível técnico, mas confundiam quem estava
+// atribuindo o papel (ex: "Encarregado" soa como um cargo específico de
+// obra, não como um nível de acesso). Os valores internos (papel no banco:
+// "admin"/"encarregado"/"leitura") continuam os mesmos — isto é só o rótulo
+// exibido na tela. Ver PAINEL_ACESSO abaixo pra explicação completa de cada
+// um.
 const PAPEL_LABEL: Record<string, string> = {
-  admin: "Admin",
-  encarregado: "Encarregado",
-  leitura: "Leitura",
+  admin: "Administrador",
+  encarregado: "Operador",
+  leitura: "Visualizador",
 };
+
+// Painel "O que cada papel pode fazer" (pedido do Rafael, 22/10/2026) —
+// cada item abaixo reflete exatamente o que `temPapelMinimo` já aplica em
+// cada Server Action (ver src/lib/auth/permissoes.ts e os
+// actions.ts de cada tela: colaboradores, epis, estoque, movimentacoes,
+// auditoria, estacoes, empresa). Se um nível mínimo mudar em algum desses
+// arquivos, atualizar aqui também pra não ficar desalinhado.
+const PAINEL_ACESSO: {
+  papel: string;
+  titulo: string;
+  resumo: string;
+  pode: string[];
+  naoPode: string[];
+}[] = [
+  {
+    papel: "admin",
+    titulo: "Administrador",
+    resumo: "Acesso total ao sistema.",
+    pode: [
+      "Tudo que o Operador faz, e também:",
+      "Desligar, reativar e excluir colaboradores definitivamente",
+      "Desativar e excluir EPIs homologados definitivamente",
+      "Importar planilhas (colaboradores, EPIs, estoque)",
+      "Gerenciar Estações de assinatura",
+      "Editar Dados da empresa",
+      "Gerenciar Usuários (criar, trocar papel, desativar)",
+    ],
+    naoPode: [],
+  },
+  {
+    papel: "encarregado",
+    titulo: "Operador",
+    resumo: "O dia a dia operacional.",
+    pode: [
+      "Cadastrar e editar colaboradores, setores e cargos",
+      "Cadastrar, editar, desativar e reativar EPIs homologados",
+      "Registrar entregas, devoluções e recusas de EPI",
+      "Entrada manual e ajuste de estoque",
+      "Rodar a Auditoria NR-06",
+    ],
+    naoPode: [
+      "Excluir colaborador ou EPI definitivamente",
+      "Importar planilhas em massa",
+      "Estações de assinatura, Dados da empresa e Usuários",
+    ],
+  },
+  {
+    papel: "leitura",
+    titulo: "Visualizador",
+    resumo: "Só consulta, não grava nada.",
+    pode: [
+      "Ver Dashboard, Colaboradores, EPIs, Movimentações, Estoque, Auditoria NR-06 e Relatórios",
+    ],
+    naoPode: [
+      "Cadastrar, editar ou registrar qualquer coisa",
+      "Estações de assinatura, Dados da empresa e Usuários (nem aparecem no menu)",
+    ],
+  },
+];
 
 // Bolinha de presença — verde (usando o sistema agora), laranja (logado,
 // mas parado há um tempo) ou vermelho (offline/nunca esteve ativo). Ver
@@ -51,6 +117,23 @@ function IconUsuariosHeader(props: React.SVGProps<SVGSVGElement>) {
       <path d="M3.5 19.5c0-3.6 2.5-6 5.5-6s5.5 2.4 5.5 6" />
       <path d="M16 9.2a2.8 2.8 0 1 0 0-5.6" />
       <path d="M15 13.3c2.6.4 4.5 2.6 4.5 6.2" />
+    </svg>
+  );
+}
+
+// Seta do painel "O que cada papel pode fazer" — mesmo ícone/efeito de
+// rotação (group-open:rotate-180) usado no FAQ do site público (ver
+// src/app/page.tsx).
+function IconChevronDown(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path
+        d="M6 9l6 6 6-6"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -136,6 +219,60 @@ export default async function UsuariosPage() {
         description="Quem tem acesso ao MorSafe na sua empresa."
         icon={<IconUsuariosHeader className="h-5 w-5" />}
       />
+
+      {/* Painel "O que cada papel pode fazer" — pedido do Rafael,
+          22/10/2026, junto com a renomeação dos papéis. Fica fechado por
+          padrão (details/summary, sem JS — esta página é Server Component)
+          pra não brigar por espaço com a tabela/lista logo abaixo; quem
+          precisa decidir qual papel atribuir abre e vê os três lado a
+          lado. */}
+      <details className="group rounded-2xl border border-border-subtle bg-surface">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-[13px] font-semibold text-foreground">
+          O que cada papel pode fazer
+          <IconChevronDown className="h-4 w-4 shrink-0 text-text-muted transition group-open:rotate-180" />
+        </summary>
+        <div className="grid gap-3 border-t border-border-subtle p-4 sm:grid-cols-3">
+          {PAINEL_ACESSO.map((p) => (
+            <div
+              key={p.papel}
+              className="rounded-xl border border-border-subtle bg-surface-muted p-3.5"
+            >
+              <p className="text-[13px] font-semibold text-foreground">
+                {p.titulo}
+              </p>
+              <p className="mt-0.5 text-[12px] text-text-secondary">
+                {p.resumo}
+              </p>
+
+              <ul className="mt-3 space-y-1.5">
+                {p.pode.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-1.5 text-[12px] leading-snug text-text-secondary"
+                  >
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand-600" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              {p.naoPode.length > 0 && (
+                <ul className="mt-2.5 space-y-1.5 border-t border-border-subtle pt-2.5">
+                  {p.naoPode.map((item) => (
+                    <li
+                      key={item}
+                      className="flex items-start gap-1.5 text-[12px] leading-snug text-text-muted"
+                    >
+                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-text-muted" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      </details>
 
       <ListToolbar actions={<NovoUsuarioButton />} />
 

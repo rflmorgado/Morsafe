@@ -36,7 +36,7 @@ Funcionalidades principais:
 - Documentação: ficha de entrega de EPI gerada automaticamente, pronta pra imprimir ou apresentar numa fiscalização.
 - Auditoria NR-06: visão organizada e sempre pronta pra fiscalização.
 - Relatórios: dados prontos pra decisão.
-- Gestão do dia a dia: cadastro de colaboradores, EPIs homologados, controle de estoque (saldo, histórico de compras, alertas de reposição), e usuários do sistema com papéis de Admin e Encarregado (com registro de todas as ações).
+- Gestão do dia a dia: cadastro de colaboradores, EPIs homologados, controle de estoque (saldo, histórico de compras, alertas de reposição), e usuários do sistema com papéis de Administrador e Operador (com registro de todas as ações).
 
 == PLANOS E PREÇOS (mensal — todos os planos incluem TODAS as funcionalidades; o que muda é só o limite de colaboradores ativos) ==
 - Start: R$ 99/mês — até 30 colaboradores

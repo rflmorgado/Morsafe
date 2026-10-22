@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MorSafe por dentro — tour do sistema</title>
+<meta name="description" content="Conheça as telas reais do MorSafe: controle de EPI, estoque, auditoria NR-06 e muito mais.">
+<link rel="icon" href="/tour/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: dark-green hero bookends a horizontal scroll-snap carousel of 10 real app screens, each in a browser-chrome frame with a caption below. */
+:root{
+  --bg:#f4f6f2;
+  --surface:#ffffff;
+  --ink:#10201a;
+  --muted:#55685e;
+  --accent:#1f8a4f;
+  --accent-deep:#0c2e1c;
+  --line:#dde5de;
+  --font-display:'Archivo',sans-serif;
+  --font-body:'Public Sans',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0a120e;
+    --surface:#121c17;
+    --ink:#eef3ee;
+    --muted:#9bb0a4;
+    --accent:#3dc281;
+    --accent-deep:#0c2e1c;
+    --line:#223129;
+    color-scheme:dark;
+  }
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+h1,h2,h3{font-family:var(--font-display);margin:0;}
+p{margin:0;}
+a{color:inherit;}
+img{max-width:100%;display:block;}
+
+.wrap{max-width:720px;margin:0 auto;}
+
+/* ---------- HERO ---------- */
+.hero{
+  background:var(--accent-deep);
+  color:#eef6f0;
+  margin-left:max(-16px, calc(-1 * env(safe-area-inset-left,0px)) - 16px);
+  margin-right:max(-16px, calc(-1 * env(safe-area-inset-right,0px)) - 16px);
+  padding-block:52px 40px;
+}
+.hero-inner{
+  max-width:720px;margin:0 auto;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;align-items:flex-start;gap:18px;
+}
+.hero-badge{width:52px;height:52px;flex:none;}
+.hero-badge img{width:100%;height:100%;filter:brightness(0) invert(1);}
+.hero h1{font-size:clamp(28px,7vw,38px);font-weight:800;line-height:1.08;letter-spacing:-0.01em;}
+.hero .tagline{
+  font-family:var(--font-mono);
+  font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:#9fd8b8;
+}
+.hero p.lede{font-size:16px;line-height:1.55;color:#d4e8db;max-width:46ch;}
+.scroll-cue{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+  color:#9fd8b8;margin-top:6px;
+}
+.scroll-cue svg{width:14px;height:14px;animation:nudge 1.6s ease-in-out infinite;}
+@media (prefers-reduced-motion: reduce){.scroll-cue svg{animation:none;}}
+@keyframes nudge{0%,100%{transform:translateY(0);}50%{transform:translateY(4px);}}
+
+/* ---------- DISCLAIMER ---------- */
+.disclaimer{
+  max-width:720px;margin:22px auto 0;
+  display:flex;gap:10px;align-items:flex-start;
+  padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
+}
+.disclaimer svg{width:16px;height:16px;flex:none;margin-top:2px;color:var(--accent);}
+.disclaimer p{font-size:12.5px;line-height:1.5;color:var(--muted);}
+.disclaimer strong{color:var(--ink);}
+
+/* ---------- CAROUSEL ---------- */
+.tour{max-width:720px;margin:36px auto 0;}
+.tour-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;}
+.tour-head h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+.counter{font-family:var(--font-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+.carousel{
+  display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;border-radius:16px;
+}
+.carousel::-webkit-scrollbar{display:none;}
+.slide{flex:0 0 100%;min-width:0;scroll-snap-align:start;display:flex;flex-direction:column;gap:16px;padding:4px;}
+.frame{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(10,20,15,.04);}
+.frame-bar{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg);border-bottom:1px solid var(--line);}
+.frame-dots{display:flex;gap:5px;flex:none;}
+.frame-dots span{width:8px;height:8px;border-radius:50%;background:var(--line);}
+.frame-path{
+  font-family:var(--font-mono);font-size:11px;color:var(--muted);
+  background:var(--surface);border:1px solid var(--line);border-radius:6px;
+  padding:3px 9px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.frame-body{display:flex;align-items:center;justify-content:center;max-height:min(58vh,520px);background:#fafbf9;}
+.frame-body img{width:100%;height:100%;object-fit:contain;max-height:min(58vh,520px);}
+
+.caption{padding:2px 4px 8px;}
+.caption .tag{
+  display:inline-block;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius:999px;padding:3px 9px;margin-bottom:9px;
+}
+.caption h3{font-size:19px;font-weight:700;margin-bottom:7px;letter-spacing:-.01em;}
+.caption p{font-size:14.5px;line-height:1.55;color:var(--muted);max-width:52ch;}
+
+.tour-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;}
+.dots{display:flex;gap:6px;flex-wrap:wrap;}
+.dots button{width:7px;height:7px;padding:0;border-radius:50%;border:none;background:var(--line);cursor:pointer;}
+.dots button[aria-current="true"]{background:var(--accent);width:18px;border-radius:4px;}
+.arrows{display:flex;gap:8px;flex:none;}
+.arrow-btn{
+  width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);
+  color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;
+}
+.arrow-btn:disabled{opacity:.35;cursor:default;}
+.arrow-btn svg{width:16px;height:16px;}
+
+/* ---------- CTA ---------- */
+.cta{
+  background:var(--accent-deep);color:#eef6f0;
+  margin-left:max(-16px, calc(-1 * env(safe-area-inset-left,0px)) - 16px);
+  margin-right:max(-16px, calc(-1 * env(safe-area-inset-right,0px)) - 16px);
+  margin-top:52px;padding-block:44px 40px;
+}
+.cta-inner{
+  max-width:720px;margin:0 auto;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:16px;align-items:flex-start;
+}
+.cta h2{font-size:clamp(22px,5.5vw,28px);font-weight:800;}
+.cta p{color:#d4e8db;font-size:15px;line-height:1.55;max-width:44ch;}
+.cta-buttons{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;}
+.btn{
+  font-family:var(--font-body);font-weight:600;font-size:14.5px;
+  padding:12px 20px;border-radius:9px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;
+}
+.btn-primary{background:var(--accent);color:#06130c;}
+.btn-ghost{background:transparent;color:#eef6f0;border:1px solid rgba(238,246,240,.35);}
+.foot-email{font-family:var(--font-mono);font-size:11.5px;color:#9fd8b8;margin-top:6px;}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge"><img src="/tour/logo.png" alt="MorSafe"></div>
+    <div class="tagline">Controle de EPI na prática</div>
+    <h1>MorSafe por dentro</h1>
+    <p class="lede">As telas reais do sistema, num tour rápido — veja como fica o dia a dia de controle de EPI, da entrega até a auditoria do NR&#8209;06.</p>
+    <div class="scroll-cue">
+      Deslize as telas abaixo
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="disclaimer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <p><strong>Telas reais do MorSafe</strong>, com dados de uma empresa fictícia de demonstração — nenhuma informação aqui pertence a um cliente de verdade.</p>
+  </div>
+
+  <div class="tour">
+    <div class="tour-head">
+      <h2>Tour do sistema</h2>
+      <span class="counter"><span id="curNum">1</span>/10</span>
+    </div>
+
+    <div class="carousel" id="carousel">
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/dashboard</div></div>
+          <div class="frame-body"><img src="/tour/screens/dashboard.png" alt="Dashboard do MorSafe mostrando entregas do mês, gasto, EPIs com estoque baixo e situação do NR-06"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">Dashboard</span>
+          <h3>Visão geral em tempo real</h3>
+          <p>Entregas do mês, gasto por setor, estoque baixo e CAs vencendo — tudo num painel só, sem precisar abrir planilha nenhuma.</p>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/colaboradores</div></div>
+          <div class="frame-body"><img src="/tour/screens/colaboradores.png" alt="Lista de colaboradores com setor, cargo, status e situação do NR-06"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">Colaboradores</span>
+          <h3>Cada colaborador, de olho</h3>
+          <p>Lista completa com setor, cargo, status da última entrega e situação do NR&#8209;06 — busca e filtro rápidos pra achar qualquer um em segundos.</p>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/epis-homologados</div></div>
+          <div class="frame-body"><img src="/tour/screens/epis.png" alt="Cadastro de EPIs homologados com C.A., validade e custo médio"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">EPIs homologados</span>
+          <h3>O catálogo mestre de EPI</h3>
+          <p>Cadastro de cada equipamento liberado na empresa, com C.A. (Certificado de Aprovação), validade e custo médio — a base de tudo que o sistema controla.</p>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/estoque</div></div>
+          <div class="frame-body"><img src="/tour/screens/estoque.png" alt="Tela de estoque com saldo atual por EPI e histórico de entradas"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">Estoque</span>
+          <h3>Estoque sem surpresa</h3>
+          <p>Saldo atual por EPI, limite de alerta pra repor a tempo e histórico completo de entradas de compra.</p>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/movimentacoes</div></div>
+          <div class="frame-body"><img src="/tour/screens/movimentacoes.png" alt="Histórico de entregas, devoluções e recusas de EPI"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">Movimentações</span>
+          <h3>Entrega, devolução, recusa — tudo registrado</h3>
+          <p>Histórico completo de movimentações de EPI, com data, hora, colaborador e motivo. Nada se perde.</p>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/estacoes-assinatura</div></div>
+          <div class="frame-body"><img src="/tour/screens/estacoes.png" alt="Tela de estações de assinatura pareadas por tablet ou celular"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">Estações de assinatura</span>
+          <h3>Assinatura digital, sem celular pessoal</h3>
+          <p>Um tablet ou celular da própria empresa, fixado no almoxarifado, coleta a assinatura do colaborador na hora da entrega — mesmo em computadores sem tela touch.</p>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/auditoria-nr06</div></div>
+          <div class="frame-body"><img src="/tour/screens/auditoria.png" alt="Painel de auditoria NR-06 com índice de controle dos registros"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">Auditoria NR-06</span>
+          <h3>A prova de que está tudo em dia</h3>
+          <p>Diagnóstico automático: o que está documentado versus o que foi observado em campo. Mostra exatamente onde estão as pendências, antes que a fiscalização mostre.</p>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/relatorios</div></div>
+          <div class="frame-body"><img src="/tour/screens/relatorios.png" alt="Relatórios de consumo de EPI nos últimos 12 meses"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">Relatórios</span>
+          <h3>12 meses de consumo, num clique</h3>
+          <p>Gasto por setor, por tipo de EPI, motivo das entregas — tudo exportável em PDF pra levar pra reunião ou pra auditoria.</p>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/empresa</div></div>
+          <div class="frame-body"><img src="/tour/screens/dados-empresa.png" alt="Dados da empresa com logo e informações da assinatura"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">Dados da empresa</span>
+          <h3>A cara da sua empresa, nos documentos</h3>
+          <p>Logo e dados usados automaticamente na Ficha de EPI e nos demais documentos gerados pelo sistema.</p>
+        </div>
+      </div>
+
+      <div class="slide">
+        <div class="frame">
+          <div class="frame-bar"><div class="frame-dots"><span></span><span></span><span></span></div><div class="frame-path">app.morsafe.com.br/usuarios</div></div>
+          <div class="frame-body"><img src="/tour/screens/usuarios.png" alt="Tela de usuários com papéis de acesso ao sistema"></div>
+        </div>
+        <div class="caption">
+          <span class="tag">Usuários</span>
+          <h3>Controle de quem acessa</h3>
+          <p>Defina quem tem acesso ao MorSafe na empresa e qual o papel de cada um — Admin, Encarregado e outros níveis.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="tour-nav">
+      <div class="dots" id="dots"></div>
+      <div class="arrows">
+        <button class="arrow-btn" id="prevBtn" aria-label="Tela anterior">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="arrow-btn" id="nextBtn" aria-label="Próxima tela">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="cta">
+  <div class="cta-inner">
+    <h2>Pronto para simplificar o controle de EPI?</h2>
+    <p>Tecnologia acessível, feita pra atender a NR&#8209;06 sem complicação — para empresas de todo o Brasil.</p>
+    <div class="cta-buttons">
+      <a class="btn btn-primary" href="https://morsafe.com.br" target="_top">Conhecer o site</a>
+      <a class="btn btn-ghost" href="https://wa.me/5511927500869" target="_blank" rel="noopener">Falar no WhatsApp</a>
+    </div>
+    <div class="foot-email">contato.morsafe.br@gmail.com</div>
+  </div>
+</section>
+
+<script>
+(function(){
+  var carousel = document.getElementById('carousel');
+  var slides = Array.prototype.slice.call(carousel.children);
+  var dotsWrap = document.getElementById('dots');
+  var curNum = document.getElementById('curNum');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var total = slides.length;
+  var current = 0;
+
+  slides.forEach(function(_, i){
+    var b = document.createElement('button');
+    b.setAttribute('aria-label', 'Ir para tela ' + (i+1));
+    b.addEventListener('click', function(){ goTo(i); });
+    dotsWrap.appendChild(b);
+  });
+  var dotEls = Array.prototype.slice.call(dotsWrap.children);
+
+  function render(){
+    dotEls.forEach(function(d, i){ d.setAttribute('aria-current', i === current ? 'true' : 'false'); });
+    curNum.textContent = current + 1;
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === total - 1;
+  }
+
+  function goTo(i){
+    current = Math.max(0, Math.min(total - 1, i));
+    carousel.scrollTo({ left: current * carousel.clientWidth, behavior: 'smooth' });
+    render();
+  }
+
+  var scrollTimer = null;
+  carousel.addEventListener('scroll', function(){
+    if (scrollTimer) cancelAnimationFrame(scrollTimer);
+    scrollTimer = requestAnimationFrame(function(){
+      var w = carousel.clientWidth || 1;
+      current = Math.round(carousel.scrollLeft / w);
+      render();
+    });
+  }, { passive: true });
+
+  prevBtn.addEventListener('click', function(){ goTo(current - 1); });
+  nextBtn.addEventListener('click', function(){ goTo(current + 1); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowLeft') goTo(current - 1);
+    if (e.key === 'ArrowRight') goTo(current + 1);
+  });
+
+  window.addEventListener('resize', function(){ goTo(current); });
+
+  render();
+})();
+</script>
+</body>
+</html>

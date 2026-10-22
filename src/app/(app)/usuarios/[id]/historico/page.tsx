@@ -10,10 +10,12 @@ import {
   HISTORICO_PAGE_SIZE,
 } from "@/lib/data/log-auditoria";
 
+// Nomes renomeados em 22/10/2026 a pedido do Rafael — ver nota completa em
+// app/(app)/usuarios/page.tsx.
 const PAPEL_LABEL: Record<string, string> = {
-  admin: "Admin",
-  encarregado: "Encarregado",
-  leitura: "Leitura",
+  admin: "Administrador",
+  encarregado: "Operador",
+  leitura: "Visualizador",
 };
 
 const DOT_CLASS: Record<string, string> = {

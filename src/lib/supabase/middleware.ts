@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PATHS = [
   "/login",
   "/redefinir-senha",
+  "/termos-de-uso",
   "/politica-de-privacidade",
   "/seguranca-da-informacao",
   // Tela do aparelho pareado (tablet/celular da empresa fixado num ponto de
@@ -55,9 +56,18 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublicPath = PUBLIC_PATHS.some((path) =>
-    request.nextUrl.pathname.startsWith(path),
-  );
+  // "/" (a landing page pública de divulgação) é tratado à parte, com
+  // comparação exata, em vez de entrar na lista PUBLIC_PATHS acima — se
+  // "/" entrasse nessa lista, o startsWith("/") combinaria com QUALQUER
+  // rota do sistema (todas começam com "/"), e o site inteiro ficaria
+  // público por engano. Bug corrigido em 22/10/2026: a home nunca tinha
+  // sido liberada aqui, então todo visitante sem sessão (ex: celular sem
+  // login) caía direto em /login ao abrir morsafe.com.br — só não
+  // aparecia no PC do Rafael porque o navegador dele já tinha uma sessão
+  // de admin salva.
+  const isPublicPath =
+    request.nextUrl.pathname === "/" ||
+    PUBLIC_PATHS.some((path) => request.nextUrl.pathname.startsWith(path));
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();

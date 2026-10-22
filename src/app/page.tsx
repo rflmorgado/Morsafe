@@ -479,6 +479,13 @@ export default function Home() {
               Seu navegador não suporta vídeo HTML5.
             </video>
           </div>
+
+          <a
+            href="/tour"
+            className="mt-6 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-brand-700 hover:underline"
+          >
+            Ou explore as telas você mesmo →
+          </a>
         </div>
       </section>
 

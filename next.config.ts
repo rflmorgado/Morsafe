@@ -1,12 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async redirects() {
+  async rewrites() {
     return [
       {
         source: "/tour",
-        destination: "https://claude.ai/artifact/6T2yfNs1yoSppU2yyhRF27",
-        permanent: false,
+        destination: "/tour/index.html",
       },
     ];
   },

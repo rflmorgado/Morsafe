@@ -106,12 +106,13 @@ export function NovoUsuarioButton() {
               defaultValue="encarregado"
               className="w-full rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             >
-              <option value="leitura">Leitura — só visualiza</option>
+              <option value="leitura">Visualizador — só consulta</option>
               <option value="encarregado">
-                Encarregado — cadastra, edita e importa
+                Operador — cadastra, edita e registra o dia a dia
               </option>
               <option value="admin">
-                Admin — tudo, inclusive desligar/excluir e gerenciar usuários
+                Administrador — acesso total, inclusive excluir e gerenciar
+                usuários
               </option>
             </select>
           </div>

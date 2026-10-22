@@ -16,10 +16,13 @@ import { NovoPagamentoButton } from "../../pagamentos/novo-pagamento-button";
 import { MarcarPagoButton } from "../../pagamentos/marcar-pago-button";
 import { ExcluirEntregaTesteButton } from "../../movimentacoes/excluir-entrega-teste-button";
 
+// Nomes renomeados em 22/10/2026 a pedido do Rafael — ver nota completa em
+// app/(app)/usuarios/page.tsx. Mesmo rótulo em toda a tela; só muda aqui
+// porque esta página também lista o papel de cada usuário da empresa.
 const PAPEL_LABEL: Record<string, string> = {
-  admin: "Admin",
-  encarregado: "Encarregado",
-  leitura: "Leitura",
+  admin: "Administrador",
+  encarregado: "Operador",
+  leitura: "Visualizador",
 };
 
 function formatDate(iso: string) {

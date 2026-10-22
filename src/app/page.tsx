@@ -264,10 +264,10 @@ const GESTAO_DIA_A_DIA = [
   },
   {
     title: "Usuários",
-    desc: "Defina quem tem acesso ao MorSafe na sua empresa, com papéis de Admin e Encarregado e registro de todas as ações.",
+    desc: "Defina quem tem acesso ao MorSafe na sua empresa, com papéis de Administrador e Operador e registro de todas as ações.",
     image: "/marketing/controle-usuarios.webp",
     imageAlt:
-      "Tela real do MorSafe mostrando o gerenciamento de usuários, com papéis de Admin e Encarregado",
+      "Tela real do MorSafe mostrando o gerenciamento de usuários, com papéis de Administrador e Operador",
     imageWidth: 1680,
     imageHeight: 840,
   },

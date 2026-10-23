@@ -5,7 +5,6 @@ import { ShieldIcon } from "@/components/brand/shield-icon";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import {
   buscarSolicitacaoPendente,
-  buscarLogoEstacao,
   responderSolicitacaoAssinatura,
   type SolicitacaoPendente,
 } from "./actions";
@@ -73,22 +72,6 @@ export default function EstacaoPage() {
   );
   const estacaoNome = estacaoNomeAoVivo ?? nomeArmazenado;
 
-  // Logo da empresa dona desta estação — buscado UMA VEZ quando o token
-  // aparece (nunca a cada poll de 2s, ver comentário em buscarLogoEstacao
-  // em actions.ts). `null` é um estado legítimo (empresa sem logo
-  // cadastrado) e nunca impede a tela de funcionar — é só decoração.
-  const [logoEmpresaUrl, setLogoEmpresaUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!token) return;
-    let cancelado = false;
-    buscarLogoEstacao(token).then((url) => {
-      if (!cancelado) setLogoEmpresaUrl(url);
-    });
-    return () => {
-      cancelado = true;
-    };
-  }, [token]);
-
   const fase: Fase = carregandoCredencial
     ? "carregando"
     : token === null
@@ -100,12 +83,6 @@ export default function EstacaoPage() {
     faseRef.current = fase;
   }, [fase]);
 
-  // Guarda o id do pedido atualmente em tela fora do estado React, pra
-  // poder ser lido e atualizado de forma síncrona dentro de poll() sem
-  // depender do timing de re-render/efeito (ver comentário abaixo sobre
-  // por que isso importa pra detectar pedido cancelado).
-  const solicitacaoIdRef = useRef<string | null>(null);
-
   const poll = useCallback(async (t: string) => {
     const result = await buscarSolicitacaoPendente(t);
     if (result.error !== null) {
@@ -114,38 +91,18 @@ export default function EstacaoPage() {
       return;
     }
     setEstacaoNomeAoVivo(result.estacaoNome);
-
-    if (faseRef.current === "ocioso") {
-      if (result.solicitacao) {
-        solicitacaoIdRef.current = result.solicitacao.id;
-        setSolicitacao(result.solicitacao);
-        setFaseAssinatura("assinando");
-      }
-      return;
-    }
-
-    // Continua consultando o servidor mesmo já mostrando a tela de
-    // assinatura (nunca durante "enviando" — o efeito abaixo pausa o
-    // polling sozinho nessa fase, pra não competir com o envio em
-    // andamento) só pra detectar se ESTE pedido foi cancelado pelo PC
-    // enquanto o colaborador ainda estava assinando. Sem isso, a estação
-    // ficava travada pra sempre nessa tela — sem novo poll e sem nenhum
-    // jeito de sair a não ser recarregar o aparelho manualmente (Item 5 da
-    // revisão: "estação de assinatura órfã trava").
-    if (
-      faseRef.current === "assinando" &&
-      solicitacaoIdRef.current &&
-      result.solicitacao?.id !== solicitacaoIdRef.current
-    ) {
-      solicitacaoIdRef.current = null;
-      setSolicitacao(null);
-      setErro("Este pedido foi cancelado. Aguardando o próximo registro…");
-      setFaseAssinatura("ocioso");
+    // Só reage a um pedido novo se ainda estiver ocioso — evita trocar a
+    // tela de assinatura debaixo do colaborador se, por algum motivo, o
+    // poll disparar de novo antes do intervalo (aba voltando do segundo
+    // plano, por exemplo).
+    if (result.solicitacao && faseRef.current === "ocioso") {
+      setSolicitacao(result.solicitacao);
+      setFaseAssinatura("assinando");
     }
   }, []);
 
   useEffect(() => {
-    if (!token || (fase !== "ocioso" && fase !== "assinando")) return;
+    if (!token || fase !== "ocioso") return;
     // Dispara a primeira consulta já no próximo tick (não direto aqui no
     // corpo do efeito) e depois entra no intervalo normal.
     const primeira = setTimeout(() => poll(token), 0);
@@ -171,31 +128,11 @@ export default function EstacaoPage() {
       .then((result) => {
         if (result.error) {
           setErro(result.error);
-          if (result.aparelhoInvalido) {
-            // Estação foi desativada pelo admin nesse meio-tempo — mesmo
-            // tratamento que o poll() já dá em qualquer outra hora.
-            solicitacaoIdRef.current = null;
-            setSolicitacao(null);
-            setFaseAssinatura("erro_aparelho");
-            return;
-          }
-          if (result.orfao) {
-            // Pedido não está mais "aguardando" (foi cancelado ou já
-            // respondido em outra aba) — insistir nele não adianta, melhor
-            // voltar a aguardar o próximo (ver Item 5 da revisão).
-            solicitacaoIdRef.current = null;
-            setSolicitacao(null);
-            setFaseAssinatura("ocioso");
-            return;
-          }
-          // Erro genérico (ex: falha momentânea no banco) — mantém a
-          // mesma tela de assinatura pra permitir tentar de novo.
           setFaseAssinatura("assinando");
           return;
         }
         setFaseAssinatura("enviado");
         setTimeout(() => {
-          solicitacaoIdRef.current = null;
           setSolicitacao(null);
           setFaseAssinatura("ocioso");
         }, 1800);
@@ -229,33 +166,11 @@ export default function EstacaoPage() {
       className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 py-10 text-center"
       style={{ background: "var(--brand-950)" }}
     >
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex items-center gap-2.5">
-          <ShieldIcon className="h-8 w-8" />
-          <span className="text-xl font-bold tracking-tight text-brand-300">
-            Mor<span className="font-extrabold text-brand-500">Safe</span>
-          </span>
-        </div>
-
-        {/* Logo da empresa dona desta estação, abaixo do MorSafe (MorSafe
-            continua em destaque — é a marca do produto; o logo da empresa
-            aqui é só pra quem vai assinar reconhecer que é a própria
-            empresa que colocou este aparelho, não alguém de fora). Fundo
-            branco arredondado porque o logo de cada empresa cliente pode
-            ter qualquer cor/transparência — sem isso, um logo escuro
-            sumiria no fundo verde escuro da tela. */}
-        {logoEmpresaUrl && (
-          <div className="rounded-lg bg-white px-3.5 py-2 shadow-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element -- data
-                URL vindo do banco (ver empresas.logo_url); next/image não
-                otimiza data: URL, então a tag simples é a opção certa aqui. */}
-            <img
-              src={logoEmpresaUrl}
-              alt="Logo da empresa"
-              className="h-7 max-w-[140px] object-contain"
-            />
-          </div>
-        )}
+      <div className="flex items-center gap-2.5">
+        <ShieldIcon className="h-8 w-8" />
+        <span className="text-xl font-bold tracking-tight text-brand-300">
+          Mor<span className="font-extrabold text-brand-500">Safe</span>
+        </span>
       </div>
 
       {fase === "carregando" && (
@@ -306,21 +221,19 @@ export default function EstacaoPage() {
       )}
 
       {(fase === "assinando" || fase === "enviando") && solicitacao && (
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-surface p-5 text-left">
+        // landscape:max-w-2xl — com o aparelho deitado sobra muito mais
+        // largura de tela do que em pé; sem isso o card (e o campo de
+        // assinatura dentro dele) ficava travado em max-w-md mesmo
+        // deitado, desperdiçando o espaço extra que permitiria o
+        // colaborador assinar o nome completo com mais folga.
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-surface p-5 text-left landscape:max-w-2xl">
           <p className="text-[12.5px] font-semibold uppercase tracking-wide text-text-muted">
-            {solicitacao.tipo === "devolucao"
-              ? "Confirmação de devolução de EPI"
-              : "Confirmação de recebimento de EPI"}
+            Confirmação de recebimento de EPI
           </p>
           <p className="mt-1 text-[17px] font-bold text-foreground">
             {solicitacao.colaboradorNome}
           </p>
-          {/* epiNome pode vir com várias linhas (um item por linha) quando a
-              entrega tem mais de um EPI — ver "+ Adicionar outro item" em
-              registrar-entrega-button.tsx. whitespace-pre-line preserva as
-              quebras de linha enviadas pelo PC, sem precisar de nenhuma
-              lista/array nova no banco: é só texto, como sempre foi. */}
-          <p className="whitespace-pre-line text-[13.5px] text-text-secondary">
+          <p className="text-[13.5px] text-text-secondary">
             {solicitacao.epiNome}
           </p>
 

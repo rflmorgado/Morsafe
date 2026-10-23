@@ -13,15 +13,15 @@ type Ponto = { x: number; y: number }; // normalizado 0–1 relativo ao tamanho 
 type Traco = Ponto[];
 
 /**
- * Campo de assinatura por toque/caneta/mouse — usado no formulário de entrega de
- * EPI pra coletar a confirmação de recebimento do colaborador
- * (assinatura_url em `entregas`, NOT NULL no banco). Não existe upload pra
- * Supabase Storage no app ainda (nenhuma tela usa isso hoje, nem
- * epis.arquivo_ca_url), então em vez de criar essa infraestrutura nova só
- * pra este campo, a assinatura é exportada como PNG em data URL e guardada
- * direto na coluna de texto — leve o bastante (um traço simples sobre fundo
- * branco) pra não pesar no banco, e sem depender de nenhum bucket
- * configurado à parte.
+ * Campo de assinatura por toque/caneta/mouse — usado no formulário de entrega
+ * e de devolução de EPI pra coletar a confirmação do colaborador
+ * (assinatura_url em `entregas` e `devolucoes`, NOT NULL no banco). Não
+ * existe upload pra Supabase Storage no app ainda (nenhuma tela usa isso
+ * hoje, nem epis.arquivo_ca_url), então em vez de criar essa infraestrutura
+ * nova só pra este campo, a assinatura é exportada como PNG em data URL e
+ * guardada direto na coluna de texto — leve o bastante (um traço simples
+ * sobre fundo branco) pra não pesar no banco, e sem depender de nenhum
+ * bucket configurado à parte.
  *
  * O input escondido (name="assinatura_url") é o que de fato viaja com o
  * FormData do form ao redor — mesmo padrão dos outros campos desta tela,
@@ -37,7 +37,18 @@ type Traco = Ponto[];
  * densidade isso borra qualquer traço fino, o que é exatamente o problema
  * de "a caneta de ponta fina não respondeu bem" relatado em uso real.
  */
-export function SignaturePad({ name = "assinatura_url" }: { name?: string }) {
+export function SignaturePad({
+  name = "assinatura_url",
+  onAssinaturaChange,
+}: {
+  name?: string;
+  // Avisa o formulário ao redor se o campo está vazio ou não — usado em
+  // registrar-entrega-button.tsx e registrar-devolucao-button.tsx pra
+  // desabilitar o botão de enviar enquanto não houver assinatura (sem isso,
+  // dava pra tentar enviar em branco e só descobrir que faltava assinar
+  // depois da viagem ao servidor, ver actions.ts).
+  onAssinaturaChange?: (temAssinatura: boolean) => void;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tracosRef = useRef<Traco[]>([]);
@@ -52,6 +63,14 @@ export function SignaturePad({ name = "assinatura_url" }: { name?: string }) {
   });
   const [temAssinatura, setTemAssinatura] = useState(false);
   const [dataUrl, setDataUrl] = useState("");
+
+  // Dispara sempre que temAssinatura muda (inclusive na primeira renderização,
+  // com false — inofensivo, já que o pai começa assumindo vazio) em vez de
+  // chamar onAssinaturaChange em cada handler separado, pra não esquecer
+  // nenhum ponto de entrada (desenhar, limpar) de avisar o pai.
+  useEffect(() => {
+    onAssinaturaChange?.(temAssinatura);
+  }, [temAssinatura, onAssinaturaChange]);
 
   const redesenhar = useCallback(() => {
     const canvas = canvasRef.current;

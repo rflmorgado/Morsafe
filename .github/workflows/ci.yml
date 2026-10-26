@@ -32,6 +32,15 @@ jobs:
           # tanto esse cache quanto "npm ci" (que também exige o
           # lockfile) falham antes mesmo de instalar qualquer coisa.
 
+      - name: Atualizar o npm
+        # O npm que já vem instalado no runner do GitHub tropeçou num bug
+        # conhecido dele mesmo ao montar a árvore de dependências do zero
+        # (sem lockfile): "Cannot read properties of null (reading
+        # 'edgesOut')" — confirmado rodando o MESMO package.json aqui antes
+        # de propor este arquivo, sem erro nenhum com um npm mais novo.
+        # Atualizar pra versão mais recente do npm evita esse bug.
+        run: npm install -g npm@latest
+
       - name: Instalar dependências
         run: npm install
 

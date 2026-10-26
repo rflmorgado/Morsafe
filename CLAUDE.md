@@ -124,7 +124,38 @@ ao mexer neste projeto (Claude ou qualquer outro desenvolvedor):
    insert / update / delete) conforme o que aquele papel realmente precisa
    fazer, igual já se decide hoje pra cada policy.
 
+9. Causa raiz da falha de 26/10/2026 ("Itens da entrega inválidos" no
+   Registrar entrega, estourando pra cliente de verdade): o componente
+   `registrar-entrega-button.tsx` foi reescrito e parou de mandar o campo
+   `itens` (JSON) que `registrarEntrega()` em `actions.ts` continuava
+   exigindo — um descompasso entre o lado cliente e o lado servidor de um
+   MESMO fluxo, só que cada lado foi editado sem reler o outro. Os três
+   comandos da regra 6 (`tsc`, `eslint`, `next build`) NÃO pegam esse tipo
+   de erro, porque o contrato entre os dois lados viaja como nome de campo
+   de FormData e string JSON — nada ali é tipo verificado pelo
+   TypeScript. Passou batido até um cliente tentar registrar uma entrega
+   de verdade e travar. Pra não repetir:
+     a) Toda mudança que toque UM lado de um par cliente/Server Action
+        (o `.tsx` que monta o FormData, ou a função em `actions.ts` /
+        `*-actions.ts` na mesma pasta que o lê) exige reler o OUTRO lado
+        inteiro antes de considerar a mudança pronta — nunca alterar um
+        dos dois de memória, assumindo que o outro continua igual.
+     b) Qualquer mudança nos fluxos de Registrar entrega, Registrar
+        devolução, Registrar recusa, assinatura na estação ou login sobe
+        como branch + Pull Request (no diálogo de commit do GitHub,
+        escolher "Create a new branch for this commit and start a pull
+        request", nunca "Commit directly to the main branch") — isso gera
+        uma URL de preview própria no Vercel, separada da produção.
+     c) Antes de mesclar esse PR na `main`, testar o fluxo de verdade
+        naquela URL de preview — registrar uma entrega/devolução de
+        teste (colaborador e EPI de teste, nunca um cliente real), nos
+        dois modos de confirmação ("Assinar aqui" e "Coletar na
+        estação") — não basta ler o código e confiar que está certo. Só
+        depois de ver funcionar na prática é que o PR é mesclado; é isso
+        que vai pro ar pros clientes reais.
+
 Isso não elimina todo risco — nenhum sistema é livre de bug —, mas fecha as
-duas categorias de falha que já pegaram este projeto (falha silenciosa de
-banco e erro de implantação) e vira prática padrão daqui pra frente, não só
-uma promessa pontual.
+três categorias de falha que já pegaram este projeto (falha silenciosa de
+banco, erro de implantação, e descompasso silencioso entre cliente e
+servidor) e vira prática padrão daqui pra frente, não só uma promessa
+pontual.

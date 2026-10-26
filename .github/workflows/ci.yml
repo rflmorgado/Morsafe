@@ -24,10 +24,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          # Sem "cache: npm" de propósito — esse cache precisa de um
+          # package-lock.json salvo no repositório pra funcionar, e este
+          # projeto não tem um (o fluxo de trabalho aqui é colar os
+          # arquivos pelo editor do GitHub, nunca rodar "npm install" no
+          # computador — é esse arquivo que ficaria faltando). Sem ele,
+          # tanto esse cache quanto "npm ci" (que também exige o
+          # lockfile) falham antes mesmo de instalar qualquer coisa.
 
       - name: Instalar dependências
-        run: npm ci
+        run: npm install
 
       - name: Checagem de tipo (npx tsc --noEmit)
         run: npx tsc --noEmit

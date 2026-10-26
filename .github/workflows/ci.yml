@@ -23,7 +23,18 @@ jobs:
       - name: Preparar Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 20 (e o npm 10.8.2 que vem junto dele no runner do
+          # GitHub) tropeça num bug conhecido do PRÓPRIO npm ao montar a
+          # árvore de dependências do zero, sem lockfile: "Cannot read
+          # properties of null (reading 'edgesOut')" — confirmado rodando
+          # o MESMO package.json aqui antes de propor este arquivo, sem
+          # erro nenhum com o npm mais novo que vem no Node 22. E
+          # "npm install -g npm@latest" não é a saída, porque o npm mais
+          # recente de todos já exige Node 22+ pra rodar (EBADENGINE) — o
+          # próprio Node 20 não consegue nem instalar essa versão. A
+          # saída mais simples é usar Node 22 (LTS) direto, que já vem com
+          # um npm bom o bastante pra não ter esse bug.
+          node-version: 22
           # Sem "cache: npm" de propósito — esse cache precisa de um
           # package-lock.json salvo no repositório pra funcionar, e este
           # projeto não tem um (o fluxo de trabalho aqui é colar os
@@ -31,15 +42,6 @@ jobs:
           # computador — é esse arquivo que ficaria faltando). Sem ele,
           # tanto esse cache quanto "npm ci" (que também exige o
           # lockfile) falham antes mesmo de instalar qualquer coisa.
-
-      - name: Atualizar o npm
-        # O npm que já vem instalado no runner do GitHub tropeçou num bug
-        # conhecido dele mesmo ao montar a árvore de dependências do zero
-        # (sem lockfile): "Cannot read properties of null (reading
-        # 'edgesOut')" — confirmado rodando o MESMO package.json aqui antes
-        # de propor este arquivo, sem erro nenhum com um npm mais novo.
-        # Atualizar pra versão mais recente do npm evita esse bug.
-        run: npm install -g npm@latest
 
       - name: Instalar dependências
         run: npm install

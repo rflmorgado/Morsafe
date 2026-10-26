@@ -1,0 +1,48 @@
+name: Checagens antes de ir pro ar
+
+# Roda sozinho em toda mudança — mesma checagem da regra 6 do CLAUDE.md
+# (tsc, eslint, build de produção), só que automática em vez de depender de
+# alguém lembrar de rodar na mão. Não pega todo tipo de bug (ver regra 9 do
+# CLAUDE.md — um descompasso de contrato entre cliente e servidor passa
+# batido aqui, já que não é erro de tipo nem de build), mas pega uma faixa
+# grande de erro de digitação, import quebrado, código que nem compila.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  checagens:
+    name: tsc + eslint + build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Checagem de tipo (npx tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Lint (npm run lint)
+        run: npm run lint
+
+      - name: Build de produção (npm run build)
+        run: npm run build
+        env:
+          # Valores públicos de verdade (não são segredo por natureza —
+          # NEXT_PUBLIC_* já vai exposto no navegador de qualquer cliente),
+          # copiados dos mesmos que já estão no Vercel (Settings >
+          # Environment Variables). Sem eles aqui, o build quebra em
+          # qualquer página que precise falar com o Supabase.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

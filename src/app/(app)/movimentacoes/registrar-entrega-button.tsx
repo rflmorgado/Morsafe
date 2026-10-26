@@ -127,6 +127,7 @@ export function RegistrarEntregaButton({
           estacaoId,
           colaboradorNome,
           epiNome,
+          tipo: "entrega",
         });
         if (result.error || !result.id) {
           setError(result.error ?? "Não foi possível enviar pra estação.");

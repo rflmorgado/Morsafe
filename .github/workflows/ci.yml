@@ -46,6 +46,20 @@ jobs:
       - name: Instalar dependências
         run: npm install
 
+      # O projeto usa uma rota tipada do Next (o parâmetro de layout.tsx é
+      # "LayoutProps<...>"), e esse tipo só existe depois que o PRÓPRIO Next
+      # gera (em .next/types) — o que normalmente só acontece rodando
+      # "next dev" ou "next build". Sem esse passo, "npx tsc --noEmit" quebra
+      # com "Cannot find name 'LayoutProps'" mesmo o código estando certo,
+      # porque é a primeira vez que esse checkout roda tsc sem ter rodado
+      # "next dev"/"next build" antes (que no dia a dia do Rafael já geram
+      # esse tipo sem ele notar). "next typegen" (comando do próprio Next,
+      # desde a versão 15.5) gera só esse tipo, rápido, sem fazer o build
+      # inteiro — confirmado rodando os dois, com e sem este passo, contra o
+      # layout.tsx de verdade antes de propor este arquivo.
+      - name: Gerar tipos do Next (next typegen)
+        run: npx next typegen
+
       - name: Checagem de tipo (npx tsc --noEmit)
         run: npx tsc --noEmit
 

@@ -78,7 +78,9 @@ export function RegistrarDevolucaoButton({
   // sólido de destaque — Registrar entrega — na mesma toolbar; dois botões
   // sólidos lado a lado ali competiriam pela atenção). "solid" é pro
   // Dashboard, onde "Registrar entrega" já é um botão à parte lá em cima e os
-  // atalhos do card "Ações rápidas" devem parecer um conjunto único.
+  // atalhos do card "Ações rápidas" devem parecer um conjunto único — ver
+  // mesmo raciocínio em registrar-entrada-button.tsx (conversa com Rafael,
+  // 01/10/2026).
   variant?: "outline" | "solid";
 }) {
   const [open, setOpen] = useState(false);
@@ -188,6 +190,7 @@ export function RegistrarDevolucaoButton({
           estacaoId,
           colaboradorNome,
           epiNome: epiResumo,
+          tipo: "devolucao",
         });
         if (result.error || !result.id) {
           setError(result.error ?? "Não foi possível enviar pra estação.");

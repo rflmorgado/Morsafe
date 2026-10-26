@@ -12,6 +12,7 @@ import {
 import { MOTIVO_ENTREGA_LABEL } from "@/lib/data/movimentacoes-labels";
 import type { ColaboradorAtivo, EpiAtivo } from "@/lib/data/movimentacoes";
 import type { MotivoEntrega } from "@/types/database";
+import { serializarItensEntrega } from "./itens-entrega";
 
 const INTERVALO_POLL_MS = 2000;
 
@@ -216,7 +217,7 @@ export function RegistrarEntregaButton({
       fd.set("hora", hora);
       fd.set(
         "itens",
-        JSON.stringify(
+        serializarItensEntrega(
           itens.map((i) => ({
             epi_id: i.epiId,
             motivo: i.motivo,
@@ -259,7 +260,7 @@ export function RegistrarEntregaButton({
         fd.set("hora", pedidoPendente.campos.hora);
         fd.set(
           "itens",
-          JSON.stringify(
+          serializarItensEntrega(
             pedidoPendente.campos.itens.map((i) => ({
               epi_id: i.epiId,
               motivo: i.motivo,

@@ -15,6 +15,7 @@ import type {
   MotivoDevolucao,
   DestinoDevolucao,
 } from "@/types/database";
+import { parseItensEntrega } from "./itens-entrega";
 
 const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
@@ -33,19 +34,6 @@ const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
 export type RegistrarEntregaState = { error: string | null; success?: boolean };
 
-// Formato de cada item dentro do campo "itens" do FormData (JSON) — ver
-// comentário em registrar-entrega-button.tsx sobre por que itens viajam
-// como JSON num campo só, em vez de nomes de campo por índice
-// (epi_id_0, epi_id_1...): o número de itens é dinâmico (botão "+
-// Adicionar outro item"), então um array serializado é mais simples de
-// montar no cliente e de validar aqui do que inventar uma convenção de
-// nomes indexados.
-type ItemEntregaBruto = {
-  epi_id?: unknown;
-  motivo?: unknown;
-  quantidade?: unknown;
-};
-
 /**
  * Registra uma ou mais entregas de EPI a um MESMO colaborador, de uma vez só
  * — pedido do Rafael, 06/10/2026 ("em uma integração, entregamos mais de um
@@ -57,6 +45,12 @@ type ItemEntregaBruto = {
  * o mesmo grupo_entrega_id, pra tela de Relatórios/ficha saberem que vieram
  * do mesmo pedido (ver desenharBlocoEntregaAgrupada em
  * colaboradores/[id]/ficha/route.ts).
+ *
+ * O campo "itens" do FormData (JSON) usa o mesmo formato/helpers de
+ * registrar-entrega-button.tsx — ver src/app/(app)/movimentacoes/
+ * itens-entrega.ts (regra 9 do CLAUDE.md: os dois lados deste contrato
+ * importam o mesmo arquivo de propósito, pra uma mudança num lado não
+ * passar batida no outro).
  *
  * custo_unitario_no_momento é sempre lido do cadastro do EPI no momento da
  * entrega (nunca digitado no formulário) — é um "retrato" do custo naquela
@@ -80,13 +74,11 @@ export async function registrarEntrega(
     return { error: "Colete a assinatura de confirmação do recebimento." };
   }
 
-  let itensBrutos: ItemEntregaBruto[];
-  try {
-    itensBrutos = JSON.parse(itensRaw);
-  } catch {
+  const itensBrutos = parseItensEntrega(itensRaw);
+  if (!itensBrutos) {
     return { error: "Itens da entrega inválidos. Feche e abra o formulário de novo." };
   }
-  if (!Array.isArray(itensBrutos) || itensBrutos.length === 0) {
+  if (itensBrutos.length === 0) {
     return { error: "Adicione pelo menos um item à entrega." };
   }
 

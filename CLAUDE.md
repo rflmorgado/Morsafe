@@ -21,13 +21,18 @@ por não ter sido mencionado nesta conversa.
 - **CI (checagem automática antes de ir pro ar)**: `.github/workflows/ci.yml`,
   neste repositório. Roda `next typegen` + `tsc` + `eslint` + `build` em todo
   push/PR pro `main`. Criado 26/10/2026.
-- **Alerta de erro em produção (Sentry)**: o código já está implementado
-  neste repositório (`src/instrumentation.ts`, `src/instrumentation-client.ts`,
-  `src/sentry.server.config.ts`, `src/sentry.edge.config.ts`,
-  `src/app/global-error.tsx`) — mas ainda DESLIGADO: falta criar uma conta
-  no Sentry, pegar o DSN, e configurar `NEXT_PUBLIC_SENTRY_DSN` no Vercel
-  (Settings > Environment Variables). Sem isso o SDK roda com
-  `enabled: false` e não manda nada.
+- **Alerta de erro em produção (Sentry)**: JÁ ESTÁ ATIVO, de ponta a ponta.
+  O código está implementado neste repositório (`src/instrumentation.ts`,
+  `src/instrumentation-client.ts`, `src/sentry.server.config.ts`,
+  `src/sentry.edge.config.ts`, `src/app/global-error.tsx`), existe uma
+  organização "morsafe" criada em sentry.io com um projeto
+  `javascript-nextjs`, e o DSN já está configurado como
+  `NEXT_PUBLIC_SENTRY_DSN` no Vercel (Settings > Environment Variables),
+  em "All Environments", desde 20/10/2026. Não falta nada pra isso
+  funcionar. (Source maps pro Sentry mostrar a linha exata do código-fonte
+  no stack trace, em vez do bundle minificado, ainda não estão
+  configurados — `next.config.ts` não usa `withSentryConfig`. Isso é só
+  uma melhoria de debug, não afeta se o alerta chega ou não.)
 - **Backup diário do banco**: NÃO fica neste repositório. Vive num
   repositório GitHub separado e privado, `rflmorgado/morsafe-backups`, com
   seu próprio workflow (`backup.yml`) que roda todo dia às 06:00 UTC (03:00

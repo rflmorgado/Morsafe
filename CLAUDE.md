@@ -10,13 +10,15 @@ ao mexer neste projeto (Claude ou qualquer outro desenvolvedor):
 
 ## Infraestrutura de confiabilidade já implementada
 
-Cada conversa com o Claude começa sem acesso ao que foi feito em outras
-conversas — então antes de propor CONSTRUIR qualquer peça nova de
-infraestrutura (checagem automática, alerta de erro, backup, etc.), ler
-esta lista E confirmar o estado real no GitHub/Vercel/Supabase (ela pode
-estar desatualizada, ou parte do trabalho pode ter sido feita numa
-conversa que não deixou rastro aqui). Nunca assumir que algo não existe só
-por não ter sido mencionado nesta conversa.
+Cada conversa com o Claude começa sem acesso ao que foi feito — ou
+decidido — em outras conversas. Então, antes de propor CONSTRUIR qualquer
+peça nova de infraestrutura (checagem automática, alerta de erro, backup,
+etc.) OU RETOMAR algo que o Rafael já decidiu deixar pra depois (ver seção
+"Decisões já tomadas" abaixo), ler esta lista inteira E confirmar o estado
+real no GitHub/Vercel/Supabase (ela pode estar desatualizada, ou parte do
+trabalho pode ter sido feita numa conversa que não deixou rastro aqui).
+Nunca assumir que algo não existe, ou que uma pausa foi esquecida, só por
+não ter sido mencionado nesta conversa.
 
 - **CI (checagem automática antes de ir pro ar)**: `.github/workflows/ci.yml`,
   neste repositório. Roda `next typegen` + `tsc` + `eslint` + `build` em todo
@@ -41,6 +43,30 @@ por não ter sido mencionado nesta conversa.
   Rodando com sucesso todo dia desde 13/10/2026, sem falha. Os arquivos de
   backup ficam em texto puro (sem criptografia) — a única proteção hoje é o
   repositório ser privado.
+
+## Decisões já tomadas (não reabrir sem o Rafael pedir primeiro)
+
+Diferente da lista acima (coisas já construídas), isto aqui é coisas que o
+Rafael já avaliou e decidiu DEIXAR DE LADO por enquanto — não é bug, não é
+trabalho esquecido, é escolha. Encontrar algo que parece "faltando" nessa
+lista não é convite pra corrigir: é sinal pra avisar o Rafael que o item
+está nesse estado por decisão dele, e só agir se ele pedir pra retomar.
+
+- **Chat da Mora sem resposta automática por IA**: a env var
+  `ANTHROPIC_API_KEY` NÃO está configurada no Vercel — DE PROPÓSITO, não é
+  uma peça faltando. O Rafael já decidiu, antes de 27/10/2026, deixar a
+  resposta automática da Mora via IA pra depois; por enquanto ela só
+  precisa direcionar quem visita o site pro WhatsApp/e-mail, o que o
+  código já faz certinho sem precisar de chave nenhuma:
+  `src/app/api/mora/route.ts` devolve 503 com a mensagem "O chat está
+  indisponível no momento. Fala com a gente pelo WhatsApp ou e-mail!"
+  quando não acha a chave, e `src/components/mora/mora-widget.tsx` mostra
+  os links de WhatsApp e e-mail fixos embaixo do campo de digitar, sempre,
+  com ou sem resposta de IA (decisão de escopo de 20/10/2026, comentário no
+  topo do próprio arquivo). Isso já foi perguntado e recusado mais de uma
+  vez — NÃO propor configurar essa chave, criar/entrar numa organização na
+  Claude Platform, nem comprar crédito, sem o Rafael pedir explicitamente
+  pra ativar a resposta automática da Mora.
 
 1. Nunca confiar em `.update()` / `.insert()` / `.delete()` do Supabase só
    porque `error` veio `null`. Um `.update().eq(...)` que não bate com

@@ -8,6 +8,35 @@ trabalhista. Aqui, um bug silencioso ou uma perda de dado não é só um
 inconveniente — é risco jurídico real para quem usa o sistema. Por isso,
 ao mexer neste projeto (Claude ou qualquer outro desenvolvedor):
 
+## Infraestrutura de confiabilidade já implementada
+
+Cada conversa com o Claude começa sem acesso ao que foi feito em outras
+conversas — então antes de propor CONSTRUIR qualquer peça nova de
+infraestrutura (checagem automática, alerta de erro, backup, etc.), ler
+esta lista E confirmar o estado real no GitHub/Vercel/Supabase (ela pode
+estar desatualizada, ou parte do trabalho pode ter sido feita numa
+conversa que não deixou rastro aqui). Nunca assumir que algo não existe só
+por não ter sido mencionado nesta conversa.
+
+- **CI (checagem automática antes de ir pro ar)**: `.github/workflows/ci.yml`,
+  neste repositório. Roda `next typegen` + `tsc` + `eslint` + `build` em todo
+  push/PR pro `main`. Criado 26/10/2026.
+- **Alerta de erro em produção (Sentry)**: o código já está implementado
+  neste repositório (`src/instrumentation.ts`, `src/instrumentation-client.ts`,
+  `src/sentry.server.config.ts`, `src/sentry.edge.config.ts`,
+  `src/app/global-error.tsx`) — mas ainda DESLIGADO: falta criar uma conta
+  no Sentry, pegar o DSN, e configurar `NEXT_PUBLIC_SENTRY_DSN` no Vercel
+  (Settings > Environment Variables). Sem isso o SDK roda com
+  `enabled: false` e não manda nada.
+- **Backup diário do banco**: NÃO fica neste repositório. Vive num
+  repositório GitHub separado e privado, `rflmorgado/morsafe-backups`, com
+  seu próprio workflow (`backup.yml`) que roda todo dia às 06:00 UTC (03:00
+  em SP) e salva um `pg_dump` do banco ali, usando o secret
+  `SUPABASE_DATABASE_URL` (configurado NESSE outro repositório, não neste).
+  Rodando com sucesso todo dia desde 13/10/2026, sem falha. Os arquivos de
+  backup ficam em texto puro (sem criptografia) — a única proteção hoje é o
+  repositório ser privado.
+
 1. Nunca confiar em `.update()` / `.insert()` / `.delete()` do Supabase só
    porque `error` veio `null`. Um `.update().eq(...)` que não bate com
    nenhuma linha retorna `error: null` mesmo sem alterar nada — já foi a

@@ -60,10 +60,19 @@ function normalize(value: string) {
  */
 function parseDataFlexivel(value: unknown): string | null {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    const y = value.getFullYear();
-    const m = String(value.getMonth() + 1).padStart(2, "0");
-    const d = String(value.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    // UTC, não hora local (getUTC*, não get*): mesmo padrão já usado em
+    // importar-epis-button.tsx e importar-catalogo-estoque-button.tsx
+    // (toISOString().slice(0,10)), por causa da mudança do SheetJS 0.20.0
+    // ("Use UTC interpretation of Date objects for date cells") — a partir
+    // da atualização de 27/10/2026 pra corrigir CVE-2023-30533 e
+    // CVE-2024-22363 (ver xlsx no package.json), uma célula de data do
+    // Excel lida com cellDates:true passa a virar um Date em meia-noite
+    // UTC, não mais meia-noite local. Usar get* (hora local) aqui faria o
+    // Brasil (UTC-3) ler a data um dia antes da real — ex: 15/10/2026 na
+    // planilha virando "2026-10-14" nesse campo (Integração de
+    // Segurança/NR-06). getUTC* lê o mesmo instante sem depender do fuso
+    // de quem está importando, então funciona certo nas duas versões.
+    return value.toISOString().slice(0, 10);
   }
 
   if (typeof value === "string") {

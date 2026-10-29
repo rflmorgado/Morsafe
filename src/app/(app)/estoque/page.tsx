@@ -426,7 +426,17 @@ export default async function EstoquePage({
                           : ""
                     }`}
                   >
-                    <td className="max-w-[160px] px-2.5 py-[9px] text-[12.5px] font-medium text-foreground">
+                    {/* max-w ampliado de 160px pra 340px — pedido do Rafael,
+                        29/10/2026: nomes de EPI com tamanho no final (ex.
+                        "Calçado de Segurança Bico de Aço Nº 42") estavam
+                        cortados pelo truncate, escondendo justo o tamanho —
+                        aí precisava abrir o lápis de cada linha só pra ver
+                        qual era. 340px cobre esses nomes mais longos do
+                        catálogo sem quebrar linha; nas outras 6 colunas (bem
+                        mais estreitas) ainda sobra espaço dentro do
+                        container, e o overflow-x-auto do wrapper (acima)
+                        segue cobrindo o caso raro de um nome ainda maior. */}
+                    <td className="max-w-[340px] px-2.5 py-[9px] text-[12.5px] font-medium text-foreground">
                       <div className="flex min-w-0 items-center gap-2">
                         <IconeDoTipo
                           tipo={item.tipo}

@@ -10,6 +10,7 @@ import { temPapelMinimo } from "@/lib/auth/permissoes";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { LogoEmpresaForm } from "./logo-empresa-form";
+import { EmailCobrancaForm } from "./email-cobranca-form";
 
 function formatMoney(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -89,6 +90,13 @@ export default async function EmpresaPage() {
         </div>
 
         <LogoEmpresaForm logoAtual={empresa?.logoUrl ?? null} />
+      </Card>
+
+      <Card className="max-w-xl">
+        <h3 className="mb-4 text-[13px] font-bold text-foreground">
+          Cobrança
+        </h3>
+        <EmailCobrancaForm emailCobrancaAtual={empresa?.emailCobranca ?? null} />
       </Card>
 
       {/* Só aparece pra empresa com plano pago — empresas "interno" (ver

@@ -114,6 +114,11 @@ export interface Database {
           // morsafe-bootstrap-projeto-novo.sql) — lib/data/empresas.ts
           // continua tratando a ausência dela como rede de segurança.
           limite_colaboradores: number | null;
+          // E-mail de cobrança ADICIONAL (opcional) — pedido do Rafael,
+          // 29/10/2026, ver morsafe-add-email-cobranca-empresas.sql.
+          // Nunca substitui o e-mail de login do admin, só soma: ver
+          // atualizarEmailCobrancaEmpresa, app/(app)/empresa/actions.ts.
+          email_cobranca: string | null;
           criado_em: string;
         },
         "nome"

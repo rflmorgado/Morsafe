@@ -5,6 +5,12 @@ export type EmpresaAtual = {
   nome: string;
   cnpj: string | null;
   logoUrl: string | null;
+  // E-mail de cobrança ADICIONAL (opcional) — pedido do Rafael, 29/10/2026:
+  // some às notificações do Asaas, nunca substitui o e-mail de login do
+  // admin (esse continua vindo de usuarios/auth, nunca desta coluna). NULL
+  // = empresa nunca configurou um (caso normal, hoje). Ver
+  // atualizarEmailCobrancaEmpresa, app/(app)/empresa/actions.ts.
+  emailCobranca: string | null;
 };
 
 /**
@@ -21,7 +27,7 @@ export async function getEmpresaAtual(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("empresas")
-    .select("id, nome, cnpj, logo_url")
+    .select("id, nome, cnpj, logo_url, email_cobranca")
     .eq("id", empresaId)
     .maybeSingle();
 
@@ -35,6 +41,7 @@ export async function getEmpresaAtual(
     nome: data.nome,
     cnpj: data.cnpj,
     logoUrl: data.logo_url,
+    emailCobranca: data.email_cobranca,
   };
 }
 

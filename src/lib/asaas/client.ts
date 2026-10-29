@@ -126,6 +126,36 @@ export async function criarClienteAsaas(dados: {
   });
 }
 
+/**
+ * Atualiza campos do cliente já existente no Asaas — hoje usada só pra
+ * adicionar/trocar o e-mail de cobrança adicional (ver
+ * atualizarEmailCobrancaEmpresa, app/(app)/empresa/actions.ts), pedido do
+ * Rafael, 29/10/2026: a empresa cliente quer um e-mail de cobrança (ex. um
+ * financeiro@) diferente do e-mail de login do admin, sem deixar de
+ * receber no e-mail de login também.
+ *
+ * Confirmado em docs.asaas.com/reference/atualizar-cliente-existente que o
+ * PUT /customers/{id} é atualização PARCIAL: só o(s) campo(s) enviados no
+ * body são alterados, o resto do cadastro no Asaas (nome, cpfCnpj, e-mail
+ * principal etc.) permanece intacto — por isso esta função aceita um
+ * subconjunto pequeno de campos (hoje só additionalEmails) e nunca reenvia
+ * o cadastro inteiro, pra nunca arriscar sobrescrever algo que não deveria
+ * mudar. additionalEmails é uma string única com os e-mails extras
+ * separados por vírgula (não um array) — formato exigido pela própria API
+ * do Asaas.
+ */
+export async function atualizarClienteAsaas(
+  asaasCustomerId: string,
+  dados: { additionalEmails?: string },
+): Promise<AsaasCliente> {
+  return asaasFetch<AsaasCliente>(`/customers/${asaasCustomerId}`, {
+    method: "PUT",
+    body: {
+      additionalEmails: dados.additionalEmails,
+    },
+  });
+}
+
 export type AsaasAssinatura = {
   id: string;
   customer: string;

@@ -216,3 +216,69 @@ export async function atualizarEmailCobrancaEmpresa(
   revalidatePath("/empresa");
   return { error: null, aviso };
 }
+
+export type AtualizarLogoUnidadeState = { error: string | null };
+
+/**
+ * Salva (ou remove, passando null) o logo de uma unidade/filial do grupo
+ * (ex: Vinitrade, separada da ViniPlast), exibido no topo da Ficha de EPI
+ * dos colaboradores daquela unidade no lugar do logo da empresa — ver
+ * getColaboradorDetalhe (lib/data/colaboradores.ts) e colaboradores/[id]
+ * /ficha/route.ts. Mesmo padrão de defesa de atualizarLogoEmpresa acima:
+ * papel mínimo "admin" checado no servidor, e a conferência de que o
+ * .update() de verdade afetou uma linha (ver CLAUDE.md, regra 1) — aqui
+ * reforçada com um .eq("empresa_id", ...) extra, além do RLS da tabela
+ * unidades, porque o id da unidade vem de um botão na tela (não só do
+ * usuário autenticado, como em atualizarLogoEmpresa).
+ */
+export async function atualizarLogoUnidade(
+  unidadeId: string,
+  logoDataUrl: string | null,
+): Promise<AtualizarLogoUnidadeState> {
+  const user = await getCurrentUser();
+  if (!user?.empresaId) {
+    return { error: "Não foi possível identificar a empresa do usuário." };
+  }
+  if (!temPapelMinimo(user.papel, "admin")) {
+    return { error: "Seu perfil de acesso não permite essa ação." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("unidades")
+    .update({ logo_url: logoDataUrl })
+    .eq("id", unidadeId)
+    .eq("empresa_id", user.empresaId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("atualizarLogoUnidade:", error.message);
+    return { error: "Não foi possível salvar o logo. Tente novamente." };
+  }
+  if (!data) {
+    console.error(
+      "atualizarLogoUnidade: update não afetou nenhuma linha para unidadeId=",
+      unidadeId,
+    );
+    return {
+      error:
+        "Não foi possível confirmar o salvamento do logo. Tente novamente ou avise o suporte do MorSafe.",
+    };
+  }
+
+  await registrarLogAuditoria({
+    supabase,
+    empresaId: user.empresaId,
+    tabela: "unidades",
+    registroId: unidadeId,
+    acao: "atualizado",
+    usuarioId: user.id,
+    detalhes: {
+      acao_logo: logoDataUrl === null ? "removido" : "atualizado",
+    },
+  });
+
+  revalidatePath("/empresa");
+  return { error: null };
+}

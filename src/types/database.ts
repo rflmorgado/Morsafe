@@ -235,6 +235,14 @@ export interface Database {
           id: string;
           empresa_id: string;
           nome: string;
+          // PNG em data URL (mesmo padrão de empresas.logo_url) — logo
+          // específico desta unidade/filial do grupo, usado na Ficha de EPI
+          // no lugar do logo da empresa quando o colaborador pertence a
+          // essa unidade. Nulo = cai no logo da empresa como fallback (ver
+          // getColaboradorDetalhe em lib/data/colaboradores.ts e
+          // colaboradores/[id]/ficha/route.ts). Adicionada em 30/10/2026,
+          // ver morsafe-migracao-logo-unidade.sql.
+          logo_url: string | null;
           criado_em: string;
         },
         "empresa_id" | "nome",

@@ -315,6 +315,16 @@ export async function listColaboradoresParaExportar({
   return ordenarColaboradores(mapeados, sort, dir);
 }
 
+// Setor com a unidade/filial do grupo (ex: ViniPlast, Vinitrade) ligada a
+// ele, e o logo específico dessa unidade — usado só por getColaboradorDetalhe
+// abaixo pra decidir qual logo mostrar no topo da Ficha de EPI (ver
+// unidadeLogoUrl no retorno, e colaboradores/[id]/ficha/route.ts). A maioria
+// dos clientes do MorSafe tem uma unidade só e `unidades` vem null aqui.
+type SetorComUnidade = {
+  nome: string;
+  unidades: { nome: string; logo_url: string | null } | null;
+};
+
 /**
  * `empresaId` confere que o colaborador pertence à empresa de quem está
  * pedindo a ficha, antes de buscar entregas/devoluções/recusas — mesmo
@@ -334,7 +344,7 @@ export async function getColaboradorDetalhe(
   const { data: colaborador, error } = await supabase
     .from("colaboradores")
     .select(
-      "id, nome, status, criado_em, data_integracao_seguranca, empresa_id, setores ( nome ), cargos ( nome )",
+      "id, nome, status, criado_em, data_integracao_seguranca, empresa_id, setores ( nome, unidades ( nome, logo_url ) ), cargos ( nome )",
     )
     .eq("id", id)
     .single();
@@ -342,6 +352,8 @@ export async function getColaboradorDetalhe(
   if (error || !colaborador || colaborador.empresa_id !== empresaId) {
     return null;
   }
+
+  const setorInfo = colaborador.setores as unknown as SetorComUnidade | null;
 
   // criado_em (timestamp do servidor, imutável) e o nome de quem registrou
   // (usuarios via criado_por) vão pra ficha em PDF — ver comentário em
@@ -474,7 +486,7 @@ export async function getColaboradorDetalhe(
     id: colaborador.id,
     nome: colaborador.nome,
     status: colaborador.status,
-    setor: (colaborador.setores as unknown as { nome: string } | null)?.nome ?? "—",
+    setor: setorInfo?.nome ?? "—",
     cargo: (colaborador.cargos as unknown as { nome: string } | null)?.nome ?? "—",
     criadoEm: colaborador.criado_em,
     // Data da Integração de Segurança (admissão) ou da última
@@ -484,6 +496,13 @@ export async function getColaboradorDetalhe(
     // trabalhista: mostra que não houve só a entrega do equipamento, mas
     // também orientação (e reciclagem) sobre o uso dele.
     dataIntegracaoSeguranca: colaborador.data_integracao_seguranca,
+    // Logo da unidade/filial do grupo (ex: Vinitrade, separada da
+    // ViniPlast) a que este colaborador pertence, via setor → unidade — ver
+    // unidades.logo_url (types/database.ts) e LogoUnidadeForm. Nulo quando
+    // o setor não tem unidade vinculada, ou a unidade não tem logo próprio
+    // ainda — nesse caso a ficha cai no logo da empresa (empresas.logo_url)
+    // como reserva, ver colaboradores/[id]/ficha/route.ts.
+    unidadeLogoUrl: setorInfo?.unidades?.logo_url ?? null,
     eventos,
   };
 }

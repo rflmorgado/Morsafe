@@ -88,6 +88,21 @@ import {
 // (selo-tecnico-seguranca.png → selo-tecnico-seguranca-v2.png) de
 // propósito, só pra forçar o cache da Vercel/navegador a buscar a versão
 // nova em vez de servir a imagem antiga com o mesmo nome.
+//
+// Atualização de 30/10/2026 — seção "Parceiros" adicionada logo abaixo do
+// Hero, a pedido do Rafael ("criar algo bacana, que valorize nossos
+// parceiros e a credibilidade da MorSafe"). ViniPlast, Vinitrade e
+// Vinitela (empresas do mesmo grupo onde o Rafael atua como Técnico em
+// Segurança do Trabalho) autorizaram o uso do nome/logo como clientes
+// reais — ver comentário em lib/data/empresas.ts e o histórico da
+// conversa. Faixa discreta (logos em escala de cinza, coloridos no hover)
+// em vez de uma seção grande com texto, porque com só 3 parceiros uma
+// seção pesada chamaria mais atenção pro número pequeno do que pra
+// credibilidade em si — o padrão "logo bar" é o mesmo usado por produtos
+// SaaS estabelecidos, aqui com um toque sutil de interação (grayscale →
+// cor ao passar o mouse) pra não ficar estático. Pensado pra crescer: só
+// adicionar ao array PARCEIROS conforme novas empresas autorizarem o uso
+// do nome, sem mexer no layout.
 
 const CONTATO_EMAIL = "contato.morsafe.br@gmail.com";
 const CONTATO_TELEFONE_EXIBICAO = "(11) 92750-0869";
@@ -102,6 +117,33 @@ const NAV_LINKS = [
   { href: "#planos", label: "Planos" },
   { href: "#sobre", label: "Sobre" },
   { href: "#contato", label: "Contato" },
+];
+
+// Empresas que autorizaram o uso do nome/logo como clientes MorSafe — ver
+// nota de 30/10/2026 acima. width/height são as dimensões reais do arquivo
+// (logo já recortado e normalizado na mesma altura, fundo transparente),
+// usadas pelo next/image pra evitar layout shift; a altura exibida na tela
+// é fixa via CSS (h-9/h-10), então a proporção de cada logo é preservada
+// mesmo com larguras originais diferentes.
+const PARCEIROS = [
+  {
+    nome: "ViniPlast",
+    logo: "/marketing/parceiros/viniplast.png",
+    width: 1103,
+    height: 300,
+  },
+  {
+    nome: "Vinitrade",
+    logo: "/marketing/parceiros/vinitrade.png",
+    width: 1177,
+    height: 300,
+  },
+  {
+    nome: "Vinitela",
+    logo: "/marketing/parceiros/vinitela.png",
+    width: 894,
+    height: 300,
+  },
 ];
 
 const POR_QUE_CARDS = [
@@ -444,6 +486,30 @@ export default function Home() {
               height={1092}
               className="absolute -right-2 -top-2 h-auto w-24 drop-shadow-lg sm:-right-3 sm:-top-3 sm:w-32 lg:-right-4 lg:-top-4 lg:w-40"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* ===== Parceiros =====
+          Ver nota de 30/10/2026 no topo do arquivo. Faixa discreta logo
+          abaixo do Hero — primeiro sinal de credibilidade que o visitante
+          vê, antes mesmo de rolar pra conhecer o produto. */}
+      <section id="parceiros" className="scroll-mt-16 border-b border-border-subtle bg-surface">
+        <div className="mx-auto max-w-6xl px-5 py-10 lg:py-12">
+          <p className="text-center text-[12px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+            Empresas que já confiam no MorSafe
+          </p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-x-14 gap-y-7">
+            {PARCEIROS.map((p) => (
+              <Image
+                key={p.nome}
+                src={p.logo}
+                alt={p.nome}
+                width={p.width}
+                height={p.height}
+                className="h-8 w-auto opacity-60 grayscale transition hover:opacity-100 hover:grayscale-0 sm:h-10"
+              />
+            ))}
           </div>
         </div>
       </section>

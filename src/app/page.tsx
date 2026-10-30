@@ -128,19 +128,19 @@ const NAV_LINKS = [
 const PARCEIROS = [
   {
     nome: "ViniPlast",
-    logo: "/marketing/parceiros/viniplast.png",
+    logo: "/marketing/parceiros/viniplast-cliente.png",
     width: 1103,
     height: 300,
   },
   {
     nome: "Vinitrade",
-    logo: "/marketing/parceiros/vinitrade.png",
+    logo: "/marketing/parceiros/vinitrade-cliente.png",
     width: 1177,
     height: 300,
   },
   {
     nome: "Vinitela",
-    logo: "/marketing/parceiros/vinitela.png",
+    logo: "/marketing/parceiros/vinitela-cliente.png",
     width: 894,
     height: 300,
   },

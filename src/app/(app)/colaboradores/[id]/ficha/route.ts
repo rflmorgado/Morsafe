@@ -110,6 +110,15 @@ export async function GET(
     user.empresaId ? getEmpresaAtual(user.empresaId) : Promise.resolve(null),
   ]);
 
+  // Logo a mostrar no topo da ficha: o da unidade/filial do grupo do
+  // colaborador (ex: Vinitrade, separada da ViniPlast — ver /empresa) tem
+  // prioridade, porque identifica visualmente a qual empresa do grupo esse
+  // colaborador pertence; cai no logo da empresa como reserva quando o
+  // colaborador não tem unidade com logo próprio (a maioria dos clientes do
+  // MorSafe, que têm uma unidade só) — ver unidadeLogoUrl em
+  // getColaboradorDetalhe, lib/data/colaboradores.ts.
+  const logoParaFicha = colaborador.unidadeLogoUrl ?? empresa?.logoUrl ?? null;
+
   const pdfDoc = await PDFDocument.create();
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -266,9 +275,9 @@ export async function GET(
   const LOGO_GAP_ABAIXO = 30;
 
   const topoHeaderY = y;
-  if (empresa?.logoUrl) {
+  if (logoParaFicha) {
     try {
-      const base64 = empresa.logoUrl.split(",")[1] ?? "";
+      const base64 = logoParaFicha.split(",")[1] ?? "";
       const logoImagem = await pdfDoc.embedPng(Buffer.from(base64, "base64"));
       const escala = Math.min(
         LOGO_MAX_LARGURA / logoImagem.width,

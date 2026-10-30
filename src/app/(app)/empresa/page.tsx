@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/data/current-user";
 import { getEmpresaAtual } from "@/lib/data/empresa";
+import { listUnidades } from "@/lib/data/unidades";
 import {
   getAssinaturaDaEmpresa,
   formatStatusAssinatura,
@@ -10,6 +11,7 @@ import { temPapelMinimo } from "@/lib/auth/permissoes";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { LogoEmpresaForm } from "./logo-empresa-form";
+import { LogoUnidadeForm } from "./logo-unidade-form";
 import { EmailCobrancaForm } from "./email-cobranca-form";
 
 function formatMoney(value: number) {
@@ -64,10 +66,17 @@ export default async function EmpresaPage() {
     );
   }
 
-  const [empresa, assinatura] = await Promise.all([
+  const [empresa, assinatura, unidades] = await Promise.all([
     getEmpresaAtual(user.empresaId),
     getAssinaturaDaEmpresa(user.empresaId),
+    listUnidades(user.empresaId),
   ]);
+
+  // A seção de "Unidades do grupo" só aparece pra quem tem mais de uma
+  // unidade cadastrada (ex: ViniPlast + Vinitrade) — a maioria dos clientes
+  // do MorSafe tem uma só e nunca precisa ver essa escolha extra. Ver
+  // listUnidades (lib/data/unidades.ts) e LogoUnidadeForm.
+  const temMultiplasUnidades = unidades.length > 1;
 
   return (
     <div className="space-y-5">
@@ -91,6 +100,35 @@ export default async function EmpresaPage() {
 
         <LogoEmpresaForm logoAtual={empresa?.logoUrl ?? null} />
       </Card>
+
+      {temMultiplasUnidades && (
+        <Card className="max-w-xl">
+          <div className="mb-5 space-y-1 border-b border-border-subtle pb-4">
+            <p className="text-[13.5px] font-semibold text-foreground">
+              Unidades do grupo
+            </p>
+            <p className="text-[12.5px] text-text-secondary">
+              Sua empresa tem {unidades.length} unidades cadastradas (
+              {unidades.map((u) => u.nome).join(", ")}). Defina um logo
+              próprio para cada uma — a Ficha de EPI usa automaticamente o
+              logo da unidade do colaborador, com o logo acima como reserva
+              para quem ainda não tiver um definido.
+            </p>
+          </div>
+
+          <div className="space-y-6 divide-y divide-border-subtle">
+            {unidades.map((unidade) => (
+              <div key={unidade.id} className="pt-6 first:border-0 first:pt-0">
+                <LogoUnidadeForm
+                  unidadeId={unidade.id}
+                  nome={unidade.nome}
+                  logoAtual={unidade.logoUrl}
+                />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="max-w-xl">
         <h3 className="mb-4 text-[13px] font-bold text-foreground">

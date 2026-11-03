@@ -10,15 +10,39 @@ const SEM_PERMISSAO = "Seu perfil de acesso não permite essa ação.";
 
 export type RegistrarEntradaState = { error: string | null; success?: boolean };
 
+// Formato de cada item dentro do campo "itens" do FormData (JSON) — mesmo
+// raciocínio de ItemEntregaBruto em movimentacoes/actions.ts: o número de
+// itens é dinâmico (botão "+ Adicionar outro item", pedido do Rafael,
+// 03/11/2026 — "em algumas vezes compramos mais de um item por nota, por
+// entrega, ideal seria poder inserir todos de uma vez"), então um array
+// serializado num campo só é mais simples de montar no cliente e de validar
+// aqui do que inventar uma convenção de nomes indexados (epi_id_0, epi_id_1...).
+type ItemEntradaBruto = {
+  epi_id?: unknown;
+  quantidade?: unknown;
+  preco_unitario?: unknown;
+};
+
 /**
- * Registra uma compra (entrada de estoque). Só faz o INSERT em
- * `entradas_estoque` — o saldo (`estoque.saldo_atual`) e o custo médio
+ * Registra uma ou mais compras (entradas de estoque) de uma MESMA nota/
+ * entrega, de uma vez só — fornecedor, nota fiscal e data da compra são
+ * compartilhados entre os itens (é a mesma compra), mas cada item tem seu
+ * próprio EPI, quantidade e preço unitário (o preço pode variar item a
+ * item, mesmo numa compra só). Cada item vira sua PRÓPRIA linha em
+ * `entradas_estoque` — mantém o raciocínio de "uma linha = uma compra de um
+ * EPI", que é a base do histórico de preço por compra (custo médio
+ * ponderado). O saldo (`estoque.saldo_atual`) e o custo médio
  * (`epis.custo_medio_atual`) são recalculados sozinhos pelo trigger
- * `fn_registrar_entrada_estoque` (ver morsafe-schema.sql), que também cria
- * a linha em `estoque` na primeira entrada de um EPI, pelo método de custo
- * médio ponderado já combinado com o Rafael (ver comentário no topo de
- * epis/actions.ts). O app nunca escreve direto em `estoque` nem em
- * `epis.custo_medio_atual` a partir daqui — só nessa tabela de origem.
+ * `fn_registrar_entrada_estoque` (ver morsafe-schema.sql, "for each row" —
+ * dispara uma vez por linha mesmo num insert com várias linhas), que também
+ * cria a linha em `estoque` na primeira entrada de um EPI. O app nunca
+ * escreve direto em `estoque` nem em `epis.custo_medio_atual` a partir
+ * daqui — só nessa tabela de origem.
+ *
+ * Um único INSERT com várias linhas — atômico (ou grava todas, ou nenhuma):
+ * melhor do que N inserts separados em loop, que podiam parar no meio (ex.:
+ * 2 de 3 itens gravados) e deixar o saldo/custo médio num estado
+ * inconsistente pra uma compra que devia ser uma coisa só.
  *
  * Mesmo nível de permissão de cadastrar/editar EPI ("encarregado"+): é uma
  * ação operacional de rotina, não mais sensível que isso.
@@ -27,25 +51,43 @@ export async function registrarEntradaEstoque(
   _prevState: RegistrarEntradaState,
   formData: FormData,
 ): Promise<RegistrarEntradaState> {
-  const epiId = String(formData.get("epi_id") ?? "").trim();
-  const quantidadeRaw = String(formData.get("quantidade") ?? "");
-  const precoUnitarioRaw = String(formData.get("preco_unitario") ?? "");
   const fornecedor = String(formData.get("fornecedor") ?? "").trim();
   const notaFiscal = String(formData.get("nota_fiscal") ?? "").trim();
   const dataCompra = String(formData.get("data_compra") ?? "").trim();
+  const itensRaw = String(formData.get("itens") ?? "").trim();
 
-  if (!epiId) {
-    return { error: "Selecione o EPI." };
+  let itensBrutos: ItemEntradaBruto[];
+  try {
+    itensBrutos = JSON.parse(itensRaw);
+  } catch {
+    return {
+      error: "Itens da entrada inválidos. Feche e abra o formulário de novo.",
+    };
+  }
+  if (!Array.isArray(itensBrutos) || itensBrutos.length === 0) {
+    return { error: "Adicione pelo menos um item à entrada de estoque." };
   }
 
-  const quantidade = Number(quantidadeRaw);
-  if (!Number.isFinite(quantidade) || quantidade <= 0) {
-    return { error: "Informe uma quantidade válida (maior que zero)." };
-  }
+  const itens: { epiId: string; quantidade: number; precoUnitario: number }[] = [];
+  for (const bruto of itensBrutos) {
+    const epiId = String(bruto.epi_id ?? "").trim();
+    if (!epiId) {
+      return { error: "Selecione o EPI em todos os itens." };
+    }
 
-  const precoUnitario = Number(precoUnitarioRaw.replace(",", "."));
-  if (!Number.isFinite(precoUnitario) || precoUnitario < 0) {
-    return { error: "Informe um preço unitário válido." };
+    const quantidade = Number(bruto.quantidade);
+    if (!Number.isFinite(quantidade) || quantidade <= 0) {
+      return {
+        error: "Informe uma quantidade válida (maior que zero) em todos os itens.",
+      };
+    }
+
+    const precoUnitario = Number(bruto.preco_unitario);
+    if (!Number.isFinite(precoUnitario) || precoUnitario < 0) {
+      return { error: "Informe um preço unitário válido em todos os itens." };
+    }
+
+    itens.push({ epiId, quantidade: Math.round(quantidade), precoUnitario });
   }
 
   const user = await getCurrentUser();
@@ -55,64 +97,86 @@ export async function registrarEntradaEstoque(
   if (!temPapelMinimo(user.papel, "encarregado")) {
     return { error: SEM_PERMISSAO };
   }
+  const empresaId = user.empresaId;
 
   const supabase = await createClient();
 
-  // Confirma que o EPI é da MESMA empresa de quem está registrando, antes
-  // de inserir — mesma checagem de posse já usada em colaboradores/EPIs/
-  // estações, pra não depender só do RLS pra recusar um id de outra
-  // empresa cliente.
-  const { data: epi, error: epiError } = await supabase
+  // Confirma que TODOS os EPIs citados são da MESMA empresa de quem está
+  // registrando (e continuam ativos) antes de inserir qualquer coisa — numa
+  // única consulta (`in`), não uma por item — mesma checagem de posse já
+  // usada em colaboradores/EPIs/estações, pra não depender só do RLS pra
+  // recusar um id de outra empresa cliente.
+  const epiIds = [...new Set(itens.map((i) => i.epiId))];
+  const { data: episData, error: episError } = await supabase
     .from("epis")
-    .select("nome, empresa_id, ativo")
-    .eq("id", epiId)
-    .maybeSingle();
+    .select("id, nome, ativo")
+    .eq("empresa_id", empresaId)
+    .in("id", epiIds);
 
-  if (epiError || !epi || epi.empresa_id !== user.empresaId) {
-    return { error: "EPI não encontrado." };
-  }
-  if (!epi.ativo) {
+  if (episError) {
+    console.error("registrarEntradaEstoque (checagem de EPIs):", episError.message);
     return {
-      error:
-        "Este EPI está desativado — reative-o antes de registrar uma entrada de estoque.",
+      error: "Não foi possível registrar a entrada de estoque. Tente novamente.",
     };
   }
 
-  const quantidadeArredondada = Math.round(quantidade);
+  const episPorId = new Map((episData ?? []).map((e) => [e.id, e]));
+  for (const item of itens) {
+    const epi = episPorId.get(item.epiId);
+    if (!epi) {
+      return { error: "Um dos EPIs selecionados não foi encontrado." };
+    }
+    if (!epi.ativo) {
+      return {
+        error: `"${epi.nome}" está desativado — reative-o antes de registrar uma entrada de estoque.`,
+      };
+    }
+  }
 
-  const { data: novaEntrada, error } = await supabase
+  const linhas = itens.map((item) => ({
+    empresa_id: empresaId,
+    epi_id: item.epiId,
+    quantidade: item.quantidade,
+    preco_unitario: item.precoUnitario,
+    fornecedor: fornecedor || null,
+    nota_fiscal: notaFiscal || null,
+    criado_por: user.id,
+    // Omite a chave quando vazio, em vez de mandar string vazia — deixa
+    // o default `current_date` da coluna assumir a data de hoje.
+    ...(dataCompra ? { data_compra: dataCompra } : {}),
+  }));
+
+  const { data: novas, error } = await supabase
     .from("entradas_estoque")
-    .insert({
-      empresa_id: user.empresaId,
-      epi_id: epiId,
-      quantidade: quantidadeArredondada,
-      preco_unitario: precoUnitario,
-      fornecedor: fornecedor || null,
-      nota_fiscal: notaFiscal || null,
-      criado_por: user.id,
-      // Omite a chave quando vazio, em vez de mandar string vazia — deixa
-      // o default `current_date` da coluna assumir a data de hoje.
-      ...(dataCompra ? { data_compra: dataCompra } : {}),
-    })
-    .select("id")
-    .single();
+    .insert(linhas)
+    .select("id, epi_id, quantidade");
 
-  if (error || !novaEntrada) {
+  if (error || !novas || novas.length !== linhas.length) {
     console.error("registrarEntradaEstoque:", error?.message);
     return {
       error: "Não foi possível registrar a entrada de estoque. Tente novamente.",
     };
   }
 
-  await registrarLogAuditoria({
-    supabase,
-    empresaId: user.empresaId,
-    tabela: "entradas_estoque",
-    registroId: novaEntrada.id,
-    acao: "entrada_registrada",
-    usuarioId: user.id,
-    detalhes: { nome: epi.nome, quantidade: quantidadeArredondada },
-  });
+  // Um registro de auditoria por item — mesmo nível de detalhe que cada
+  // entrada avulsa já tinha antes desta funcionalidade existir (mesmo
+  // raciocínio de registrarEntrega, em movimentacoes/actions.ts).
+  await Promise.all(
+    novas.map((nova) =>
+      registrarLogAuditoria({
+        supabase,
+        empresaId,
+        tabela: "entradas_estoque",
+        registroId: nova.id,
+        acao: "entrada_registrada",
+        usuarioId: user.id,
+        detalhes: {
+          nome: episPorId.get(nova.epi_id)?.nome ?? "",
+          quantidade: nova.quantidade,
+        },
+      }),
+    ),
+  );
 
   revalidatePath("/estoque");
   revalidatePath("/epis"); // custo médio do EPI pode ter mudado
@@ -191,289 +255,6 @@ export async function atualizarLimiteAlerta(
   revalidatePath("/estoque");
   revalidatePath("/dashboard");
   return { error: null, success: true };
-}
-
-export type AjustarEstoqueState = { error: string | null; success?: boolean };
-
-/**
- * Corrige o saldo de UM EPI a partir de contagem física — nunca escreve
- * direto em `estoque.saldo_atual` (ver comentário na criação da coluna,
- * morsafe-schema.sql: "nunca editar manualmente"). Só faz o INSERT em
- * `ajustes_estoque` — quem de fato atualiza o saldo é o trigger
- * `fn_registrar_ajuste_estoque` (ver morsafe-add-ajuste-estoque.sql),
- * mesmo raciocínio de registrarEntradaEstoque acima pra `entradas_estoque`.
- *
- * Usada pelo lápis de correção pontual na tela (um EPI por vez) — ver
- * AjustarSaldoButton. A contagem em lote do fechamento de mês usa
- * registrarContagemEstoque, logo abaixo.
- *
- * Mesmo nível de permissão de registrar entrada de estoque
- * ("encarregado"+, decidido com o Rafael em 21/10/2026): é quem de fato
- * conta o EPI fisicamente.
- */
-export async function ajustarEstoque(
-  _prevState: AjustarEstoqueState,
-  formData: FormData,
-): Promise<AjustarEstoqueState> {
-  const epiId = String(formData.get("epi_id") ?? "").trim();
-  const saldoContadoRaw = String(formData.get("saldo_contado") ?? "");
-  const motivo = String(formData.get("motivo") ?? "").trim();
-
-  if (!epiId) {
-    return { error: "EPI não informado." };
-  }
-
-  const saldoContado = Number(saldoContadoRaw);
-  if (!Number.isFinite(saldoContado) || saldoContado < 0) {
-    return { error: "Informe um saldo contado válido (zero ou mais)." };
-  }
-  if (!motivo) {
-    return { error: "Informe o motivo do ajuste." };
-  }
-
-  const user = await getCurrentUser();
-  if (!user?.empresaId) {
-    return { error: "Não foi possível identificar a empresa do usuário." };
-  }
-  if (!temPapelMinimo(user.papel, "encarregado")) {
-    return { error: SEM_PERMISSAO };
-  }
-
-  const supabase = await createClient();
-
-  const { data: epi, error: epiError } = await supabase
-    .from("epis")
-    .select("nome, empresa_id, ativo")
-    .eq("id", epiId)
-    .maybeSingle();
-
-  if (epiError || !epi || epi.empresa_id !== user.empresaId) {
-    return { error: "EPI não encontrado." };
-  }
-  if (!epi.ativo) {
-    return {
-      error:
-        "Este EPI está desativado — reative-o antes de ajustar o estoque.",
-    };
-  }
-
-  // Saldo anterior é só pro registro histórico (mostrado no log de
-  // auditoria) — quem decide o saldo final é sempre saldo_novo, pelo
-  // trigger. 0 aqui é o mesmo default da coluna estoque.saldo_atual (ver
-  // morsafe-schema.sql), pro caso (raro) de um EPI sem nenhuma entrada de
-  // compra ainda.
-  const { data: linhaEstoque } = await supabase
-    .from("estoque")
-    .select("saldo_atual")
-    .eq("epi_id", epiId)
-    .maybeSingle();
-  const saldoAnterior = linhaEstoque?.saldo_atual ?? 0;
-  const saldoArredondado = Math.round(saldoContado);
-
-  const { data: novoAjuste, error } = await supabase
-    .from("ajustes_estoque")
-    .insert({
-      empresa_id: user.empresaId,
-      epi_id: epiId,
-      saldo_anterior: saldoAnterior,
-      saldo_novo: saldoArredondado,
-      motivo,
-      criado_por: user.id,
-    })
-    .select("id")
-    .single();
-
-  if (error || !novoAjuste) {
-    console.error("ajustarEstoque:", error?.message);
-    return {
-      error: "Não foi possível registrar o ajuste de estoque. Tente novamente.",
-    };
-  }
-
-  await registrarLogAuditoria({
-    supabase,
-    empresaId: user.empresaId,
-    tabela: "ajustes_estoque",
-    registroId: novoAjuste.id,
-    acao: "ajuste_estoque_registrado",
-    usuarioId: user.id,
-    detalhes: {
-      nome: epi.nome,
-      saldoAnterior,
-      saldoNovo: saldoArredondado,
-      motivo,
-    },
-  });
-
-  revalidatePath("/estoque");
-  revalidatePath("/dashboard");
-  return { error: null, success: true };
-}
-
-export type ContagemEstoqueItem = { epiId: string; saldoContado: number };
-
-export type ContagemEstoqueFalha = { epiNome: string; erro: string };
-
-export type RegistrarContagemState = {
-  error: string | null;
-  ajustados?: number;
-  semMudanca?: number;
-  falhas?: ContagemEstoqueFalha[];
-};
-
-/**
- * Contagem de estoque em lote — pensada pro fechamento de mês: em vez de
- * corrigir EPI por EPI com o lápis (ajustarEstoque, acima), a tela lista
- * todo o catálogo ativo de uma vez (ver listEstoqueParaAjuste, em
- * lib/data/estoque.ts) e Rafael digita o que contou fisicamente de cada
- * um. Só os itens cujo valor contado DIFERE do saldo atual viram uma linha
- * em `ajustes_estoque` — quem contou e confirmou que bate não precisa
- * gerar ruído no histórico. Mesmo motivo (texto livre, ex.: "Contagem
- * mensal de outubro/2026") vale pra todo o lote.
- *
- * Insere UMA LINHA DE CADA VEZ (nunca um array só) — mesmo raciocínio de
- * importarEntradasEstoque/importarEpis: um item problemático não derruba
- * o lote inteiro.
- *
- * Mesmo nível de permissão de ajustarEstoque: "encarregado"+.
- */
-export async function registrarContagemEstoque(
-  itens: ContagemEstoqueItem[],
-  motivo: string,
-): Promise<RegistrarContagemState> {
-  const motivoTexto = motivo.trim();
-  if (!motivoTexto) {
-    return {
-      error:
-        'Informe o motivo da contagem (ex.: "Contagem mensal de outubro/2026").',
-    };
-  }
-  if (!itens.length) {
-    return { error: "Preencha a contagem de ao menos um EPI." };
-  }
-
-  const user = await getCurrentUser();
-  if (!user?.empresaId) {
-    return { error: "Não foi possível identificar a empresa do usuário." };
-  }
-  if (!temPapelMinimo(user.papel, "encarregado")) {
-    return { error: SEM_PERMISSAO };
-  }
-
-  const supabase = await createClient();
-  const empresaId = user.empresaId;
-  const epiIds = itens.map((i) => i.epiId);
-
-  // Confirma que todo EPI citado é da MESMA empresa e está ativo — mesma
-  // checagem de posse de sempre, numa única consulta (`in`), não uma por
-  // item.
-  const { data: episValidos, error: episError } = await supabase
-    .from("epis")
-    .select("id, nome")
-    .eq("empresa_id", empresaId)
-    .eq("ativo", true)
-    .in("id", epiIds);
-
-  if (episError) {
-    console.error(
-      "registrarContagemEstoque (checagem de EPIs):",
-      episError.message,
-    );
-    return { error: "Não foi possível validar os EPIs. Tente novamente." };
-  }
-
-  const nomePorId = new Map((episValidos ?? []).map((e) => [e.id, e.nome]));
-
-  const { data: linhasEstoque, error: estoqueError } = await supabase
-    .from("estoque")
-    .select("epi_id, saldo_atual")
-    .eq("empresa_id", empresaId)
-    .in("epi_id", epiIds);
-
-  if (estoqueError) {
-    console.error(
-      "registrarContagemEstoque (saldo atual):",
-      estoqueError.message,
-    );
-  }
-  const saldoAtualPorId = new Map(
-    (linhasEstoque ?? []).map((l) => [l.epi_id, l.saldo_atual]),
-  );
-
-  let ajustados = 0;
-  let semMudanca = 0;
-  const falhas: ContagemEstoqueFalha[] = [];
-
-  for (const item of itens) {
-    const nomeEpi = nomePorId.get(item.epiId);
-    if (!nomeEpi) {
-      falhas.push({
-        epiNome: "EPI não encontrado",
-        erro: "EPI não encontrado ou desativado",
-      });
-      continue;
-    }
-    if (!Number.isFinite(item.saldoContado) || item.saldoContado < 0) {
-      falhas.push({ epiNome: nomeEpi, erro: "Quantidade contada inválida" });
-      continue;
-    }
-
-    const saldoAnterior = saldoAtualPorId.get(item.epiId) ?? 0;
-    const saldoNovo = Math.round(item.saldoContado);
-    if (saldoNovo === saldoAnterior) {
-      semMudanca++;
-      continue;
-    }
-
-    const { data: novoAjuste, error } = await supabase
-      .from("ajustes_estoque")
-      .insert({
-        empresa_id: empresaId,
-        epi_id: item.epiId,
-        saldo_anterior: saldoAnterior,
-        saldo_novo: saldoNovo,
-        motivo: motivoTexto,
-        criado_por: user.id,
-      })
-      .select("id")
-      .single();
-
-    if (error || !novoAjuste) {
-      console.error(
-        `registrarContagemEstoque (${item.epiId}):`,
-        error?.message,
-      );
-      falhas.push({ epiNome: nomeEpi, erro: "Não foi possível salvar este ajuste" });
-      continue;
-    }
-
-    ajustados++;
-  }
-
-  if (ajustados > 0) {
-    await registrarLogAuditoria({
-      supabase,
-      empresaId,
-      tabela: "ajustes_estoque",
-      registroId: empresaId,
-      acao: "contagem_estoque_registrada",
-      usuarioId: user.id,
-      detalhes: {
-        quantidade: ajustados,
-        motivo: motivoTexto,
-        falhas: falhas.length,
-      },
-    });
-    revalidatePath("/estoque");
-    revalidatePath("/dashboard");
-  }
-
-  return {
-    error: null,
-    ajustados,
-    semMudanca,
-    falhas: falhas.length > 0 ? falhas : undefined,
-  };
 }
 
 export type ImportarEntradaEstoqueRow = {

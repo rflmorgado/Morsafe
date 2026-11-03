@@ -131,15 +131,11 @@ export default async function ReposicaoEstoquePage() {
                     key={item.id}
                     className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-muted/70"
                   >
-                    <td className="max-w-[180px] px-3 py-[9px] text-[12.5px] font-medium text-foreground">
-                      <span className="block truncate" title={item.nome}>
-                        {item.nome}
-                      </span>
+                    <td className="px-3 py-[9px] text-[12.5px] font-medium text-foreground">
+                      {item.nome}
                     </td>
-                    <td className="max-w-[172px] px-3 py-[9px] text-[12.5px] text-foreground">
-                      <span className="block truncate" title={item.tipo ?? undefined}>
-                        {item.tipo ?? "—"}
-                      </span>
+                    <td className="px-3 py-[9px] text-[12.5px] text-foreground">
+                      {item.tipo ?? "—"}
                     </td>
                     <td className="px-3 py-[9px] text-[12.5px] text-foreground">
                       {item.ca ?? "—"}
@@ -183,7 +179,7 @@ export default async function ReposicaoEstoquePage() {
                 className="rounded-2xl border border-border-subtle bg-surface p-3.5 shadow-card"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="truncate text-[13.5px] font-semibold text-foreground">
+                  <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-foreground">
                     {item.nome}
                   </span>
                   <span className="shrink-0 text-[13px] font-bold text-brand-700">

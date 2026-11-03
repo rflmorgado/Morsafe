@@ -95,14 +95,22 @@ import {
 // Vinitela (empresas do mesmo grupo onde o Rafael atua como Técnico em
 // Segurança do Trabalho) autorizaram o uso do nome/logo como clientes
 // reais — ver comentário em lib/data/empresas.ts e o histórico da
-// conversa. Faixa discreta (logos em escala de cinza, coloridos no hover)
-// em vez de uma seção grande com texto, porque com só 3 parceiros uma
-// seção pesada chamaria mais atenção pro número pequeno do que pra
-// credibilidade em si — o padrão "logo bar" é o mesmo usado por produtos
-// SaaS estabelecidos, aqui com um toque sutil de interação (grayscale →
-// cor ao passar o mouse) pra não ficar estático. Pensado pra crescer: só
+// conversa. Faixa discreta em vez de uma seção grande com texto, porque
+// com só 3 parceiros uma seção pesada chamaria mais atenção pro número
+// pequeno do que pra credibilidade em si — o padrão "logo bar" é o mesmo
+// usado por produtos SaaS estabelecidos. Pensado pra crescer: só
 // adicionar ao array PARCEIROS conforme novas empresas autorizarem o uso
 // do nome, sem mexer no layout.
+//
+// Ajuste do mesmo dia (30/10/2026) — a versão inicial deixava os logos em
+// escala de cinza/opacidade reduzida por padrão, só ficando coloridos no
+// hover do mouse. O Rafael reportou (com print do celular) que isso
+// deixava os logos quase invisíveis: em touchscreen não existe hover, e
+// mesmo no desktop o estado "apagado" tinha baixíssimo contraste contra o
+// fundo escuro do tema dark do site. Troca: cada logo agora fica dentro
+// de um "chip" branco (bg-white + sombra leve + ring sutil) e sempre em
+// cor plena, sem grayscale nem estado de hover — garante contraste alto
+// contra qualquer fundo (claro ou escuro) sem depender de interação.
 
 const CONTATO_EMAIL = "contato.morsafe.br@gmail.com";
 const CONTATO_TELEFONE_EXIBICAO = "(11) 92750-0869";
@@ -491,24 +499,29 @@ export default function Home() {
       </section>
 
       {/* ===== Parceiros =====
-          Ver nota de 30/10/2026 no topo do arquivo. Faixa discreta logo
-          abaixo do Hero — primeiro sinal de credibilidade que o visitante
-          vê, antes mesmo de rolar pra conhecer o produto. */}
+          Ver nota de 30/10/2026 (e o ajuste do mesmo dia) no topo do
+          arquivo. Faixa discreta logo abaixo do Hero — primeiro sinal de
+          credibilidade que o visitante vê, antes mesmo de rolar pra
+          conhecer o produto. */}
       <section id="parceiros" className="scroll-mt-16 border-b border-border-subtle bg-surface">
         <div className="mx-auto max-w-6xl px-5 py-10 lg:py-12">
           <p className="text-center text-[12px] font-semibold uppercase tracking-[0.14em] text-text-muted">
             Empresas que já confiam no MorSafe
           </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-x-14 gap-y-7">
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-5">
             {PARCEIROS.map((p) => (
-              <Image
+              <div
                 key={p.nome}
-                src={p.logo}
-                alt={p.nome}
-                width={p.width}
-                height={p.height}
-                className="h-8 w-auto opacity-60 grayscale transition hover:opacity-100 hover:grayscale-0 sm:h-10"
-              />
+                className="flex items-center justify-center rounded-xl bg-white px-6 py-3 shadow-[0_1px_2px_rgba(18,53,36,0.06),0_8px_20px_rgba(18,53,36,0.08)] ring-1 ring-black/5"
+              >
+                <Image
+                  src={p.logo}
+                  alt={p.nome}
+                  width={p.width}
+                  height={p.height}
+                  className="h-7 w-auto sm:h-8"
+                />
+              </div>
             ))}
           </div>
         </div>

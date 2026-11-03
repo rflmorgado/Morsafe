@@ -970,20 +970,26 @@ export type ExcluirColaboradorState = {
  * Duas travas antes de excluir:
  * 1) Só é permitido em cima de um colaborador já desligado (status
  *    'inativo') — a interface só oferece essa opção depois do desligamento.
- * 2) Checamos EXPLICITAMENTE, antes de tentar o delete, se existe qualquer
- *    linha vinculada a este colaborador em `entregas`, `devolucoes`,
- *    `recusas` OU `verificacoes_documento` (todas têm FK RESTRICT pra
- *    `colaboradores`). As três primeiras são o histórico de EPI de fato; a
- *    quarta é a verificação/QR code gerado toda vez que alguém baixa a
- *    "Ficha de Entrega de EPI" dele — mesmo sem nenhuma entrega real, baixar
- *    a ficha uma vez já cria essa linha e, sem essa checagem, o banco recusa
- *    o delete (23503) e o catch genérico antigo atribuía isso a "histórico
- *    de entrega, devolução ou recusa", o que é enganoso quando a causa real
- *    é só a ficha ter sido gerada. Checar as quatro tabelas por contagem (e
- *    listar exatamente qual tem registro) dá um erro preciso em vez de um
- *    chute. O catch de 23503 depois do delete continua existindo como rede
- *    de segurança (ex.: linha criada entre a checagem e o delete), mas na
- *    prática não deve mais ser o caminho normal.
+ * 2) Checamos EXPLICITAMENTE, antes de tentar o delete, se existe histórico
+ *    REAL de EPI vinculado a este colaborador em `entregas`, `devolucoes`
+ *    ou `recusas` (todas têm FK RESTRICT pra `colaboradores`) — qualquer
+ *    linha aqui bloqueia a exclusão, pra preservar a conformidade com a
+ *    NR-06. Checar as três tabelas por contagem (e listar exatamente qual
+ *    tem registro) dá um erro preciso em vez de um chute.
+ *
+ * `verificacoes_documento` também tem FK RESTRICT pra `colaboradores`, mas
+ * NÃO entra nessa trava: é só o registro de que uma ficha (com QR code) foi
+ * gerada/baixada — isso acontece até só de alguém clicar em "Visualizar
+ * ficha", sem nenhuma entrega/devolução/recusa real por trás. Bloquear a
+ * exclusão por causa disso confundia "colaborador sem nenhum histórico" com
+ * "colaborador com histórico", então, quando não há histórico real de EPI,
+ * essas verificações órfãs são apagadas automaticamente aqui mesmo, antes do
+ * delete do colaborador (ver bloco de limpeza abaixo) — não têm valor
+ * probatório próprio sem um evento real de EPI por trás pra comprovar.
+ *
+ * O catch de 23503 depois do delete continua existindo como rede de
+ * segurança (ex.: linha criada entre a checagem e o delete), mas na prática
+ * não deve mais ser o caminho normal.
  *
  * Exige papel "admin" (mesmo nível de desligar/reativar) e não tem volta —
  * ao contrário do desligamento, não existe "reativar" depois disso.
@@ -1086,26 +1092,46 @@ export async function excluirColaboradorDefinitivamente(
       countRecusas === 1 ? "1 recusa" : `${countRecusas} recusas`,
     );
   }
-  if (countVerificacoes > 0) {
-    pendencias.push(
-      countVerificacoes === 1
-        ? "1 verificação de documento (ficha com QR code já gerada)"
-        : `${countVerificacoes} verificações de documento (fichas com QR code já geradas)`,
-    );
-  }
+  // `verificacoes_documento` não entra em `pendencias` — ver comentário no
+  // topo da função. Histórico real de EPI (entregas/devoluções/recusas) é o
+  // único critério que bloqueia a exclusão.
 
   if (pendencias.length > 0) {
     const lista =
       pendencias.length === 1
         ? pendencias[0]
         : `${pendencias.slice(0, -1).join(", ")} e ${pendencias[pendencias.length - 1]}`;
-    const totalItens =
-      countEntregas + countDevolucoes + countRecusas + countVerificacoes;
+    const totalItens = countEntregas + countDevolucoes + countRecusas;
     const vinculadaTexto =
       totalItens === 1 ? "vinculada a ele" : "vinculadas a ele";
     return {
       error: `Não é possível excluir: este colaborador tem ${lista} ${vinculadaTexto}. Pra preservar a conformidade com a NR-06, ele precisa continuar existindo no sistema — mantenha-o desligado.`,
     };
+  }
+
+  // Chegou aqui: não há nenhum histórico real de EPI. Se existir alguma
+  // verificação de documento órfã (ficha gerada/baixada sem nenhum evento
+  // real vinculado), apaga essas linhas antes do delete do colaborador —
+  // senão a FK RESTRICT de `verificacoes_documento` recusaria o delete.
+  // Essa tabela não tem RLS (ver morsafe-schema.sql), então o filtro por
+  // empresa_id abaixo é manual e obrigatório — sem ele, em teoria daria pra
+  // apagar verificação de outra empresa só sabendo o id certo.
+  if (countVerificacoes > 0) {
+    const { error: limpezaError } = await supabase
+      .from("verificacoes_documento")
+      .delete()
+      .eq("colaborador_id", colaboradorId)
+      .eq("empresa_id", user.empresaId);
+
+    if (limpezaError) {
+      console.error(
+        "excluirColaboradorDefinitivamente (limpeza de verificações órfãs):",
+        limpezaError.message,
+      );
+      return {
+        error: "Não foi possível excluir o colaborador. Tente novamente.",
+      };
+    }
   }
 
   const { data: excluido, error: deleteError } = await supabase

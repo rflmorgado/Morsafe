@@ -14,6 +14,19 @@ export type AlternarAtivoState = { error: string | null };
  * verdade no middleware (ver src/lib/supabase/middleware.ts), não só um
  * rótulo na tela: com a empresa desativada, qualquer login de um usuário
  * dela é encerrado na hora.
+ *
+ * `ativo` virou coluna GERADA a partir de `status` (ver migration do ciclo
+ * de vida de empresas, 04/11/2026: status_empresa = 'ativa' |
+ * 'suspensa_inadimplencia' | 'encerrada') — por isso não dá mais pra fazer
+ * update({ ativo }) direto, o Postgres rejeita update numa generated
+ * column. Reativar sempre volta pra "ativa" e limpa as duas datas (cobre
+ * tanto uma empresa suspensa quanto uma encerrada). Desativar só acontece
+ * a partir de "ativa" — o AlternarAtivoButton só mostra o botão de
+ * desativar (com confirmação) quando ativo=true — e usa o mesmo status
+ * "suspensa_inadimplencia" que a régua automática de inadimplência usa:
+ * o middleware trata qualquer status diferente de "ativa" como acesso
+ * bloqueado do mesmo jeito, e o texto do próprio botão já deixa claro pro
+ * super_admin que isso é reversível a qualquer momento clicando de novo.
  */
 export async function alternarAtivoEmpresa(
   empresaId: string,
@@ -26,9 +39,14 @@ export async function alternarAtivoEmpresa(
 
   const admin = createAdminClient();
 
+  const agora = new Date().toISOString();
   const { data, error } = await admin
     .from("empresas")
-    .update({ ativo: novoValor })
+    .update(
+      novoValor
+        ? { status: "ativa", suspensa_em: null, encerrada_em: null }
+        : { status: "suspensa_inadimplencia", suspensa_em: agora },
+    )
     .eq("id", empresaId)
     .select("id, nome")
     .maybeSingle();

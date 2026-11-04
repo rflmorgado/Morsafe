@@ -64,6 +64,10 @@ export type PlanoAssinatura =
   | "empresa"
   | "industrial"
   | "enterprise";
+// `pagamentos_empresa.status` é outra coluna `text` com CHECK (não enum)
+// — mesmo caso de StatusAssinatura/PlanoAssinatura acima. Já tem um
+// consumidor (src/lib/data/pagamentos.ts) que importa este nome exato.
+export type StatusPagamentoEmpresa = "pendente" | "pago";
 
 type Relationship = {
   foreignKeyName: string;
@@ -674,7 +678,7 @@ export interface Database {
           empresa_id: string;
           valor: number;
           data_vencimento: string;
-          status: string;
+          status: StatusPagamentoEmpresa;
           data_pagamento: string | null;
           observacao: string | null;
           asaas_payment_id: string | null;

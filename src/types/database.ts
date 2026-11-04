@@ -5,10 +5,7 @@
  * aplicado no projeto Supabase "morsafe"). Ao alterar o schema no banco,
  * atualize este arquivo — ou, melhor, regenere com o Supabase CLI:
  *
- *   npx supabase gen types typescript --project-id kqjvmgexmvvkyoxoagsb > src/types/database.ts
- *
- * (project-id atualizado em 14/10/2026 — projeto novo, depois da migração
- * do projeto antigo mfvdovlziaqrdcdmbnmi, que ficou com acesso bloqueado.)
+ *   npx supabase gen types typescript --project-id mfvdovlziaqrdcdmbnmi > src/types/database.ts
  *
  * O formato (Row/Insert/Update/Relationships por tabela, Row/Relationships
  * por view) segue o que @supabase/postgrest-js exige em `GenericSchema`
@@ -19,6 +16,10 @@
 
 export type PapelUsuario = "super_admin" | "admin" | "encarregado" | "leitura";
 export type StatusColaborador = "ativo" | "inativo";
+// Ciclo de vida contratual da empresa. "encerrada" é o que dispara a
+// contagem dos 5 anos de retenção pós-rescisão prometidos no contrato e no
+// DPA — ver Cláusula de retenção do contrato de prestação de serviços.
+export type StatusEmpresa = "ativa" | "suspensa_inadimplencia" | "encerrada";
 export type MotivoEntrega =
   | "primeira_entrega"
   | "troca_desgaste"
@@ -33,42 +34,6 @@ export type MotivoDevolucao =
   | "mudanca_funcao"
   | "extraviado_nao_devolvido";
 export type DestinoDevolucao = "descarte" | "reaproveitamento" | "nao_aplicavel";
-export type StatusSolicitacaoAssinatura =
-  | "aguardando"
-  | "assinado"
-  | "cancelado"
-  | "expirado";
-// Distingue se a solicitação enviada pra estação é de confirmação de
-// RECEBIMENTO (entrega) ou de DEVOLUÇÃO de EPI — a estação usa isso só pra
-// escolher o texto certo na tela (ver src/app/estacao/page.tsx), o resto do
-// fluxo (SignaturePad, polling, etc.) é idêntico nos dois casos.
-export type TipoSolicitacaoAssinatura = "entrega" | "devolucao";
-// Só dois estados gravados — "atrasado"/"a vencer"/"em dia" são calculados
-// na aplicação a partir de data_vencimento + status (ver
-// lib/data/pagamentos.ts), nunca gravados no banco.
-export type StatusPagamentoEmpresa = "pendente" | "pago";
-// Faixas do modelo comercial (ver MorSafe_Modelo_Comercial_e_Fluxo_de_
-// Cobranca.docx) — "enterprise" não tem valor_mensal fixo ("sob
-// consulta"), mas ainda grava uma linha em assinaturas pra aparecer no
-// painel administrativo igual aos outros planos.
-export type PlanoAssinatura =
-  | "start"
-  | "essencial"
-  | "profissional"
-  | "empresa"
-  | "industrial"
-  | "enterprise";
-// Os 5 estados do documento comercial (seção 7) — nunca pulam etapa
-// sozinhos: o webhook do Asaas só pode levar de pendente a ativa/
-// inadimplente, e suspensa/cancelada só acontecem por decisão
-// explícita (régua de inadimplência ou cancelamento pedido pelo
-// cliente), nunca como efeito colateral de outra coisa.
-export type StatusAssinatura =
-  | "ativa"
-  | "pendente"
-  | "inadimplente"
-  | "suspensa"
-  | "cancelada";
 
 type Relationship = {
   foreignKeyName: string;
@@ -103,131 +68,16 @@ export interface Database {
           nome: string;
           cnpj: string | null;
           endereco: string | null;
-          // PNG em data URL (ver logo-empresa-form.tsx) — sem Supabase
-          // Storage configurado no app, mesma decisão já tomada pra
-          // assinatura de entrega (entregas.assinatura_url).
-          logo_url: string | null;
+          // Gerada no banco a partir de `status` (sempre = status === "ativa").
+          // Mantida só para não quebrar código antigo que ainda lê `ativo`;
+          // código novo deve usar `status`.
           ativo: boolean;
-          // Quantos colaboradores ATIVOS o plano contratado cobre — null
-          // significa "sem limite definido ainda" (nenhum alerta é
-          // disparado). Já existe em produção desde 14/10/2026 (ver
-          // morsafe-bootstrap-projeto-novo.sql) — lib/data/empresas.ts
-          // continua tratando a ausência dela como rede de segurança.
-          limite_colaboradores: number | null;
-          // E-mail de cobrança ADICIONAL (opcional) — pedido do Rafael,
-          // 29/10/2026, ver morsafe-add-email-cobranca-empresas.sql.
-          // Nunca substitui o e-mail de login do admin, só soma: ver
-          // atualizarEmailCobrancaEmpresa, app/(app)/empresa/actions.ts.
-          email_cobranca: string | null;
+          status: StatusEmpresa;
+          suspensa_em: string | null;
+          encerrada_em: string | null;
           criado_em: string;
         },
         "nome"
-      >;
-
-      // Mensalidade/pagamento de cada empresa cliente — controle manual do
-      // super_admin (ver app/(app)/pagamentos e a seção "Pagamentos" dentro
-      // de app/(app)/empresas/[id]). Já existe em produção desde a migração
-      // pro Supabase novo (16/10/2026, ver morsafe-bootstrap-projeto-novo.sql).
-      pagamentos_empresa: TableDef<
-        {
-          id: string;
-          empresa_id: string;
-          valor: number;
-          data_vencimento: string;
-          status: StatusPagamentoEmpresa;
-          data_pagamento: string | null;
-          observacao: string | null;
-          // Id da cobrança no Asaas — presente nas cobranças geradas pela
-          // assinatura recorrente (ver lib/asaas), null nas que ainda
-          // existirem do controle 100% manual anterior. Índice único no
-          // banco garante que o webhook nunca duplica linha pro mesmo
-          // pagamento (ver morsafe-bootstrap-projeto-novo.sql, a cópia
-          // reconciliada e efetivamente aplicada do que estava em
-          // morsafe-pendentes-supabase-TUDO.sql — arquivo hoje obsoleto).
-          asaas_payment_id: string | null;
-          // Link da fatura hospedada pelo Asaas (Pix/boleto/cartão) — pra
-          // exibir na tela de Cobranças/empresa sem precisar abrir o
-          // painel do Asaas. Gravado na criação da cobrança (ver
-          // criarPagamento e o passo 5 de criarEmpresa) e sincronizado
-          // pelo webhook quando o Asaas manda o campo (ver
-          // morsafe-add-pagamentos-invoice-url.sql). Null em cobrança sem
-          // Asaas por trás (controle 100% manual).
-          asaas_invoice_url: string | null;
-          criado_em: string;
-        },
-        "empresa_id" | "valor" | "data_vencimento",
-        [
-          {
-            foreignKeyName: "pagamentos_empresa_empresa_id_fkey";
-            columns: ["empresa_id"];
-            referencedRelation: "empresas";
-            referencedColumns: ["id"];
-          },
-        ]
-      >;
-
-      // Estado ATUAL da assinatura recorrente de cada empresa cliente —
-      // uma linha por empresa. Já existe em produção desde a migração pro
-      // Supabase novo (16/10/2026, ver morsafe-bootstrap-projeto-novo.sql).
-      assinaturas: TableDef<
-        {
-          id: string;
-          empresa_id: string;
-          plano: PlanoAssinatura;
-          valor_mensal: number;
-          status: StatusAssinatura;
-          asaas_customer_id: string | null;
-          asaas_subscription_id: string | null;
-          proximo_vencimento: string | null;
-          suspensa_em: string | null;
-          cancelada_em: string | null;
-          criado_em: string;
-          atualizado_em: string;
-        },
-        "empresa_id" | "plano" | "valor_mensal",
-        [
-          {
-            foreignKeyName: "assinaturas_empresa_id_fkey";
-            columns: ["empresa_id"];
-            referencedRelation: "empresas";
-            referencedColumns: ["id"];
-          },
-        ]
-      >;
-
-      // Dedup dos webhooks do Asaas já processados (campo "id" do
-      // payload) — ver comentário completo em
-      // morsafe-pendentes-supabase-TUDO.sql.
-      asaas_webhook_events: TableDef<
-        {
-          evento_id: string;
-          evento_tipo: string;
-          recebido_em: string;
-        },
-        "evento_id" | "evento_tipo"
-      >;
-
-      // Snapshot permanente de cada exclusão definitiva de empresa cliente
-      // (ver excluirEmpresaPermanentemente, empresas/actions.ts e
-      // morsafe-add-empresas-excluidas.sql) — a única prova durável no
-      // banco de que uma empresa existiu e foi excluída, já que
-      // log_auditoria dela é apagado junto no mesmo processo. Sem
-      // Relationships de propósito: nenhuma FK pra `empresas` (se
-      // tivesse, a própria exclusão que este registro documenta apagaria
-      // a prova em cascata).
-      empresas_excluidas: TableDef<
-        {
-          id: string;
-          empresa_id: string;
-          empresa_nome: string;
-          empresa_cnpj: string | null;
-          empresa_criada_em: string | null;
-          excluida_em: string;
-          excluida_por_nome: string;
-          excluida_por_email: string;
-          resumo: Record<string, unknown>;
-        },
-        "empresa_id" | "empresa_nome" | "excluida_por_nome" | "excluida_por_email"
       >;
 
       unidades: TableDef<
@@ -235,14 +85,6 @@ export interface Database {
           id: string;
           empresa_id: string;
           nome: string;
-          // PNG em data URL (mesmo padrão de empresas.logo_url) — logo
-          // específico desta unidade/filial do grupo, usado na Ficha de EPI
-          // no lugar do logo da empresa quando o colaborador pertence a
-          // essa unidade. Nulo = cai no logo da empresa como fallback (ver
-          // getColaboradorDetalhe em lib/data/colaboradores.ts e
-          // colaboradores/[id]/ficha/route.ts). Adicionada em 30/10/2026,
-          // ver morsafe-migracao-logo-unidade.sql.
-          logo_url: string | null;
           criado_em: string;
         },
         "empresa_id" | "nome",
@@ -496,40 +338,6 @@ export interface Database {
         ]
       >;
 
-      ajustes_estoque: TableDef<
-        {
-          id: string;
-          empresa_id: string;
-          epi_id: string;
-          saldo_anterior: number;
-          saldo_novo: number;
-          motivo: string;
-          criado_em: string;
-          criado_por: string | null;
-        },
-        "empresa_id" | "epi_id" | "saldo_anterior" | "saldo_novo" | "motivo",
-        [
-          {
-            foreignKeyName: "ajustes_estoque_empresa_id_fkey";
-            columns: ["empresa_id"];
-            referencedRelation: "empresas";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "ajustes_estoque_epi_id_fkey";
-            columns: ["epi_id"];
-            referencedRelation: "epis";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "ajustes_estoque_criado_por_fkey";
-            columns: ["criado_por"];
-            referencedRelation: "usuarios";
-            referencedColumns: ["id"];
-          },
-        ]
-      >;
-
       entregas: TableDef<
         {
           id: string;
@@ -548,13 +356,6 @@ export interface Database {
           custo_unitario_no_momento: number;
           criado_em: string;
           criado_por: string | null;
-          // Amarra N linhas desta tabela como tendo vindo do MESMO pedido no
-          // formulário (botão "+ Adicionar outro item" em Movimentações) —
-          // ver morsafe-add-grupo-entrega.sql e o comentário em
-          // registrarEntrega (movimentacoes/actions.ts). NULL em todo
-          // registro anterior a essa funcionalidade; não é FK pra nenhuma
-          // tabela, é só um UUID compartilhado.
-          grupo_entrega_id: string | null;
         },
         | "empresa_id"
         | "colaborador_id"
@@ -601,11 +402,6 @@ export interface Database {
           motivo: MotivoDevolucao;
           destino: DestinoDevolucao;
           devolvido_fisicamente: boolean;
-          // Assinatura de confirmação da devolução, colhida por toque (igual
-          // à de entregas.assinatura_url) — coluna adicionada depois da
-          // tabela já existir (ver morsafe-add-assinatura-devolucao.sql),
-          // por isso nullable: registros antigos não têm.
-          assinatura_url: string | null;
           criado_em: string;
           criado_por: string | null;
         },
@@ -721,85 +517,6 @@ export interface Database {
         ]
       >;
 
-      estacoes_assinatura: TableDef<
-        {
-          id: string;
-          empresa_id: string;
-          nome: string;
-          // Token permanente do aparelho pareado (tablet/celular da própria
-          // empresa) — null até o pareamento acontecer. Dá acesso só de
-          // leitura/escrita nas próprias solicitações desta estação, nunca
-          // a mais nada do sistema (ver src/app/estacao/actions.ts).
-          token: string | null;
-          // Código de uso único mostrado como QR na hora de parear um
-          // aparelho novo — expira sozinho (codigo_expira_em) e é apagado
-          // assim que usado, pra não poder ser reaproveitado depois.
-          codigo_pareamento: string | null;
-          codigo_expira_em: string | null;
-          ativo: boolean;
-          criado_em: string;
-          pareado_em: string | null;
-          // Atualizado a cada vez que o aparelho pareado consulta o
-          // servidor (ver /estacao) — base pra mostrar "visto por último
-          // há Xmin" na tela de administração das estações.
-          ultimo_ping: string | null;
-        },
-        "empresa_id" | "nome",
-        [
-          {
-            foreignKeyName: "estacoes_assinatura_empresa_id_fkey";
-            columns: ["empresa_id"];
-            referencedRelation: "empresas";
-            referencedColumns: ["id"];
-          },
-        ]
-      >;
-
-      solicitacoes_assinatura: TableDef<
-        {
-          id: string;
-          empresa_id: string;
-          estacao_id: string;
-          status: StatusSolicitacaoAssinatura;
-          // Confirmação de recebimento (entrega) ou de devolução — ver
-          // TipoSolicitacaoAssinatura. Coluna adicionada depois da tabela já
-          // existir (ver morsafe-add-assinatura-devolucao.sql), com default
-          // 'entrega' pra não quebrar pedidos antigos já em andamento.
-          tipo: TipoSolicitacaoAssinatura;
-          // Snapshot do que está sendo assinado — não é FK pra colaborador/
-          // EPI porque a estação (que só tem o token, sem acesso ao resto do
-          // banco) precisa conseguir MOSTRAR isso na tela sem fazer join
-          // nenhum, só lendo a própria solicitação.
-          colaborador_nome: string;
-          epi_nome: string;
-          assinatura_url: string | null;
-          criado_por: string | null;
-          criado_em: string;
-          respondido_em: string | null;
-        },
-        "empresa_id" | "estacao_id" | "colaborador_nome" | "epi_nome",
-        [
-          {
-            foreignKeyName: "solicitacoes_assinatura_empresa_id_fkey";
-            columns: ["empresa_id"];
-            referencedRelation: "empresas";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "solicitacoes_assinatura_estacao_id_fkey";
-            columns: ["estacao_id"];
-            referencedRelation: "estacoes_assinatura";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "solicitacoes_assinatura_criado_por_fkey";
-            columns: ["criado_por"];
-            referencedRelation: "usuarios";
-            referencedColumns: ["id"];
-          },
-        ]
-      >;
-
       log_auditoria: TableDef<
         {
           id: string;
@@ -822,59 +539,6 @@ export interface Database {
           {
             foreignKeyName: "log_auditoria_usuario_fkey";
             columns: ["usuario"];
-            referencedRelation: "usuarios";
-            referencedColumns: ["id"];
-          },
-        ]
-      >;
-
-      // Registro de verificação pública de um documento gerado (ex: Ficha de
-      // EPI) — permite que um terceiro (juiz, auditor, perito), sem login
-      // nenhum no MorSafe, confirme em /verificar/<codigo> que aquele
-      // documento foi realmente emitido pelo sistema, pra quem, quando e com
-      // qual conteúdo (hash). empresa_nome/colaborador_nome são um snapshot
-      // (não só o id) pra a página pública não precisar fazer join nenhum
-      // nem expor colunas sensíveis de `colaboradores` (mesma ideia de
-      // solicitacoes_assinatura.colaborador_nome). Sem RLS (mesmo padrão de
-      // `empresas`) — a única forma de achar uma linha é sabendo o código,
-      // que é aleatório e não sequencial (ver lib/data/verificacao-documento.ts).
-      verificacoes_documento: TableDef<
-        {
-          id: string;
-          codigo: string;
-          empresa_id: string;
-          empresa_nome: string;
-          colaborador_id: string;
-          colaborador_nome: string;
-          tipo_documento: string;
-          quantidade_eventos: number;
-          hash_conteudo: string;
-          gerado_por: string | null;
-          gerado_em: string;
-        },
-        | "codigo"
-        | "empresa_id"
-        | "empresa_nome"
-        | "colaborador_id"
-        | "colaborador_nome"
-        | "quantidade_eventos"
-        | "hash_conteudo",
-        [
-          {
-            foreignKeyName: "verificacoes_documento_empresa_id_fkey";
-            columns: ["empresa_id"];
-            referencedRelation: "empresas";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "verificacoes_documento_colaborador_id_fkey";
-            columns: ["colaborador_id"];
-            referencedRelation: "colaboradores";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "verificacoes_documento_gerado_por_fkey";
-            columns: ["gerado_por"];
             referencedRelation: "usuarios";
             referencedColumns: ["id"];
           },
@@ -904,15 +568,6 @@ export interface Database {
         nome: string;
         ca: string | null;
         ca_validade: string | null;
-      }>;
-      vw_ajustes_recorrentes: ViewDef<{
-        empresa_id: string;
-        epi_id: string;
-        nome: string;
-        ca: string | null;
-        tipo: string | null;
-        quantidade_ajustes: number;
-        ultimo_ajuste_em: string;
       }>;
     };
 

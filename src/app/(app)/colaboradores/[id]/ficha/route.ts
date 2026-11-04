@@ -725,90 +725,47 @@ export async function GET(
     }
   }
 
-  // Área de assinaturas — colaborador e responsável pela entrega (nem
-  // sempre um técnico de segurança, por isso o rótulo genérico).
-  ensureSpace(120);
+  // Validação do documento — substitui o antigo bloco de duas colunas com
+  // linha pontilhada pra assinatura "no papel" (discussão com o Rafael,
+  // 04/11/2026). Dois problemas com o bloco antigo: (1) ele sinalizava que a
+  // ficha precisava ser impressa e assinada à caneta, contradizendo a
+  // proposta 100% digital do produto; (2) o campo "Assinatura do responsável
+  // pela entrega" era redundante — cada evento do histórico acima já mostra
+  // quem registrou e quando ("Registrado por..."), de forma mais precisa
+  // (carimbo de data/hora do servidor por evento) do que uma única
+  // assinatura genérica no fim do documento, e não dá conta de quando mais
+  // de uma pessoa faz entregas ou existe mais de um ponto de coleta.
+  //
+  // A NR-06, item 6.6.1, alínea "g", já prevê expressamente o registro do
+  // fornecimento de EPI por "sistema eletrônico" (não só livros/fichas em
+  // papel) — não existe exigência normativa de assinatura física. O que
+  // precisa estar provado é que o colaborador recebeu o EPI e foi orientado
+  // sobre o uso, e isso já está coberto pela assinatura digital capturada
+  // em cada evento do histórico, mais o código de verificação abaixo.
+  ensureSpace(90);
   y -= 20;
-  const colWidth = (pageWidth - marginX * 2 - 24) / 2;
-  const col1X = marginX;
-  const col2X = marginX + colWidth + 24;
-  const signatureLineY = y;
-
-  page.drawLine({
-    start: { x: col1X, y: signatureLineY },
-    end: { x: col1X + colWidth, y: signatureLineY },
-    thickness: 0.8,
-    color: textMuted,
-  });
-  page.drawLine({
-    start: { x: col2X, y: signatureLineY },
-    end: { x: col2X + colWidth, y: signatureLineY },
-    thickness: 0.8,
-    color: textMuted,
-  });
-  y -= 14;
-  page.drawText("Assinatura do colaborador", {
-    x: col1X,
-    y,
-    size: 9.5,
-    font: fontBold,
-    color: textDark,
-  });
-  page.drawText("Assinatura do responsável pela entrega", {
-    x: col2X,
-    y,
-    size: 9.5,
-    font: fontBold,
-    color: textDark,
-  });
-  y -= 13;
-  page.drawText(colaborador.nome, {
-    x: col1X,
-    y,
-    size: 9,
-    font: fontRegular,
-    color: textMuted,
-  });
-  page.drawText("Nome: ____________________________", {
-    x: col2X,
-    y,
-    size: 9,
-    font: fontRegular,
-    color: textMuted,
-  });
-  y -= 16;
-  page.drawText("Data: ____ / ____ / ________", {
-    x: col1X,
-    y,
-    size: 9,
-    font: fontRegular,
-    color: textMuted,
-  });
-  page.drawText("Data: ____ / ____ / ________", {
-    x: col2X,
-    y,
-    size: 9,
-    font: fontRegular,
-    color: textMuted,
-  });
-
-  // Nota de conformidade — de onde vem o embasamento legal do modelo.
-  y -= 26;
-  ensureSpace(30);
   page.drawLine({
     start: { x: marginX, y },
     end: { x: pageWidth - marginX, y },
     thickness: 0.5,
     color: lineColor,
   });
-  y -= 14;
+  y -= 16;
+  page.drawText("Validação do documento", {
+    x: marginX,
+    y,
+    size: 11.5,
+    font: fontBold,
+    color: textDark,
+  });
+  y -= 17;
   drawWrappedText(
-    "O MorSafe verificou a legislação vigente para elaborar este modelo de ficha, com base na NR-06 – Equipamento de Proteção Individual (Portaria MTb nº 3.214, de 8 de junho de 1978), que estabelece a obrigatoriedade de registro da entrega de EPI ao colaborador.",
+    `As assinaturas digitais de cada entrega, devolução ou recusa foram coletadas eletronicamente no momento do evento (ver histórico acima), nos termos da NR-06 – Equipamento de Proteção Individual (Portaria MTb nº 3.214, de 8 de junho de 1978), item 6.6.1, alínea "g", que prevê o registro do fornecimento de EPI por sistema eletrônico. A autenticidade deste documento pode ser conferida a qualquer momento através do código de verificação abaixo.`,
     {
-      size: 8,
+      size: 9,
       font: fontRegular,
-      color: textMuted,
-      lineHeight: 11,
+      color: textDark,
+      lineHeight: 12.5,
       maxWidth: pageWidth - marginX * 2,
     },
   );

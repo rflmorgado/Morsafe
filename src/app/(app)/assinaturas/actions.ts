@@ -100,6 +100,29 @@ export async function cancelarAssinatura(
     };
   }
 
+  // Fecha o relacionamento contratual com a empresa — é isto que
+  // dispara a contagem dos 5 anos de retenção pós-rescisão prometidos no
+  // contrato e no DPA (ver middleware.ts, que já passa a bloquear o
+  // login com `empresas.status = "encerrada"`). Guard .neq("status",
+  // "encerrada") só por idempotência (não regrava encerrada_em se, por
+  // algum motivo, esta função rodar duas vezes pra mesma empresa).
+  const { error: empresaError } = await admin
+    .from("empresas")
+    .update({ status: "encerrada", encerrada_em: agora })
+    .eq("id", assinatura.empresa_id)
+    .neq("status", "encerrada");
+
+  if (empresaError) {
+    console.error(
+      `cancelarAssinatura: assinatura cancelada mas falhou ao marcar a empresa ${assinatura.empresa_id} como encerrada: ${empresaError.message}`,
+    );
+    // Não devolve erro pro usuário por isso — o cancelamento no Asaas e
+    // na assinatura já valeu (é o que importa pro dinheiro). Isso só
+    // fecha o relacionamento pra efeito de retenção de dados (contrato/
+    // DPA) e bloqueio de login; fica pra corrigir manualmente se falhar,
+    // sem travar o fluxo de cancelamento.
+  }
+
   await registrarLogAuditoria({
     supabase: admin,
     empresaId: assinatura.empresa_id,

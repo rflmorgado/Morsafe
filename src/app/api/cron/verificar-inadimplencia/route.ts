@@ -120,6 +120,29 @@ export async function GET(request: Request) {
 
     suspensas += 1;
 
+    // Bloqueia o acesso de verdade — sem isso, a assinatura fica marcada
+    // "suspensa" (correto pro faturamento) mas nada no middleware
+    // (lib/supabase/middleware.ts) impedia ninguém da empresa de
+    // continuar logado. Guard .eq("status", "ativa") de propósito: só
+    // suspende uma empresa que estava ativa — nunca sobrescreve
+    // "encerrada" (contrato já cancelado, ver cancelarAssinatura,
+    // assinaturas/actions.ts) nem regrava suspensa_em de uma empresa que
+    // já estava suspensa_inadimplencia por outro motivo.
+    const { error: empresaError } = await admin
+      .from("empresas")
+      .update({ status: "suspensa_inadimplencia", suspensa_em: agora })
+      .eq("id", assinatura.empresa_id)
+      .eq("status", "ativa");
+
+    if (empresaError) {
+      console.error(
+        `Cron verificar-inadimplencia: assinatura ${assinatura.id} suspensa, mas falhou ao bloquear acesso da empresa ${assinatura.empresa_id}: ${empresaError.message}`,
+      );
+      // Não interrompe o lote por isso — a assinatura já está marcada
+      // "suspensa" corretamente acima, que é o estado que importa pro
+      // faturamento; o bloqueio de acesso fica pra correção manual.
+    }
+
     const vencimento = assinatura.proximo_vencimento
       ? new Date(assinatura.proximo_vencimento)
       : null;

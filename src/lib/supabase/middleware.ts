@@ -83,7 +83,7 @@ export async function updateSession(request: NextRequest) {
   if (user && !isPublicPath) {
     const { data: perfil } = await supabase
       .from("usuarios")
-      .select("ativo, ultima_atividade")
+      .select("ativo, ultima_atividade, empresas ( status )")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -92,6 +92,31 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("motivo", "acesso_desativado");
+      return NextResponse.redirect(url);
+    }
+
+    // Empresa com status diferente de "ativa" — suspensa por
+    // inadimplência (ver cron verificar-inadimplencia) ou com o contrato
+    // encerrado de vez (ver cancelarAssinatura, assinaturas/actions.ts) —
+    // não pode continuar logada, pelo mesmo motivo do usuário desativado
+    // acima: sem esta checagem, nada no app de verdade impedia o acesso
+    // depois de uma suspensão ou de um encerramento de contrato, mesmo
+    // com `empresas.status` já gravado corretamente no banco.
+    // super_admin não pertence a nenhuma empresa (empresa_id null, ver
+    // types/database.ts), então `empresas` vem null pra ele via embed e
+    // esta checagem nunca bloqueia essa conta.
+    const statusEmpresa = (
+      perfil?.empresas as unknown as { status: string } | null
+    )?.status;
+
+    if (statusEmpresa && statusEmpresa !== "ativa") {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set(
+        "motivo",
+        statusEmpresa === "encerrada" ? "contrato_encerrado" : "empresa_suspensa",
+      );
       return NextResponse.redirect(url);
     }
 

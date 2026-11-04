@@ -215,6 +215,34 @@ async function processarEventoPagamento(
   if (statusError) {
     throw new Error(`Falha ao atualizar status da assinatura: ${statusError.message}`);
   }
+
+  // Pagamento confirmado reabre o acesso de uma empresa que estava
+  // suspensa_inadimplencia (ver cron verificar-inadimplencia/route.ts) —
+  // sem isso, o cliente pagaria, a assinatura voltaria pra "ativa" aqui
+  // em cima, mas o login continuaria bloqueado até alguém corrigir
+  // `empresas.status` manualmente. Guard .eq("status",
+  // "suspensa_inadimplencia") de propósito: só reabre automaticamente o
+  // que foi suspenso automaticamente por falta de pagamento — uma
+  // empresa "encerrada" (contrato cancelado, ver cancelarAssinatura,
+  // assinaturas/actions.ts) nunca volta sozinha por causa de um webhook,
+  // isso exige decisão manual.
+  if (novoStatus === "ativa") {
+    const { error: empresaError } = await admin
+      .from("empresas")
+      .update({ status: "ativa", suspensa_em: null })
+      .eq("id", assinatura.empresa_id)
+      .eq("status", "suspensa_inadimplencia");
+
+    if (empresaError) {
+      console.error(
+        `Webhook Asaas: assinatura reativada mas falhou ao reabrir acesso da empresa ${assinatura.empresa_id}: ${empresaError.message}`,
+      );
+      // Não lança erro — o pagamento e a assinatura já foram gravados
+      // corretamente acima, que é o que importa pro dinheiro; isso só
+      // reabriria o acesso automaticamente, e fica registrado no log pra
+      // corrigir manualmente se precisar.
+    }
+  }
 }
 
 /**

@@ -197,6 +197,14 @@ export function SignaturePad({
     tracosRef.current.push(traco);
     e.currentTarget.setPointerCapture(e.pointerId);
     redesenhar();
+    // Já marca como "tem assinatura" aqui, não só em handlePointerMove: um
+    // toque rápido sem arrastar (coberto acima, em redesenhar — desenha um
+    // "pingo") nunca dispara pointermove, então sem isto o botão de enviar
+    // ficava travado mesmo com um ponto já desenhado no canvas e o dataUrl
+    // já preenchido em handlePointerUp — bug reportado como "no tablet não
+    // está acontecendo", provavelmente por assinaturas feitas com toque
+    // rápido em vez do arraste mais natural no mouse do PC.
+    if (!temAssinatura) setTemAssinatura(true);
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {

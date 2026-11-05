@@ -10,6 +10,11 @@ import { createClient } from "@/lib/supabase/server";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 import { criarVerificacaoDocumento } from "@/lib/data/verificacao-documento";
 
+// Força geração sob demanda a cada chamada — sem isso, o Next/Vercel pode
+// tratar este GET como estático e servir uma versão em cache da ficha (ver
+// nota maior abaixo, no cabeçalho Cache-Control da resposta).
+export const dynamic = "force-dynamic";
+
 const TIPO_LABEL: Record<string, string> = {
   entrega: "Entrega",
   devolucao: "Devolução",
@@ -867,6 +872,17 @@ export async function GET(
       "Content-Disposition": `${forcarDownload ? "attachment" : "inline"}; filename="ficha-epi-${sanitizeFileName(
         colaborador.nome,
       )}.pdf"`,
+      // Sem isso, a ficha pode ficar presa em cache no navegador/tablet (ou
+      // em algum proxy/CDN no meio do caminho) na versão de ANTES de uma
+      // mudança de conteúdo do PDF — foi exatamente o que aconteceu em
+      // 05/11/2026: depois de trocar o bloco de assinatura manual pelo texto
+      // de validação (commit 71fd8ba), quem já tinha aberto a ficha de um
+      // colaborador antes da mudança continuou vendo a versão antiga dela,
+      // mesmo em empresas diferentes, até fechar/limpar o cache daquele
+      // aparelho — o PDF é sempre regerado na hora com os dados mais
+      // recentes, então nunca é seguro cacheá-lo.
+      "Cache-Control": "no-store, must-revalidate",
+      Pragma: "no-cache",
     },
   });
 }

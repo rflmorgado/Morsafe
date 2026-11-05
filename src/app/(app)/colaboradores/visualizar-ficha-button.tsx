@@ -32,6 +32,26 @@ export function VisualizarFichaButton({
   colaboradorId: string;
   colaboradorNome: string;
 }) {
+  function abrir(e: React.MouseEvent<HTMLAnchorElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    // ?t=<timestamp> único a cada clique: a rota já manda
+    // Cache-Control: no-store (ver ficha/route.ts), mas isso só evita que o
+    // NAVEGADOR guarde a resposta — em alguns tablets o visualizador de PDF
+    // do próprio aparelho/app reabre, pela MESMA url, uma cópia já aberta
+    // antes sem nem consultar o servidor de novo. Forçando a url a ser
+    // sempre diferente, essa camada nunca tem uma cópia "igual" pra
+    // reaproveitar. Foi assim que a ficha de um colaborador ficou
+    // mostrando, num tablet, uma entrega faltando e um campo de assinatura
+    // já removido — tudo coisa de uma ficha antiga, de antes da última
+    // visita, reaberta sem buscar a versão atual.
+    window.open(
+      `/colaboradores/${colaboradorId}/ficha?t=${Date.now()}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  }
+
   return (
     <a
       href={`/colaboradores/${colaboradorId}/ficha`}
@@ -39,7 +59,7 @@ export function VisualizarFichaButton({
       rel="noopener noreferrer"
       title="Visualizar ficha de EPI"
       aria-label={`Visualizar ficha de EPI de ${colaboradorNome}`}
-      onClick={(e) => e.stopPropagation()}
+      onClick={abrir}
       className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted transition hover:bg-brand-50 hover:text-brand-700"
     >
       <EyeIcon />

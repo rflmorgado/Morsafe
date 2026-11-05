@@ -134,7 +134,23 @@ export function DesligarColaboradorButton({
               href={`/colaboradores/${colaboradorId}/ficha?download=1`}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => setFichaBaixada(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                // ?t= único a cada clique — mesmo motivo de
+                // visualizar-ficha-button.tsx/baixar-ficha-button.tsx: evita
+                // que o navegador/aparelho reabra uma cópia antiga da ficha
+                // em vez de buscar a atual. Crítico aqui especificamente,
+                // já que este download é a etapa formal de conformidade
+                // NR-06 antes do desligamento — a pessoa precisa levar o
+                // histórico de EPI atualizado, não uma versão desatualizada
+                // só porque o aparelho dela guardou uma cópia de antes.
+                window.open(
+                  `/colaboradores/${colaboradorId}/ficha?download=1&t=${Date.now()}`,
+                  "_blank",
+                  "noopener,noreferrer",
+                );
+                setFichaBaixada(true);
+              }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-brand-700 transition hover:bg-brand-50"
             >
               ⬇ Baixar ficha (PDF)

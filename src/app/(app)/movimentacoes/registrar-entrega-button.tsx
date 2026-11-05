@@ -183,59 +183,82 @@ export function RegistrarEntregaButton({
       }
 
       startTransition(async () => {
-        const result = await criarSolicitacaoAssinatura({
-          estacaoId,
-          colaboradorNome,
-          epiNome: epiNomeResumo,
-          tipo: "entrega",
-        });
-        if (result.error || !result.id) {
-          setError(result.error ?? "Não foi possível enviar pra estação.");
-          return;
+        // Sem try/catch aqui, uma exceção (rede instável, timeout — mais
+        // comum no wifi de um tablet do que no cabo/wifi fixo de um PC)
+        // ficava sem nenhum aviso: o pending volta a false, o botão some do
+        // modo "aguardando", mas nada é registrado e nenhum erro aparece —
+        // exatamente o relato de "no tablet não está acontecendo".
+        try {
+          const result = await criarSolicitacaoAssinatura({
+            estacaoId,
+            colaboradorNome,
+            epiNome: epiNomeResumo,
+            tipo: "entrega",
+          });
+          if (result.error || !result.id) {
+            setError(result.error ?? "Não foi possível enviar pra estação.");
+            return;
+          }
+          setPedidoPendente({
+            solicitacaoId: result.id,
+            campos: {
+              colaborador_id: colaboradorId,
+              data,
+              hora,
+              itens: itens.map((i) => ({
+                epiId: i.epiId,
+                motivo: i.motivo,
+                quantidade: i.quantidade,
+              })),
+            },
+          });
+        } catch (err) {
+          console.error("registrar-entrega (estação):", err);
+          setError(
+            "Não foi possível enviar o pedido pra estação. Verifique a conexão e tente novamente.",
+          );
         }
-        setPedidoPendente({
-          solicitacaoId: result.id,
-          campos: {
-            colaborador_id: colaboradorId,
-            data,
-            hora,
-            itens: itens.map((i) => ({
-              epiId: i.epiId,
-              motivo: i.motivo,
-              quantidade: i.quantidade,
-            })),
-          },
-        });
       });
       return;
     }
 
     startTransition(async () => {
-      const fd = new FormData();
-      fd.set("colaborador_id", colaboradorId);
-      fd.set("data", data);
-      fd.set("hora", hora);
-      fd.set(
-        "itens",
-        serializarItensEntrega(
-          itens.map((i) => ({
-            epi_id: i.epiId,
-            motivo: i.motivo,
-            quantidade: i.quantidade,
-          })),
-        ),
-      );
-      fd.set("assinatura_url", String(formData.get("assinatura_url") ?? ""));
+      // Mesmo motivo do catch acima: sem isto, uma falha de rede ou exceção
+      // ao chamar a Server Action (payload grande da assinatura em telas
+      // de alta resolução, timeout, sessão expirada etc.) não aparecia pro
+      // usuário — o formulário só "não fazia nada".
+      try {
+        const fd = new FormData();
+        fd.set("colaborador_id", colaboradorId);
+        fd.set("data", data);
+        fd.set("hora", hora);
+        fd.set(
+          "itens",
+          serializarItensEntrega(
+            itens.map((i) => ({
+              epi_id: i.epiId,
+              motivo: i.motivo,
+              quantidade: i.quantidade,
+            })),
+          ),
+        );
+        fd.set("assinatura_url", String(formData.get("assinatura_url") ?? ""));
 
-      const result = await registrarEntrega({ error: null }, fd);
-      if (result.error) {
-        setError(result.error);
-        return;
+        const result = await registrarEntrega({ error: null }, fd);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setOpen(false);
+        setFormKey((k) => k + 1);
+        setAssinaturaColetada(false);
+        resetarItens();
+      } catch (err) {
+        console.error("registrarEntrega:", err);
+        setError(
+          "Não foi possível registrar a entrega. Verifique a conexão e tente novamente.",
+        );
       }
-      setOpen(false);
-      setFormKey((k) => k + 1);
-      setAssinaturaColetada(false);
-      resetarItens();
     });
   }
 
@@ -247,45 +270,59 @@ export function RegistrarEntregaButton({
     let cancelado = false;
 
     const id = setInterval(async () => {
-      const result = await buscarStatusSolicitacao(
-        pedidoPendente.solicitacaoId,
-      );
-      if (cancelado) return;
-
-      if (result.status === "assinado" && result.assinaturaUrl) {
-        clearInterval(id);
-        const fd = new FormData();
-        fd.set("colaborador_id", pedidoPendente.campos.colaborador_id);
-        fd.set("data", pedidoPendente.campos.data);
-        fd.set("hora", pedidoPendente.campos.hora);
-        fd.set(
-          "itens",
-          serializarItensEntrega(
-            pedidoPendente.campos.itens.map((i) => ({
-              epi_id: i.epiId,
-              motivo: i.motivo,
-              quantidade: i.quantidade,
-            })),
-          ),
+      // Uma falha isolada aqui (rede do tablet soltando por um instante
+      // entre dois polls) não deve derrubar o pedido pendente inteiro — só
+      // loga e deixa o próximo tick tentar de novo. Mas uma exceção DENTRO
+      // do bloco que já recebeu a assinatura e está chamando registrarEntrega
+      // precisa aparecer pro usuário, senão a assinatura chega, o registro
+      // falha silenciosamente, e a tela fica presa em "aguardando assinatura"
+      // pra sempre (ou peior, o colaborador já assinou e acha que terminou).
+      try {
+        const result = await buscarStatusSolicitacao(
+          pedidoPendente.solicitacaoId,
         );
-        fd.set("assinatura_url", result.assinaturaUrl);
-
-        const final = await registrarEntrega({ error: null }, fd);
         if (cancelado) return;
-        if (final.error) {
-          setError(final.error);
+
+        if (result.status === "assinado" && result.assinaturaUrl) {
+          clearInterval(id);
+          const fd = new FormData();
+          fd.set("colaborador_id", pedidoPendente.campos.colaborador_id);
+          fd.set("data", pedidoPendente.campos.data);
+          fd.set("hora", pedidoPendente.campos.hora);
+          fd.set(
+            "itens",
+            serializarItensEntrega(
+              pedidoPendente.campos.itens.map((i) => ({
+                epi_id: i.epiId,
+                motivo: i.motivo,
+                quantidade: i.quantidade,
+              })),
+            ),
+          );
+          fd.set("assinatura_url", result.assinaturaUrl);
+
+          const final = await registrarEntrega({ error: null }, fd);
+          if (cancelado) return;
+          if (final.error) {
+            setError(final.error);
+            setPedidoPendente(null);
+            return;
+          }
+          setOpen(false);
+          setFormKey((k) => k + 1);
           setPedidoPendente(null);
-          return;
+          setAssinaturaColetada(false);
+          resetarItens();
+        } else if (
+          result.status === "cancelado" ||
+          result.status === "expirado"
+        ) {
+          clearInterval(id);
+          setError("O pedido de assinatura foi cancelado.");
+          setPedidoPendente(null);
         }
-        setOpen(false);
-        setFormKey((k) => k + 1);
-        setPedidoPendente(null);
-        setAssinaturaColetada(false);
-        resetarItens();
-      } else if (result.status === "cancelado" || result.status === "expirado") {
-        clearInterval(id);
-        setError("O pedido de assinatura foi cancelado.");
-        setPedidoPendente(null);
+      } catch (err) {
+        console.error("poll solicitacao-assinatura:", err);
       }
     }, INTERVALO_POLL_MS);
 

@@ -121,10 +121,20 @@ export async function GET(request: Request) {
     });
   }
 
+  // Aceita o token tanto no header Authorization (padrão de servidor pra
+  // servidor, igual ao cron de inadimplência) quanto num parâmetro de URL
+  // (?token=) — a rotina que dispara esta checagem hoje é um agente que só
+  // tem uma ferramenta de busca na web genérica disponível, sem como
+  // anexar um header customizado numa requisição. Query param é um pouco
+  // menos ideal que header (pode acabar em log de acesso), mas aceitável
+  // aqui: a rota é só leitura, não expõe dado nenhum de cliente, só um
+  // "ok: true/false".
   const authHeader = request.headers.get("authorization");
-  const tokenRecebido = authHeader?.startsWith("Bearer ")
+  const tokenDoHeader = authHeader?.startsWith("Bearer ")
     ? authHeader.slice("Bearer ".length)
     : null;
+  const tokenDaQuery = new URL(request.url).searchParams.get("token");
+  const tokenRecebido = tokenDoHeader ?? tokenDaQuery;
   if (!tokenValido(tokenRecebido, segredoEsperado)) {
     console.error("Cron verificacao-diaria: token inválido ou ausente.");
     return new Response("Não autorizado.", { status: 401 });

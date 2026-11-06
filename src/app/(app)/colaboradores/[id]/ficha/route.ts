@@ -10,6 +10,11 @@ import { createClient } from "@/lib/supabase/server";
 import { registrarLogAuditoria } from "@/lib/data/log-auditoria";
 import { criarVerificacaoDocumento } from "@/lib/data/verificacao-documento";
 
+// Força geração sob demanda a cada chamada — sem isso, o Next/Vercel pode
+// tratar este GET como estático e servir uma versão em cache da ficha (ver
+// nota maior abaixo, no cabeçalho Cache-Control da resposta).
+export const dynamic = "force-dynamic";
+
 const TIPO_LABEL: Record<string, string> = {
   entrega: "Entrega",
   devolucao: "Devolução",
@@ -23,9 +28,19 @@ function formatDate(value: string) {
 // Usado só na linha "Registrado por" de cada evento (ver mais abaixo) —
 // diferente de formatDate, mostra também a hora, porque vem de criado_em
 // (timestamp do servidor), não do "data"/"hora" digitado no formulário.
+//
+// `criado_em` é gravado em UTC (timestamptz, ver morsafe-schema.sql). Sem o
+// `timeZone` abaixo, toLocaleDateString/toLocaleTimeString formatam usando o
+// fuso do processo Node — na Vercel isso é UTC, então o horário exibido
+// ficava 3h à frente do horário real de Brasília (mesmo bug já corrigido em
+// usuarios/[id]/historico/page.tsx). Fixando o fuso aqui, o horário bate com
+// o horário local de quem registrou o evento, não importa onde o servidor
+// está rodando.
 function formatDateTime(iso: string) {
   const d = new Date(iso);
-  return `${d.toLocaleDateString("pt-BR")} às ${d.toLocaleTimeString("pt-BR", {
+  const opcoes = { timeZone: "America/Sao_Paulo" } as const;
+  return `${d.toLocaleDateString("pt-BR", opcoes)} às ${d.toLocaleTimeString("pt-BR", {
+    ...opcoes,
     hour: "2-digit",
     minute: "2-digit",
   })}`;
@@ -34,7 +49,7 @@ function formatDateTime(iso: string) {
 function sanitizeFileName(nome: string) {
   return nome
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]+/g, "-")
     .toLowerCase();
 }
@@ -53,22 +68,25 @@ export async function GET(
   // alguém, então força o download de verdade via ?download=1.
   const forcarDownload = new URL(request.url).searchParams.has("download");
 
-  const [colaborador, user] = await Promise.all([
-    getColaboradorDetalhe(id),
-    getCurrentUser(),
-  ]);
+  // Precisa do usuário logado ANTES de buscar o colaborador (ver
+  // getColaboradorDetalhe, que agora exige empresaId pra conferir que o
+  // colaborador pertence à mesma empresa de quem está pedindo a ficha) —
+  // não dá mais pra buscar os dois em paralelo com Promise.all como antes.
+  const user = await getCurrentUser();
 
   // O proxy (middleware) já bloqueia quem não está logado antes de chegar
   // aqui, mas confirmamos de novo — abrir/baixar a ficha é permitido pra
   // qualquer papel autenticado (inclusive "leitura"), então não há checagem
-  // de papel, só de sessão. O isolamento entre empresas fica por conta do
-  // RLS em getColaboradorDetalhe.
+  // de papel, só de sessão. O isolamento entre empresas agora é conferido
+  // explicitamente dentro de getColaboradorDetalhe, além do RLS.
   if (!user) {
     return NextResponse.json(
       { error: "Sessão expirada. Faça login novamente." },
       { status: 401 },
     );
   }
+
+  const colaborador = await getColaboradorDetalhe(id, user.empresaId);
 
   if (!colaborador) {
     return NextResponse.json(
@@ -96,6 +114,15 @@ export async function GET(
       : Promise.resolve(),
     user.empresaId ? getEmpresaAtual(user.empresaId) : Promise.resolve(null),
   ]);
+
+  // Logo a mostrar no topo da ficha: o da unidade/filial do grupo do
+  // colaborador (ex: Vinitrade, separada da ViniPlast — ver /empresa) tem
+  // prioridade, porque identifica visualmente a qual empresa do grupo esse
+  // colaborador pertence; cai no logo da empresa como reserva quando o
+  // colaborador não tem unidade com logo próprio (a maioria dos clientes do
+  // MorSafe, que têm uma unidade só) — ver unidadeLogoUrl em
+  // getColaboradorDetalhe, lib/data/colaboradores.ts.
+  const logoParaFicha = colaborador.unidadeLogoUrl ?? empresa?.logoUrl ?? null;
 
   const pdfDoc = await PDFDocument.create();
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -253,9 +280,9 @@ export async function GET(
   const LOGO_GAP_ABAIXO = 30;
 
   const topoHeaderY = y;
-  if (empresa?.logoUrl) {
+  if (logoParaFicha) {
     try {
-      const base64 = empresa.logoUrl.split(",")[1] ?? "";
+      const base64 = logoParaFicha.split(",")[1] ?? "";
       const logoImagem = await pdfDoc.embedPng(Buffer.from(base64, "base64"));
       const escala = Math.min(
         LOGO_MAX_LARGURA / logoImagem.width,
@@ -386,7 +413,7 @@ export async function GET(
   } else {
     // Layout compacto — uma linha de título + uma linha de detalhe por
     // registro (sem quebra, ver fitSingleLine), com a assinatura ao lado
-    // direito, em vez de abaixo do texto. Isso reduz a
+    // direito, na frente do item, em vez de abaixo do texto. Isso reduz a
     // altura de cada linha de ~95pt (layout anterior, com assinatura
     // embaixo) para ~36pt, essencial pra colaboradores antigos com dezenas
     // de registros não gerarem fichas de centenas de páginas.
@@ -417,12 +444,190 @@ export async function GET(
     });
     y -= 14;
 
+    // Quantos eventos de ENTREGA existem em cada grupo_entrega_id — pedido
+    // do Rafael, 06/10/2026 ("adicione mais itens... esses pedidos devem
+    // sair e conter a assinatura"): quando várias EPIs são entregues de uma
+    // vez (ver "+ Adicionar outro item" em registrar-entrega-button.tsx), a
+    // ficha deve mostrar isso como UM registro com UMA assinatura, não como
+    // N linhas quase idênticas repetindo a mesma miniatura de assinatura.
+    //
+    // Só entra no caminho de bloco agrupado (desenharBlocoEntregaAgrupada,
+    // abaixo) quando o grupo tem de fato mais de 1 item — um grupo de 1 item
+    // só, ou um evento sem grupoEntregaId (todo o histórico anterior a esta
+    // coluna existir), desenha exatamente como sempre desenhou, pelo código
+    // de linha única logo abaixo, sem nenhuma mudança de comportamento.
+    const contagemPorGrupo = new Map<string, number>();
     for (const evento of colaborador.eventos) {
+      if (evento.tipo === "entrega" && evento.grupoEntregaId) {
+        contagemPorGrupo.set(
+          evento.grupoEntregaId,
+          (contagemPorGrupo.get(evento.grupoEntregaId) ?? 0) + 1,
+        );
+      }
+    }
+    const gruposJaDesenhados = new Set<string>();
+
+    // Desenha um grupo de 2+ entregas feitas no mesmo pedido como UM bloco:
+    // um título ("Entrega — N itens"), uma linha por item, "Registrado por"
+    // uma vez só, e a MESMA miniatura de assinatura (todas as linhas do
+    // grupo compartilham o mesmo assinatura_url, gravado assim desde a
+    // origem em registrarEntrega — ver movimentacoes/actions.ts) centralizada
+    // ao lado, em vez de repetida em cada linha. Reaproveita exatamente as
+    // mesmas constantes (ASSINATURA_LARGURA etc.) e os mesmos helpers
+    // (ensureSpace/fitSingleLine) do bloco de evento único logo abaixo — só
+    // a forma de montar o texto muda.
+    async function desenharBlocoEntregaAgrupada(
+      itensDoGrupo: NonNullable<typeof colaborador>["eventos"],
+    ) {
+      const primeiro = itensDoGrupo[0];
+
+      let assinaturaImagem: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null =
+        null;
+      let assinaturaAltura = 0;
+      if (primeiro.assinaturaUrl) {
+        try {
+          const base64 = primeiro.assinaturaUrl.split(",")[1] ?? "";
+          assinaturaImagem = await pdfDoc.embedPng(
+            Buffer.from(base64, "base64"),
+          );
+          assinaturaAltura =
+            ASSINATURA_LARGURA *
+            (assinaturaImagem.height / assinaturaImagem.width);
+        } catch (e) {
+          console.error("ficha: falha ao incorporar assinatura (grupo):", e);
+          assinaturaImagem = null;
+        }
+      }
+
+      // Mesma progressão de alturas do bloco de evento único (título a 0,
+      // primeira linha a -11, 9pt entre linhas seguintes, +8 de respiro no
+      // final) — só que com N linhas de item em vez de uma linha de detalhe
+      // fixa. Calculado ANTES de desenhar porque ensureSpace precisa saber o
+      // espaço total de antemão, pra decidir se quebra de página aqui.
+      const alturaTexto = 28 + 9 * itensDoGrupo.length;
+      const alturaLinha = Math.max(alturaTexto, assinaturaAltura);
+      ensureSpace(alturaLinha + 14);
+
+      const topoLinhaY = y;
+      const larguraMaximaTexto = assinaturaImagem
+        ? pageWidth - marginX * 2 - ASSINATURA_LARGURA - GAP_ASSINATURA
+        : pageWidth - marginX * 2;
+
+      const tituloTexto = fitSingleLine(
+        `Entrega — ${itensDoGrupo.length} itens`,
+        fontBold,
+        TITULO_SIZE,
+        larguraMaximaTexto,
+      );
+      page.drawText(tituloTexto, {
+        x: marginX,
+        y: topoLinhaY,
+        size: TITULO_SIZE,
+        font: fontBold,
+        color: textDark,
+      });
+
+      let linhaY = topoLinhaY - 11;
+      const detalheCabecalho = fitSingleLine(
+        `${formatDate(primeiro.data)} · ${itensDoGrupo.length} itens entregues juntos, mesma assinatura`,
+        fontRegular,
+        DETALHE_SIZE,
+        larguraMaximaTexto,
+      );
+      page.drawText(detalheCabecalho, {
+        x: marginX,
+        y: linhaY,
+        size: DETALHE_SIZE,
+        font: fontRegular,
+        color: textMuted,
+      });
+
+      for (const item of itensDoGrupo) {
+        linhaY -= 9;
+        const caLabel = item.ca ? ` (CA ${item.ca})` : "";
+        const qtdLabel =
+          typeof item.quantidade === "number" ? ` · Qtd: ${item.quantidade}` : "";
+        const itemTexto = fitSingleLine(
+          `• ${item.epi}${caLabel}${qtdLabel} — ${item.detalhe}`,
+          fontRegular,
+          DETALHE_SIZE,
+          larguraMaximaTexto,
+        );
+        page.drawText(itemTexto, {
+          x: marginX,
+          y: linhaY,
+          size: DETALHE_SIZE,
+          font: fontRegular,
+          color: textDark,
+        });
+      }
+
+      linhaY -= 9;
+      const responsavelTexto = primeiro.criadoEm
+        ? fitSingleLine(
+            primeiro.responsavelNome
+              ? `Registrado por ${primeiro.responsavelNome} em ${formatDateTime(primeiro.criadoEm)}`
+              : `Registrado em ${formatDateTime(primeiro.criadoEm)}`,
+            fontRegular,
+            RESPONSAVEL_SIZE,
+            larguraMaximaTexto,
+          )
+        : "Registro sem responsável/data de lançamento identificados";
+      page.drawText(responsavelTexto, {
+        x: marginX,
+        y: linhaY,
+        size: RESPONSAVEL_SIZE,
+        font: fontRegular,
+        color: textMuted,
+      });
+
+      if (assinaturaImagem) {
+        const imgX = pageWidth - marginX - ASSINATURA_LARGURA;
+        const imgY = topoLinhaY - (alturaLinha + assinaturaAltura) / 2 + 4;
+        page.drawImage(assinaturaImagem, {
+          x: imgX,
+          y: imgY,
+          width: ASSINATURA_LARGURA,
+          height: assinaturaAltura,
+        });
+      }
+
+      y = topoLinhaY - alturaLinha - 6;
+      page.drawLine({
+        start: { x: marginX, y },
+        end: { x: pageWidth - marginX, y },
+        thickness: 0.5,
+        color: lineColor,
+      });
+      y -= 10;
+    }
+
+    for (const evento of colaborador.eventos) {
+      if (
+        evento.tipo === "entrega" &&
+        evento.grupoEntregaId &&
+        (contagemPorGrupo.get(evento.grupoEntregaId) ?? 0) > 1
+      ) {
+        if (gruposJaDesenhados.has(evento.grupoEntregaId)) continue;
+        gruposJaDesenhados.add(evento.grupoEntregaId);
+        const itensDoGrupo = colaborador.eventos.filter(
+          (e) => e.tipo === "entrega" && e.grupoEntregaId === evento.grupoEntregaId,
+        );
+        await desenharBlocoEntregaAgrupada(itensDoGrupo);
+        continue;
+      }
+
       let assinaturaImagem: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null =
         null;
       let assinaturaAltura = 0;
 
-      if (evento.tipo === "entrega" && evento.assinaturaUrl) {
+      // Entrega e devolução podem ter assinatura (recusa nunca tem) — ver
+      // comentário em lib/data/colaboradores.ts sobre devoluções antigas,
+      // de antes da coluna assinatura_url existir, ficarem sem imagem aqui.
+      if (
+        (evento.tipo === "entrega" || evento.tipo === "devolucao") &&
+        evento.assinaturaUrl
+      ) {
         try {
           const base64 = evento.assinaturaUrl.split(",")[1] ?? "";
           assinaturaImagem = await pdfDoc.embedPng(
@@ -525,90 +730,47 @@ export async function GET(
     }
   }
 
-  // Área de assinaturas — colaborador e responsável pela entrega (nem
-  // sempre um técnico de segurança, por isso o rótulo genérico).
-  ensureSpace(120);
+  // Validação do documento — substitui o antigo bloco de duas colunas com
+  // linha pontilhada pra assinatura "no papel" (discussão com o Rafael,
+  // 04/11/2026). Dois problemas com o bloco antigo: (1) ele sinalizava que a
+  // ficha precisava ser impressa e assinada à caneta, contradizendo a
+  // proposta 100% digital do produto; (2) o campo "Assinatura do responsável
+  // pela entrega" era redundante — cada evento do histórico acima já mostra
+  // quem registrou e quando ("Registrado por..."), de forma mais precisa
+  // (carimbo de data/hora do servidor por evento) do que uma única
+  // assinatura genérica no fim do documento, e não dá conta de quando mais
+  // de uma pessoa faz entregas ou existe mais de um ponto de coleta.
+  //
+  // A NR-06, item 6.6.1, alínea "g", já prevê expressamente o registro do
+  // fornecimento de EPI por "sistema eletrônico" (não só livros/fichas em
+  // papel) — não existe exigência normativa de assinatura física. O que
+  // precisa estar provado é que o colaborador recebeu o EPI e foi orientado
+  // sobre o uso, e isso já está coberto pela assinatura digital capturada
+  // em cada evento do histórico, mais o código de verificação abaixo.
+  ensureSpace(90);
   y -= 20;
-  const colWidth = (pageWidth - marginX * 2 - 24) / 2;
-  const col1X = marginX;
-  const col2X = marginX + colWidth + 24;
-  const signatureLineY = y;
-
-  page.drawLine({
-    start: { x: col1X, y: signatureLineY },
-    end: { x: col1X + colWidth, y: signatureLineY },
-    thickness: 0.8,
-    color: textMuted,
-  });
-  page.drawLine({
-    start: { x: col2X, y: signatureLineY },
-    end: { x: col2X + colWidth, y: signatureLineY },
-    thickness: 0.8,
-    color: textMuted,
-  });
-  y -= 14;
-  page.drawText("Assinatura do colaborador", {
-    x: col1X,
-    y,
-    size: 9.5,
-    font: fontBold,
-    color: textDark,
-  });
-  page.drawText("Assinatura do responsável pela entrega", {
-    x: col2X,
-    y,
-    size: 9.5,
-    font: fontBold,
-    color: textDark,
-  });
-  y -= 13;
-  page.drawText(colaborador.nome, {
-    x: col1X,
-    y,
-    size: 9,
-    font: fontRegular,
-    color: textMuted,
-  });
-  page.drawText("Nome: ____________________________", {
-    x: col2X,
-    y,
-    size: 9,
-    font: fontRegular,
-    color: textMuted,
-  });
-  y -= 16;
-  page.drawText("Data: ____ / ____ / ________", {
-    x: col1X,
-    y,
-    size: 9,
-    font: fontRegular,
-    color: textMuted,
-  });
-  page.drawText("Data: ____ / ____ / ________", {
-    x: col2X,
-    y,
-    size: 9,
-    font: fontRegular,
-    color: textMuted,
-  });
-
-  // Nota de conformidade — de onde vem o embasamento legal do modelo.
-  y -= 26;
-  ensureSpace(30);
   page.drawLine({
     start: { x: marginX, y },
     end: { x: pageWidth - marginX, y },
     thickness: 0.5,
     color: lineColor,
   });
-  y -= 14;
+  y -= 16;
+  page.drawText("Validação do documento", {
+    x: marginX,
+    y,
+    size: 11.5,
+    font: fontBold,
+    color: textDark,
+  });
+  y -= 17;
   drawWrappedText(
-    "O MorSafe verificou a legislação vigente para elaborar este modelo de ficha, com base na NR-06 – Equipamento de Proteção Individual (Portaria MTb nº 3.214, de 8 de junho de 1978), que estabelece a obrigatoriedade de registro da entrega de EPI ao colaborador.",
+    `As assinaturas digitais de cada entrega, devolução ou recusa foram coletadas eletronicamente no momento do evento (ver histórico acima), nos termos da NR-06 – Equipamento de Proteção Individual (Portaria MTb nº 3.214, de 8 de junho de 1978), item 6.6.1, alínea "g", que prevê o registro do fornecimento de EPI por sistema eletrônico. A autenticidade deste documento pode ser conferida a qualquer momento através do código de verificação abaixo.`,
     {
-      size: 8,
+      size: 9,
       font: fontRegular,
-      color: textMuted,
-      lineHeight: 11,
+      color: textDark,
+      lineHeight: 12.5,
       maxWidth: pageWidth - marginX * 2,
     },
   );
@@ -710,6 +872,17 @@ export async function GET(
       "Content-Disposition": `${forcarDownload ? "attachment" : "inline"}; filename="ficha-epi-${sanitizeFileName(
         colaborador.nome,
       )}.pdf"`,
+      // Sem isso, a ficha pode ficar presa em cache no navegador/tablet (ou
+      // em algum proxy/CDN no meio do caminho) na versão de ANTES de uma
+      // mudança de conteúdo do PDF — foi exatamente o que aconteceu em
+      // 05/11/2026: depois de trocar o bloco de assinatura manual pelo texto
+      // de validação (commit 71fd8ba), quem já tinha aberto a ficha de um
+      // colaborador antes da mudança continuou vendo a versão antiga dela,
+      // mesmo em empresas diferentes, até fechar/limpar o cache daquele
+      // aparelho — o PDF é sempre regerado na hora com os dados mais
+      // recentes, então nunca é seguro cacheá-lo.
+      "Cache-Control": "no-store, must-revalidate",
+      Pragma: "no-cache",
     },
   });
 }

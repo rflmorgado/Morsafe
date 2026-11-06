@@ -144,10 +144,16 @@ export function DashboardSuperAdmin({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+      {/* Mesmo tratamento do Dashboard operacional (ver dashboard/page.tsx)
+          — tone="brand" só pra manter as duas versões consistentes, pedido
+          do Rafael, 06/11/2026. */}
+      <Card
+        tone="brand"
+        className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
+      >
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Olá, {nome.split(" ")[0]}
+            Olá, {nome.split(" ")[0]} 👋
           </h1>
           <p className="mt-0.5 text-[13px] text-text-secondary">
             Painel do MorSafe · {hoje}
@@ -159,7 +165,7 @@ export function DashboardSuperAdmin({
         >
           + Nova empresa
         </Link>
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard

@@ -248,10 +248,19 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+      {/* Card de saudação com fundo tingido (tone="brand") — pedido do
+          Rafael, 06/11/2026, pra dar ritmo visual à tela em vez de todo
+          card ser branco (comparando com dashboards de referência). Sem
+          gráfico/dado de status aqui dentro, só texto e o botão primário,
+          então não mexe com nenhuma paleta já validada contra --surface
+          (ver comentário em card.tsx). */}
+      <Card
+        tone="brand"
+        className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
+      >
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Olá, {user?.nome?.split(" ")[0] ?? "colaborador"}
+            Olá, {user?.nome?.split(" ")[0] ?? "colaborador"} 👋
           </h1>
           <p className="mt-0.5 text-[13px] text-text-secondary">
             {user?.empresaNome ?? "MorSafe"} · {hoje}
@@ -264,7 +273,7 @@ export default async function DashboardPage() {
             estacoes={estacoesAtivas}
           />
         )}
-      </div>
+      </Card>
 
       {/* xl:grid-cols-4 (não lg:) — mesmo motivo do xl:text-[20px] em
           kpi-card.tsx: a 4 colunas, o container (travado em 1180px a

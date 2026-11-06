@@ -114,14 +114,24 @@ function NavLinks({
                 href={item.href}
                 onClick={onNavigate}
                 className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition ${
+                  // Pedido do Rafael, 06/11/2026: comparando com outras
+                  // plataformas de referência (dashboards tipo Mindweave),
+                  // o destaque do item ativo ficava fraco demais
+                  // (bg-white/10 — um véu quase imperceptível sobre o verde
+                  // já escuro do --brand-950). Trocado por um "pill" sólido
+                  // na cor de marca já usada nos botões primários
+                  // (bg-brand-700, ver .bg-brand-700 em globals.css), com
+                  // uma sombra sutil pra dar profundidade — mesma lógica
+                  // visual de "isto é uma superfície elevada e ativa" que
+                  // os botões já têm, aplicada à navegação.
                   active
-                    ? "bg-white/10 text-white"
+                    ? "bg-brand-700 text-white shadow-[0_2px_10px_-2px_rgba(0,0,0,0.45)]"
                     : "text-white/70 hover:bg-white/5 hover:text-white/90"
                 }`}
               >
                 {Icon && (
                   <Icon
-                    className={`h-4 w-4 shrink-0 ${active ? "text-brand-400" : "text-white/40"}`}
+                    className={`h-4 w-4 shrink-0 ${active ? "text-white" : "text-white/40"}`}
                   />
                 )}
                 <span className="leading-tight">{item.label}</span>

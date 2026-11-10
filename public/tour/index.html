@@ -69,8 +69,11 @@ img{max-width:100%;display:block;}
   padding-right:max(16px, env(safe-area-inset-right,0px));
   display:flex;flex-direction:column;align-items:flex-start;gap:18px;
 }
-.hero-badge{width:52px;height:52px;flex:none;}
-.hero-badge img{width:100%;height:100%;filter:brightness(0) invert(1);}
+.hero-badge{width:64px;height:64px;flex:none;}
+/* Logo oficial (escudo, public/tour/logo.png = public/brand/shield.png) exibido como é.
+   Antes havia filter:brightness(0) invert(1), que só serve pra logo com fundo transparente;
+   este PNG tem fundo verde opaco, então o filtro virava um quadrado branco (10/11/2026). */
+.hero-badge img{width:100%;height:100%;border-radius:14px;display:block;}
 .hero h1{font-size:clamp(28px,7vw,38px);font-weight:800;line-height:1.08;letter-spacing:-0.01em;}
 .hero .tagline{
   font-family:var(--font-mono);

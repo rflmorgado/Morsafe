@@ -123,6 +123,11 @@ export async function criarEmpresa(
   // existe neste formulário pra pular a criação de assinatura no Asaas.
   const plano = String(formData.get("plano") ?? "interno").trim();
   const valorEnterpriseBruto = String(formData.get("valorEnterprise") ?? "").trim();
+  // Campanha de Black Friday (10/11/2026): isenta a taxa de implantação dos
+  // primeiros clientes. Só vale pra plano comercial (o checkbox só aparece
+  // no formulário nesse caso) — a mensalidade continua sendo criada
+  // normalmente no Asaas, só a cobrança avulsa de implantação é pulada.
+  const isentarImplantacao = formData.get("isentarImplantacao") === "on";
 
   if (!empresaNome || !adminNome || !email) {
     return {
@@ -429,54 +434,59 @@ export async function criarEmpresa(
     // asaas_payment_id (não apaga, diferente de criarPagamento), porque
     // aqui ela serve de lembrete visível em /pagamentos de que a taxa
     // ainda precisa ser cobrada.
-    const vencimentoImplantacao = vencimentoTaxaImplantacao();
-    const { data: pagamentoImplantacao, error: implantacaoInsertError } =
-      await admin
-        .from("pagamentos_empresa")
-        .insert({
-          empresa_id: empresa.id,
-          valor: TAXA_IMPLANTACAO,
-          data_vencimento: vencimentoImplantacao,
-          observacao: "Taxa de implantação",
-        })
-        .select("id")
-        .maybeSingle();
-
-    if (implantacaoInsertError || !pagamentoImplantacao) {
-      console.error(
-        `criarEmpresa (insert taxa de implantação, empresa ${empresa.id}): ${implantacaoInsertError?.message}`,
-      );
-      avisoImplantacao =
-        "Empresa e assinatura criadas com sucesso, mas não foi possível registrar a taxa de implantação automaticamente. Lance manualmente em \"+ Novo pagamento\".";
-    } else if (asaasCustomerId) {
-      try {
-        const cobranca = await criarCobrancaAvulsaAsaas({
-          asaasCustomerId,
-          valor: TAXA_IMPLANTACAO,
-          vencimento: vencimentoImplantacao,
-          descricao: `Taxa de implantação MorSafe — ${empresaNome}`,
-          referenciaExterna: empresa.id,
-        });
-
-        const { error: atualizaImplantacaoError } = await admin
+    // Isenção da taxa de implantação (campanha): não cria linha local nem
+    // cobrança no Asaas — a empresa simplesmente nunca recebe essa fatura.
+    // O registro da isenção fica no histórico (log_auditoria, abaixo).
+    if (!isentarImplantacao) {
+      const vencimentoImplantacao = vencimentoTaxaImplantacao();
+      const { data: pagamentoImplantacao, error: implantacaoInsertError } =
+        await admin
           .from("pagamentos_empresa")
-          .update({
-            asaas_payment_id: cobranca.id,
-            asaas_invoice_url: cobranca.invoiceUrl,
+          .insert({
+            empresa_id: empresa.id,
+            valor: TAXA_IMPLANTACAO,
+            data_vencimento: vencimentoImplantacao,
+            observacao: "Taxa de implantação",
           })
-          .eq("id", pagamentoImplantacao.id);
+          .select("id")
+          .maybeSingle();
 
-        if (atualizaImplantacaoError) {
-          console.error(
-            `criarEmpresa: taxa de implantação criada no Asaas (${cobranca.id}) mas falhou ao gravar o id localmente (pagamento ${pagamentoImplantacao.id}): ${atualizaImplantacaoError.message}`,
-          );
+      if (implantacaoInsertError || !pagamentoImplantacao) {
+        console.error(
+          `criarEmpresa (insert taxa de implantação, empresa ${empresa.id}): ${implantacaoInsertError?.message}`,
+        );
+        avisoImplantacao =
+          "Empresa e assinatura criadas com sucesso, mas não foi possível registrar a taxa de implantação automaticamente. Lance manualmente em \"+ Novo pagamento\".";
+      } else if (asaasCustomerId) {
+        try {
+          const cobranca = await criarCobrancaAvulsaAsaas({
+            asaasCustomerId,
+            valor: TAXA_IMPLANTACAO,
+            vencimento: vencimentoImplantacao,
+            descricao: `Taxa de implantação MorSafe — ${empresaNome}`,
+            referenciaExterna: empresa.id,
+          });
+
+          const { error: atualizaImplantacaoError } = await admin
+            .from("pagamentos_empresa")
+            .update({
+              asaas_payment_id: cobranca.id,
+              asaas_invoice_url: cobranca.invoiceUrl,
+            })
+            .eq("id", pagamentoImplantacao.id);
+
+          if (atualizaImplantacaoError) {
+            console.error(
+              `criarEmpresa: taxa de implantação criada no Asaas (${cobranca.id}) mas falhou ao gravar o id localmente (pagamento ${pagamentoImplantacao.id}): ${atualizaImplantacaoError.message}`,
+            );
+          }
+        } catch (e) {
+          const mensagemAsaas = e instanceof AsaasError ? e.message : null;
+          console.error("criarEmpresa (taxa de implantação no Asaas):", e);
+          avisoImplantacao = mensagemAsaas
+            ? `Empresa e assinatura criadas com sucesso, mas a taxa de implantação não pôde ser cobrada no Asaas (${mensagemAsaas}). O lançamento ficou pendente em Cobranças — confira o CNPJ/dados do cliente e tente lançar de novo por lá se precisar.`
+            : "Empresa e assinatura criadas com sucesso, mas a taxa de implantação não pôde ser cobrada no Asaas. O lançamento ficou pendente em Cobranças.";
         }
-      } catch (e) {
-        const mensagemAsaas = e instanceof AsaasError ? e.message : null;
-        console.error("criarEmpresa (taxa de implantação no Asaas):", e);
-        avisoImplantacao = mensagemAsaas
-          ? `Empresa e assinatura criadas com sucesso, mas a taxa de implantação não pôde ser cobrada no Asaas (${mensagemAsaas}). O lançamento ficou pendente em Cobranças — confira o CNPJ/dados do cliente e tente lançar de novo por lá se precisar.`
-          : "Empresa e assinatura criadas com sucesso, mas a taxa de implantação não pôde ser cobrada no Asaas. O lançamento ficou pendente em Cobranças.";
       }
     }
   }
@@ -488,7 +498,11 @@ export async function criarEmpresa(
     registroId: empresa.id,
     acao: "criado",
     usuarioId: requester.id,
-    detalhes: { nome: empresaNome, plano: comercial ? plano : "interno" },
+    detalhes: {
+      nome: empresaNome,
+      plano: comercial ? plano : "interno",
+      ...(comercial && isentarImplantacao ? { implantacaoIsenta: true } : {}),
+    },
   });
 
   return { error: null, success: true, avisoImplantacao, avisoSenha };

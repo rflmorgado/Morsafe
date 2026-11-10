@@ -29,6 +29,11 @@ const DESCRICAO =
 // Turnstile, ver turnstile-widget.tsx, e usado nos links do site).
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.morsafe.com.br"),
+  // Verificação de propriedade no Google Search Console (10/11/2026) —
+  // vira <meta name="google-site-verification"> na página inicial. O valor é
+  // público por natureza (fica visível no HTML de qualquer visitante); não
+  // remover, senão o Google perde a confirmação de que o site é nosso.
+  verification: { google: "BVDZ2lhYYZ6sA3q9i86DZ7WKCUqJsu287riiakxu948" },
   title: TITULO,
   description: DESCRICAO,
   openGraph: {

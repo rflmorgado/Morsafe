@@ -123,11 +123,18 @@ export async function criarEmpresa(
   // existe neste formulário pra pular a criação de assinatura no Asaas.
   const plano = String(formData.get("plano") ?? "interno").trim();
   const valorEnterpriseBruto = String(formData.get("valorEnterprise") ?? "").trim();
-  // Campanha de Black Friday (10/11/2026): isenta a taxa de implantação dos
-  // primeiros clientes. Só vale pra plano comercial (o checkbox só aparece
-  // no formulário nesse caso) — a mensalidade continua sendo criada
-  // normalmente no Asaas, só a cobrança avulsa de implantação é pulada.
+  // Isenção da taxa de implantação — opção permanente do cadastro (10/11/2026,
+  // pedido do Rafael): serve tanto pra campanha de Black Friday quanto pra
+  // qualquer parceria/negociação futura em que ele queira dispensar a taxa.
+  // Só vale pra plano comercial (o checkbox só aparece no formulário nesse
+  // caso) — a mensalidade continua sendo criada normalmente no Asaas, só a
+  // cobrança avulsa de implantação é pulada. O motivo é opcional e fica só
+  // no histórico (log_auditoria), pra depois saber por que aquela empresa
+  // não pagou a taxa.
   const isentarImplantacao = formData.get("isentarImplantacao") === "on";
+  const motivoIsencao = String(formData.get("motivoIsencao") ?? "")
+    .trim()
+    .slice(0, 200);
 
   if (!empresaNome || !adminNome || !email) {
     return {
@@ -434,7 +441,7 @@ export async function criarEmpresa(
     // asaas_payment_id (não apaga, diferente de criarPagamento), porque
     // aqui ela serve de lembrete visível em /pagamentos de que a taxa
     // ainda precisa ser cobrada.
-    // Isenção da taxa de implantação (campanha): não cria linha local nem
+    // Isenção da taxa de implantação: não cria linha local nem
     // cobrança no Asaas — a empresa simplesmente nunca recebe essa fatura.
     // O registro da isenção fica no histórico (log_auditoria, abaixo).
     if (!isentarImplantacao) {
@@ -501,7 +508,12 @@ export async function criarEmpresa(
     detalhes: {
       nome: empresaNome,
       plano: comercial ? plano : "interno",
-      ...(comercial && isentarImplantacao ? { implantacaoIsenta: true } : {}),
+      ...(comercial && isentarImplantacao
+        ? {
+            implantacaoIsenta: true,
+            ...(motivoIsencao ? { motivoIsencao } : {}),
+          }
+        : {}),
     },
   });
 

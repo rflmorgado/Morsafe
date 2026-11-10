@@ -27,6 +27,8 @@ export function SetupEmpresaForm() {
   // criação de assinatura no Asaas — ver mesmo texto em actions.ts.
   const [plano, setPlano] = useState<string>("interno");
   const comercial = plano !== "interno";
+  // Campanha de Black Friday: isenta a taxa de implantação (ver actions.ts).
+  const [isentarImplantacao, setIsentarImplantacao] = useState(false);
 
   if (state.success) {
     return (
@@ -181,12 +183,39 @@ export function SetupEmpresaForm() {
         {comercial && (
           <div className="rounded-lg bg-surface-muted px-3.5 py-3 text-[12.5px] text-text-secondary">
             Ao salvar, esta empresa já sai com: assinatura mensal recorrente
-            no Asaas (vencimento sempre no dia 05), e a taxa de implantação
-            de <strong>{formatValorPlano(TAXA_IMPLANTACAO)}</strong>{" "}
-            (cobrança única, valor fixo, vencimento em 7 dias — tempo pra
-            implantação ficar pronta) lançada automaticamente — Pix,
-            boleto ou cartão, à escolha do cliente.
+            no Asaas (vencimento sempre no dia 05)
+            {isentarImplantacao ? (
+              <>
+                , <strong>sem taxa de implantação</strong> (isenta pela
+                campanha — nenhuma cobrança de implantação será gerada).
+              </>
+            ) : (
+              <>
+                , e a taxa de implantação de{" "}
+                <strong>{formatValorPlano(TAXA_IMPLANTACAO)}</strong>{" "}
+                (cobrança única, valor fixo, vencimento em 7 dias — tempo
+                pra implantação ficar pronta) lançada automaticamente — Pix,
+                boleto ou cartão, à escolha do cliente.
+              </>
+            )}
           </div>
+        )}
+
+        {comercial && (
+          <label className="flex items-start gap-2.5 rounded-lg border border-border-strong bg-surface px-3.5 py-3 text-[13px] text-foreground">
+            <input
+              type="checkbox"
+              name="isentarImplantacao"
+              checked={isentarImplantacao}
+              onChange={(e) => setIsentarImplantacao(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-brand-700"
+            />
+            <span>
+              <strong>Isentar taxa de implantação</strong> (campanha Black
+              Friday — vale para os 5 primeiros clientes que contratarem até
+              30/11/2026)
+            </span>
+          </label>
         )}
 
         {plano === "enterprise" && (

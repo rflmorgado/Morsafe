@@ -21,8 +21,14 @@ const DESCRICAO =
 // Aponta pro domínio de produção — os domínios extras (git-main, previews)
 // continuam funcionando normalmente, só a URL usada nas prévias de
 // compartilhamento é sempre a de produção.
+//
+// Corrigido em 10/11/2026: o valor aqui era o endereço padrão da Vercel
+// (morsafe-iota.vercel.app), não o domínio de verdade — o Google e as
+// prévias do WhatsApp/LinkedIn recebiam esse endereço nas meta tags. O
+// domínio oficial é www.morsafe.com.br (o mesmo cadastrado no Cloudflare
+// Turnstile, ver turnstile-widget.tsx, e usado nos links do site).
 export const metadata: Metadata = {
-  metadataBase: new URL("https://morsafe-iota.vercel.app"),
+  metadataBase: new URL("https://www.morsafe.com.br"),
   title: TITULO,
   description: DESCRICAO,
   openGraph: {

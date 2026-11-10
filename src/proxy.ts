@@ -42,6 +42,12 @@ export const config = {
     // redirecionado pra /login (confirmado: o vídeo sumia no site mesmo
     // com o arquivo já publicado certinho no GitHub). .mov incluído por
     // precaução, caso algum vídeo futuro seja exportado nesse formato.
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|webmanifest|mp4|webm|mov)$).*)",
+    //
+    // robots.txt e sitemap.xml incluídos em 10/11/2026: são rotas geradas
+    // pelo Next (src/app/robots.ts e sitemap.ts) que o Google precisa
+    // buscar SEM login — sem esta exceção cairiam na regra de baixo e
+    // seriam redirecionadas pra /login, igual aconteceu com o manifest e
+    // o vídeo acima.
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|webmanifest|mp4|webm|mov)$).*)",
   ],
 };

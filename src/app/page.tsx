@@ -158,8 +158,8 @@ const PARCEIROS = [
 const POR_QUE_CARDS = [
   {
     icon: IconShieldCheck,
-    title: "Conformidade com a NR-06",
-    desc: "Registros organizados e prontos para auditorias e fiscalizações.",
+    title: "Apoio à gestão da NR-06",
+    desc: "Registros organizados e fáceis de localizar em auditorias e fiscalizações.",
   },
   {
     icon: IconClock,
@@ -349,8 +349,8 @@ const COMO_FUNCIONA = [
 
 const FAQ = [
   {
-    q: "O MorSafe atende à NR-06?",
-    a: "Sim. O sistema foi desenhado em torno dos principais pontos de controle da NR-06 — registro de entrega com assinatura, controle de C.A., histórico de movimentações e auditoria — e gera relatórios prontos para apresentar numa fiscalização.",
+    q: "O MorSafe garante a conformidade com a NR-06?",
+    a: "O MorSafe apoia a gestão e a organização dos registros relacionados à NR-06 — registro de entrega com assinatura, controle de C.A., histórico de movimentações e auditoria — e gera relatórios para consulta em fiscalizações. A conformidade em si continua sendo responsabilidade da empresa, que define os EPIs, fornece, orienta e treina os colaboradores; o sistema é a ferramenta que organiza e comprova esses registros.",
   },
   {
     q: "Por que a MorSafe usa assinatura digital e não biometria?",
@@ -439,8 +439,8 @@ export default function Home() {
             </h1>
             <p className="mt-5 max-w-md text-[15.5px] leading-relaxed text-text-secondary">
               Registre entregas, controle o estoque, acompanhe o uso e gere
-              relatórios completos — tudo em um só sistema, pensado para a
-              conformidade com a NR-06.
+              relatórios completos — tudo em um só sistema, pensado para apoiar
+              a gestão dos registros da NR-06.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">

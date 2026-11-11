@@ -38,8 +38,8 @@ export default function PoliticaDePrivacidadePage() {
           trilha de auditoria, operada atualmente por{" "}
           <strong>Rafael Morgado</strong>, na qualidade de Fundador e Diretor
           responsável pela solução (&ldquo;MorSafe&rdquo;, &ldquo;nós&rdquo;).
-          Enquanto o processo de formalização da pessoa jurídica da MorSafe
-          está em andamento, Rafael Morgado assume pessoalmente, perante os
+          Enquanto a MorSafe não for constituída como pessoa jurídica
+          (CNPJ), Rafael Morgado assume pessoalmente, perante os
           titulares de dados e as empresas clientes, as obrigações e
           responsabilidades previstas nesta Política e na legislação de
           proteção de dados aplicável — sem prejuízo da atualização deste
@@ -174,10 +174,18 @@ export default function PoliticaDePrivacidadePage() {
           do controle de entrega de EPI durante todo o vínculo empregatício
           do colaborador, podendo a legislação trabalhista correlata exigir
           prazos adicionais de guarda. Encerrado o contrato com a empresa
-          cliente, os dados ficam disponíveis por um prazo razoável para fins
-          de exportação/transição, definido em conjunto com a empresa
-          cliente, sendo em seguida excluídos ou anonimizados, salvo
-          obrigação legal de retenção por prazo diverso.
+          cliente, a MorSafe disponibiliza a exportação final dos dados em
+          até 30 (trinta) dias. Em seguida, os dados são mantidos de forma
+          inativa (sem acesso de login) por 5 (cinco) anos, para
+          cumprimento de obrigação legal e resguardo de direitos em
+          eventual processo judicial, administrativo ou arbitral (art. 16,
+          incisos I e II, da LGPD) — inclusive em defesa da própria empresa
+          cliente em reclamações trabalhistas de ex-colaboradores
+          relacionadas à entrega de EPI. Transcorrido esse prazo, os dados
+          são anonimizados ou eliminados, salvo determinação legal em
+          sentido contrário. A empresa cliente pode solicitar a eliminação
+          antecipada, sendo informada previamente das consequências para
+          fins probatórios.
         </p>
       </LegalSection>
 

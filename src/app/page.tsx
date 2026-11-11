@@ -564,7 +564,7 @@ export default function Home() {
           </div>
 
           <a
-            href="/tour"
+            href="/demo"
             className="mt-8 inline-flex items-center gap-2 rounded-lg bg-brand-700 px-6 py-3 text-[13.5px] font-semibold text-white shadow-btn transition hover:bg-brand-800"
           >
             Explorar as telas você mesmo →

@@ -242,7 +242,7 @@ const FUNCIONALIDADES = [
       "Verificação por QR Code",
       "Pronta para imprimir ou anexar",
     ],
-    image: "/marketing/ficha-entrega-epi.webp",
+    image: "/marketing/ficha-entrega-epi-v2.webp",
     imageAlt:
       "Tela real do MorSafe mostrando a Ficha de Entrega de EPI em PDF, com termo de responsabilidade e QR Code de verificação",
     imageWidth: 758,
@@ -592,7 +592,7 @@ export default function Home() {
           <div className="relative mx-auto w-full max-w-sm">
             <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(18,53,36,0.06),0_20px_48px_rgba(18,53,36,0.16)]">
               <Image
-                src="/marketing/ficha-entrega-epi.webp"
+                src="/marketing/ficha-entrega-epi-v2.webp"
                 alt="Ficha de Entrega de EPI gerada pelo MorSafe, com termo de responsabilidade, assinatura e QR Code de verificação"
                 width={758}
                 height={1086}

@@ -51,9 +51,9 @@ export default function TermosDeUsoPage() {
         <p>
           A MorSafe é operada atualmente por <strong>Rafael Morgado</strong>,
           na qualidade de Fundador e Diretor responsável pela solução
-          (&ldquo;MorSafe&rdquo;, &ldquo;nós&rdquo;). Enquanto o processo de
-          formalização da pessoa jurídica da MorSafe está em andamento,
-          Rafael Morgado assume pessoalmente, perante as empresas clientes,
+          (&ldquo;MorSafe&rdquo;, &ldquo;nós&rdquo;). Enquanto a MorSafe não for
+          constituída como pessoa jurídica (CNPJ), Rafael Morgado assume
+          pessoalmente, perante as empresas clientes,
           as obrigações e responsabilidades comerciais previstas nestes
           Termos — sem prejuízo da atualização deste documento tão logo o
           CNPJ da MorSafe seja constituído.
@@ -212,17 +212,23 @@ export default function TermosDeUsoPage() {
           cancelamento continuam devidas.
         </p>
         <p>
-          Após o cancelamento, os dados da empresa cliente ficam disponíveis
-          por um prazo razoável para fins de exportação, conforme descrito
-          na nossa{" "}
+          Encerrado o contrato, a MorSafe disponibiliza à empresa cliente,
+          em até 30 (trinta) dias, a exportação final de seus dados. Depois
+          disso, os dados permanecem armazenados de forma inativa (sem
+          acesso de login) por 5 (cinco) anos, para cumprimento de
+          obrigação legal e para resguardo de direitos em eventual processo
+          — inclusive em defesa da própria empresa cliente em reclamações
+          trabalhistas de ex-colaboradores —, e então são anonimizados ou
+          eliminados, salvo determinação legal em sentido contrário. A
+          empresa cliente pode pedir a eliminação antecipada, ciente das
+          consequências para fins de prova. Detalhes na nossa{" "}
           <a
             href="/politica-de-privacidade"
             className="font-semibold text-brand-700 hover:underline"
           >
             Política de Privacidade
           </a>
-          , sendo em seguida excluídos ou anonimizados, salvo obrigação
-          legal de retenção por prazo diverso.
+          .
         </p>
       </LegalSection>
 

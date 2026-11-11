@@ -14,7 +14,7 @@ import "./globals.css";
 // empresa errada quando compartilhado com um cliente novo.
 const TITULO = "MorSafe";
 const DESCRICAO =
-  "Nenhuma entrega de EPI sem registro. Nenhum C.A. vencido sem aviso. Conformidade com a NR-06, sem esforço.";
+  "Nenhuma entrega de EPI sem registro. Nenhum C.A. vencido sem aviso. Registros da NR-06 organizados, sem esforço.";
 
 // metadataBase resolve as URLs absolutas do favicon/ícones/OG image (og:image
 // etc. exigem URL absoluta pra funcionar direito no WhatsApp/LinkedIn/etc.).

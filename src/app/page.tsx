@@ -122,6 +122,7 @@ const TAGLINE = "Protegendo pessoas. Comprovando conformidade.";
 const NAV_LINKS = [
   { href: "#inicio", label: "Início" },
   { href: "#funcionalidades", label: "Funcionalidades" },
+  { href: "/demo", label: "Testar demo" },
   { href: "#planos", label: "Planos" },
   { href: "#sobre", label: "Sobre" },
   { href: "#contato", label: "Contato" },
@@ -444,18 +445,18 @@ export default function Home() {
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
+                href="/demo"
+                className="rounded-lg bg-brand-700 px-6 py-3 text-[13.5px] font-semibold text-white shadow-btn transition hover:bg-brand-800"
+              >
+                Testar o sistema agora →
+              </a>
+              <a
                 href={WHATSAPP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-lg bg-brand-700 px-6 py-3 text-[13.5px] font-semibold text-white shadow-btn transition hover:bg-brand-800"
-              >
-                Falar com a gente →
-              </a>
-              <a
-                href="#funcionalidades"
                 className="rounded-lg border border-border-strong px-6 py-3 text-[13.5px] font-semibold text-foreground transition hover:border-brand-500 hover:text-brand-700"
               >
-                Conhecer o sistema
+                Falar com a gente
               </a>
             </div>
 
@@ -531,6 +532,77 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ===== Demonstração interativa =====
+          Adicionada em 11/11/2026 a pedido do Rafael — a demo (/demo, ver
+          public/demo/index.html) deixa o visitante registrar uma entrega,
+          assinar na tela e ver a ficha, numa empresa fictícia. É o maior
+          diferencial de conversão do site, então ganhou seção própria logo
+          depois dos parceiros, botão no hero e item no menu. Nada é
+          prometido além do que a demo faz (sem "grátis"/"trial": é só uma
+          demonstração com dados fictícios). */}
+      <section
+        id="demonstracao"
+        className="scroll-mt-16 border-b border-border-subtle bg-surface-muted"
+      >
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 lg:grid-cols-[1.15fr_0.85fr] lg:gap-14 lg:py-20">
+          <div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+              Demonstração interativa
+            </div>
+            <h2 className="mt-3 text-[26px] font-bold leading-tight tracking-tight text-foreground sm:text-[30px]">
+              Não precisa acreditar na gente. Teste o MorSafe agora.
+            </h2>
+            <p className="mt-4 max-w-lg text-[14.5px] leading-relaxed text-text-secondary">
+              Abra o sistema numa empresa fictícia e faça o mesmo que o seu
+              almoxarifado faria: registre uma entrega de EPI, assine na
+              tela e veja a ficha pronta. Sem cadastro, sem instalar nada.
+            </p>
+
+            <ol className="mt-6 space-y-3">
+              {[
+                "Registre uma entrega de EPI para um colaborador",
+                "Assine na tela, com o dedo ou o mouse",
+                "Veja a Ficha de Entrega gerada, pronta para imprimir",
+              ].map((passo, i) => (
+                <li
+                  key={passo}
+                  className="flex items-start gap-3 text-[14px] text-foreground"
+                >
+                  <span className="mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-700 text-[12px] font-bold text-white">
+                    {i + 1}
+                  </span>
+                  {passo}
+                </li>
+              ))}
+            </ol>
+
+            <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
+              <a
+                href="/demo"
+                className="rounded-lg bg-brand-700 px-6 py-3 text-[13.5px] font-semibold text-white shadow-btn transition hover:bg-brand-800"
+              >
+                Testar o MorSafe agora →
+              </a>
+              <span className="text-[12.5px] text-text-muted">
+                Leva cerca de 2 minutos · dados fictícios, nada é salvo
+              </span>
+            </div>
+          </div>
+
+          <div className="relative mx-auto w-full max-w-sm">
+            <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(18,53,36,0.06),0_20px_48px_rgba(18,53,36,0.16)]">
+              <Image
+                src="/marketing/ficha-entrega-epi.webp"
+                alt="Ficha de Entrega de EPI gerada pelo MorSafe, com termo de responsabilidade, assinatura e QR Code de verificação"
+                width={758}
+                height={1086}
+                className="h-auto w-full"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ===== Vídeo institucional =====
           Adicionado em 20/10/2026 a pedido do Rafael — resumo em vídeo (~20s)
           montado a partir das mesmas capturas reais de tela já usadas nas
@@ -567,8 +639,14 @@ export default function Home() {
             href="/demo"
             className="mt-8 inline-flex items-center gap-2 rounded-lg bg-brand-700 px-6 py-3 text-[13.5px] font-semibold text-white shadow-btn transition hover:bg-brand-800"
           >
-            Explorar as telas você mesmo →
+            Teste o sistema você mesmo →
           </a>
+          <p className="mt-4 text-[12.5px] text-text-muted">
+            Prefere só olhar as telas?{" "}
+            <a href="/tour" className="font-semibold text-brand-700 hover:underline">
+              Veja o tour rápido
+            </a>
+          </p>
         </div>
       </section>
 
@@ -1061,6 +1139,12 @@ export default function Home() {
               className="rounded-lg bg-white px-6 py-3 text-[13.5px] font-semibold text-brand-900 shadow-btn transition hover:bg-brand-50"
             >
               Falar pelo WhatsApp
+            </a>
+            <a
+              href="/demo"
+              className="rounded-lg border border-white/25 px-6 py-3 text-[13.5px] font-semibold text-white hover:border-white/50"
+            >
+              Testar a demonstração
             </a>
             <a
               href={`mailto:${CONTATO_EMAIL}?subject=${encodeURIComponent(

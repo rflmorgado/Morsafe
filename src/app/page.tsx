@@ -188,6 +188,40 @@ const O_QUE_EVITA = [
   "Chegar a uma fiscalização ou ação trabalhista sem registro para apresentar",
 ];
 
+// Seção "Quem entrega, registra" (11/11/2026) — a pedido do Rafael: mostrar
+// que o registro da entrega de EPI (previsto na NR-06) precisa ser feito
+// mesmo em empresas sem departamento de SST, onde quem entrega é o
+// almoxarifado, o RH ou o Compras. Texto cuidadoso: "o registro fica feito",
+// nunca "garantido" (ver relatório de melhorias, item 4.5).
+const QUEM_ENTREGA = [
+  {
+    icon: IconBox,
+    title: "Almoxarifado",
+    desc: "Entrega no balcão e registro na hora, com a assinatura do colaborador.",
+  },
+  {
+    icon: IconUsers,
+    title: "RH",
+    desc: "EPI entregue na admissão ou na troca, registrado na ficha do colaborador.",
+  },
+  {
+    icon: IconCart,
+    title: "Compras",
+    desc: "Estoque e validade do C.A. à vista: dá para saber o que repor antes de acabar.",
+  },
+  {
+    icon: IconShieldCheck,
+    title: "Empresa sem SST",
+    desc: "Sem departamento de Segurança do Trabalho? O processo é simples o bastante para qualquer pessoa autorizada usar.",
+  },
+];
+
+const GANHO_DE_TEMPO = [
+  "Entrega registrada em poucos cliques, sem ficha para imprimir e arquivar",
+  "Assinatura na tela, no próprio ponto de entrega",
+  "Histórico e ficha prontos quando alguém pedir, sem caçar papel",
+];
+
 const POR_QUE_CARDS = [
   {
     icon: IconShieldCheck,
@@ -696,6 +730,81 @@ export default function Home() {
             A conformidade com a NR-06 é responsabilidade da empresa; a
             MorSafe organiza e comprova os registros para apoiar essa gestão.
           </p>
+        </div>
+      </section>
+
+      {/* ===== Quem entrega, registra =====
+          Adicionada em 11/11/2026 a pedido do Rafael: facilita e agiliza a
+          entrega, ganha tempo, e funciona mesmo sem departamento de SST —
+          quem entrega costuma ser o almoxarifado, o RH ou o Compras, e o
+          registro da entrega (NR-06) precisa ser feito do mesmo jeito. */}
+      <section
+        id="quem-entrega"
+        className="scroll-mt-16 border-b border-border-subtle"
+      >
+        <div className="mx-auto grid max-w-6xl items-start gap-10 px-5 py-16 lg:grid-cols-[0.95fr_1.05fr] lg:gap-14 lg:py-20">
+          <div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+              Para qualquer empresa
+            </div>
+            <h2 className="mt-3 text-[26px] font-bold leading-tight tracking-tight text-foreground sm:text-[32px]">
+              Quem entrega, registra. Em qualquer setor.
+            </h2>
+            <p className="mt-4 text-[14.5px] leading-relaxed text-text-secondary">
+              A NR-06 prevê que o empregador registre o fornecimento do EPI
+              ao trabalhador — em livro, ficha ou sistema eletrônico. Em
+              muitas empresas, quem entrega o EPI não é a Segurança do
+              Trabalho: é o almoxarifado, o RH ou o Compras. Com a MorSafe, a
+              entrega é registrada na hora, com assinatura, não importa quem
+              entregue.
+            </p>
+
+            <ul className="mt-6 space-y-3">
+              {GANHO_DE_TEMPO.map((item) => (
+                <li
+                  key={item}
+                  className="flex items-start gap-2.5 text-[14px] leading-snug text-foreground"
+                >
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-700 text-white">
+                    <IconCheck className="h-3.5 w-3.5" />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+
+            <a
+              href="/demo"
+              className="mt-8 inline-block rounded-lg bg-brand-700 px-6 py-3 text-[13.5px] font-semibold text-white shadow-btn transition hover:bg-brand-800"
+            >
+              Veja como é rápido →
+            </a>
+          </div>
+
+          <div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {QUEM_ENTREGA.map((q) => (
+                <div
+                  key={q.title}
+                  className="rounded-xl border border-border-subtle bg-surface-muted p-5"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                    <q.icon className="h-5 w-5" />
+                  </span>
+                  <div className="mt-3.5 text-[14.5px] font-semibold text-foreground">
+                    {q.title}
+                  </div>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-text-secondary">
+                    {q.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[12px] text-text-muted">
+              A empresa define quem pode registrar entregas: cada usuário tem
+              o seu login e o seu papel de acesso.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -1397,6 +1506,63 @@ function IconX({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function IconBox({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M12 3l8 4.2v9.6L12 21l-8-4.2V7.2L12 3Z"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 7.2l8 4.3 8-4.3M12 11.5V21"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconUsers({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="9" cy="8.5" r="3.2" stroke="currentColor" strokeWidth={1.6} />
+      <path
+        d="M3 19c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+      <path
+        d="M15.5 5.6a3 3 0 0 1 0 5.8M17.5 14.2c2 .5 3.5 2 3.5 4.8"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconCart({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M3 4h2.4l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.1L20 8H6.2"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="9.5" cy="19" r="1.3" stroke="currentColor" strokeWidth={1.6} />
+      <circle cx="17" cy="19" r="1.3" stroke="currentColor" strokeWidth={1.6} />
     </svg>
   );
 }

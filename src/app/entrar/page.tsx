@@ -41,8 +41,8 @@ export default function EntrarPage() {
         Bem-vindo à MorSafe — a plataforma que centraliza a gestão de
         Equipamentos de Proteção Individual (EPI) da sua empresa: cadastro,
         entrega assinada eletronicamente e acompanhamento do vencimento de
-        cada Certificado de Aprovação (C.A.), para a conformidade com a
-        NR-06 acontecer sem esforço manual.
+        cada Certificado de Aprovação (C.A.), para apoiar a gestão dos
+        registros da NR-06 sem esforço manual.
       </p>
       <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/90 sm:text-[16px]">
         Cada entrega, devolução e recusa fica registrada numa trilha de

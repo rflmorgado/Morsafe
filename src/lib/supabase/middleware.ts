@@ -22,6 +22,9 @@ const PUBLIC_PATHS = [
   // usado como link na bio do Instagram — quem abre isso nunca está logado
   // no MorSafe.
   "/tour",
+  // Demonstração interativa com empresa fictícia (public/demo/index.html) —
+  // aberta por visitantes do site/Instagram, nunca logados.
+  "/demo",
 ];
 
 /**

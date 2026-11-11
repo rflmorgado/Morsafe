@@ -352,6 +352,10 @@ const FAQ = [
     a: "Sim. O sistema foi desenhado em torno dos principais pontos de controle da NR-06 — registro de entrega com assinatura, controle de C.A., histórico de movimentações e auditoria — e gera relatórios prontos para apresentar numa fiscalização.",
   },
   {
+    q: "Por que a MorSafe usa assinatura digital e não biometria?",
+    a: "A NR-06 permite registrar a entrega de EPI em ficha, sistema eletrônico ou sistema biométrico — ela não obriga biometria. O que a norma exige é um registro confiável, com data, descrição do EPI, quantidade e número do C.A. A assinatura digital com trilha de auditoria entrega esse registro sem leitor de digital ou câmera, sem tratar dado biométrico (que a LGPD classifica como sensível) e sem depender de mão suja, luva ou máscara. Funciona no celular, é rápida de implantar e custa menos para a empresa. Se a sua empresa precisar de biometria no futuro, conversamos.",
+  },
+  {
     q: "Preciso instalar algum programa?",
     a: "Não. O MorSafe funciona 100% pelo navegador, no computador, tablet ou celular — não precisa instalar nada.",
   },
@@ -610,6 +614,61 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ===== Biometria x assinatura digital =====
+          Adicionado em 11/11/2026 a pedido do Rafael — quem chega pelo
+          Instagram/site procurando "biometria" ou "reconhecimento facial"
+          precisa achar logo a explicação de por que a MorSafe usa assinatura
+          digital (a NR-06 não exige biometria). Texto mantido factual e sem
+          comparar com concorrentes; a pergunta completa está no FAQ
+          (#duvidas). */}
+      <section
+        className="border-b border-border-subtle bg-brand-950"
+        style={{
+          background:
+            "radial-gradient(circle at 15% 20%, rgba(52,160,94,0.16), transparent 45%), radial-gradient(circle at 90% 90%, rgba(52,160,94,0.12), transparent 45%), var(--brand-950)",
+        }}
+      >
+        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:py-16">
+          <div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-brand-200">
+              Biometria ou assinatura digital?
+            </div>
+            <h2 className="mt-3 text-[26px] font-bold leading-tight tracking-tight text-white sm:text-[30px]">
+              O que vale é a prova — não a tecnologia mais chamativa.
+            </h2>
+            <p className="mt-4 max-w-lg text-[14.5px] leading-relaxed text-brand-100/90">
+              A NR-06 não exige biometria. Ela pede um registro confiável de
+              cada entrega de EPI — e é isso que a assinatura digital da
+              MorSafe entrega, de um jeito mais simples e mais barato.
+            </p>
+            <a
+              href="#duvidas"
+              className="mt-6 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-white hover:underline"
+            >
+              Entenda a diferença →
+            </a>
+          </div>
+
+          <ul className="space-y-3">
+            {[
+              "Sem leitor e sem hardware para comprar e manter",
+              "Sem dado biométrico sensível (LGPD)",
+              "Data, hora e trilha de auditoria em cada entrega",
+            ].map((item) => (
+              <li
+                key={item}
+                className="flex items-start gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-3.5 text-[14px] font-medium text-white"
+              >
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-700 text-white">
+                  <IconCheck className="h-3.5 w-3.5" />
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -949,7 +1008,10 @@ export default function Home() {
       </section>
 
       {/* ===== FAQ ===== */}
-      <section className="border-b border-border-subtle bg-surface-muted">
+      <section
+        id="duvidas"
+        className="scroll-mt-16 border-b border-border-subtle bg-surface-muted"
+      >
         <div className="mx-auto max-w-3xl px-5 py-16 lg:py-20">
           <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-brand-700">
             Dúvidas frequentes

@@ -155,6 +155,39 @@ const PARCEIROS = [
   },
 ];
 
+// Itens do topo ("o que você evita") — ver nota de 11/11/2026 sobre a
+// reescrita do hero. Texto sem promessa absoluta: evitar "garante" e
+// "evita multa" (a responsabilidade legal é da empresa cliente).
+const EVITA_HERO = [
+  "Ficha perdida",
+  "C.A. vencido",
+  "Estoque que some",
+  "Registro faltando na fiscalização",
+];
+
+// Seção "A dor → a solução → o que você evita" (11/11/2026). Sem número ou
+// estatística inventada — só situações reais da rotina de SST.
+const DOR_HOJE = [
+  "Fichas de papel que somem ou ficam sem assinatura",
+  "Planilhas desatualizadas, cada setor com a sua",
+  "C.A. vencido que ninguém percebe a tempo",
+  "Estoque que acaba (ou sobra) sem aviso",
+];
+
+const SOLUCAO_MORSAFE = [
+  "Entrega registrada na hora, com assinatura digital",
+  "Aviso de C.A. vencendo e de estoque baixo",
+  "Histórico completo de cada colaborador em um só lugar",
+  "Ficha gerada automaticamente, com QR Code de verificação",
+];
+
+const O_QUE_EVITA = [
+  "Ficha perdida ou sem assinatura na hora de provar a entrega",
+  "Comprar EPI de novo por falta de controle de estoque",
+  "Entregar EPI com C.A. vencido",
+  "Chegar a uma fiscalização ou ação trabalhista sem registro para apresentar",
+];
+
 const POR_QUE_CARDS = [
   {
     icon: IconShieldCheck,
@@ -431,17 +464,35 @@ export default function Home() {
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 lg:grid-cols-2 lg:py-24">
           <div>
             <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-brand-700">
-              Controle de EPI na prática
+              Controle de EPI na prática · São Roque e região
             </div>
             <h1 className="mt-3 text-[34px] font-bold leading-[1.1] tracking-tight text-foreground sm:text-[44px]">
-              O controle de EPI da sua empresa,{" "}
-              <span className="text-brand-700">sem complicação.</span>
+              Ficha de EPI perdida vira prejuízo.{" "}
+              <span className="text-brand-700">Com a MorSafe, vira prova.</span>
             </h1>
-            <p className="mt-5 max-w-md text-[15.5px] leading-relaxed text-text-secondary">
-              Registre entregas, controle o estoque, acompanhe o uso e gere
-              relatórios completos — tudo em um só sistema, pensado para apoiar
-              a gestão dos registros da NR-06.
+            <p className="mt-5 max-w-lg text-[15.5px] leading-relaxed text-text-secondary">
+              Entrega com assinatura digital, aviso de C.A. vencendo, controle
+              de estoque e histórico completo — tudo em um só sistema, feito
+              por um Técnico em Segurança do Trabalho para apoiar a gestão
+              dos registros da NR-06.
             </p>
+
+            <div className="mt-6">
+              <div className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+                Com a MorSafe, você evita
+              </div>
+              <ul className="mt-2.5 flex flex-wrap gap-2">
+                {EVITA_HERO.map((item) => (
+                  <li
+                    key={item}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-[12.5px] font-semibold text-brand-800"
+                  >
+                    <IconCheck className="h-3.5 w-3.5 text-brand-600" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
@@ -529,6 +580,122 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ===== A dor → a solução → o que você evita =====
+          Adicionada em 11/11/2026 a pedido do Rafael ("o primeiro conteúdo
+          é meio apagado, não valoriza a nossa marca... precisamos enfatizar
+          quem somos, a dor que resolvemos, os benefícios e o que evitamos
+          no futuro"). Mantém linguagem de apoio à gestão, sem prometer
+          conformidade automática (ver relatório de melhorias, item 4.5). */}
+      <section
+        id="por-que-morsafe"
+        className="scroll-mt-16 border-b border-border-subtle"
+      >
+        <div className="mx-auto max-w-6xl px-5 py-16 lg:py-20">
+          <div className="max-w-2xl">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+              O problema que resolvemos
+            </div>
+            <h2 className="mt-3 text-[26px] font-bold leading-tight tracking-tight text-foreground sm:text-[32px]">
+              Controle de EPI no papel ou na planilha sai caro — e a conta
+              costuma chegar depois.
+            </h2>
+            <p className="mt-4 text-[14.5px] leading-relaxed text-text-secondary">
+              O problema quase nunca aparece no dia a dia. Aparece quando
+              alguém pede a prova: numa fiscalização, numa auditoria, numa
+              reclamação trabalhista. A MorSafe existe para que, nesse
+              momento, o registro já esteja pronto.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            <div className="rounded-2xl border border-border-subtle bg-surface-muted p-6">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-warning-bg text-warning-text">
+                  <IconX className="h-4 w-4" />
+                </span>
+                <h3 className="text-[15px] font-bold text-foreground">
+                  Como é hoje
+                </h3>
+              </div>
+              <ul className="mt-4 space-y-3">
+                {DOR_HOJE.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-2.5 text-[13.5px] leading-snug text-text-secondary"
+                  >
+                    <IconX className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-brand-600 bg-brand-950 p-6 text-white shadow-[0_1px_2px_rgba(18,53,36,0.1),0_16px_40px_rgba(18,53,36,0.18)]">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white">
+                  <IconCheck className="h-4 w-4" />
+                </span>
+                <h3 className="text-[15px] font-bold">Com a MorSafe</h3>
+              </div>
+              <ul className="mt-4 space-y-3">
+                {SOLUCAO_MORSAFE.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-2.5 text-[13.5px] leading-snug text-brand-100/95"
+                  >
+                    <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-300" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-border-subtle bg-surface-muted p-6">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                  <IconShieldCheck className="h-4 w-4" />
+                </span>
+                <h3 className="text-[15px] font-bold text-foreground">
+                  O que você evita lá na frente
+                </h3>
+              </div>
+              <ul className="mt-4 space-y-3">
+                {O_QUE_EVITA.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-2.5 text-[13.5px] leading-snug text-text-secondary"
+                  >
+                    <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-col gap-5 rounded-2xl border border-border-subtle bg-surface px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-2xl text-[13.5px] leading-relaxed text-text-secondary">
+              <strong className="text-foreground">
+                Feito por quem vive a rotina de Segurança do Trabalho.
+              </strong>{" "}
+              A MorSafe é de São Roque e região, criada por um Técnico em
+              Segurança do Trabalho (MTE 0066256/SP), com suporte próximo —
+              você fala com quem entende do assunto.
+            </p>
+            <a
+              href="/demo"
+              className="shrink-0 rounded-lg bg-brand-700 px-6 py-3 text-center text-[13.5px] font-semibold text-white shadow-btn transition hover:bg-brand-800"
+            >
+              Ver na prática →
+            </a>
+          </div>
+          <p className="mt-3 text-[12px] text-text-muted">
+            A conformidade com a NR-06 é responsabilidade da empresa; a
+            MorSafe organiza e comprova os registros para apoiar essa gestão.
+          </p>
         </div>
       </section>
 
@@ -1211,6 +1378,20 @@ function IconCheck({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" className={className}>
       <path
         d="M5 13l4 4L19 7"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconX({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M6 6l12 12M18 6L6 18"
         stroke="currentColor"
         strokeWidth={2}
         strokeLinecap="round"

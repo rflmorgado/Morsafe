@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
         source: "/tour",
         destination: "/tour/index.html",
       },
+      // Demonstração interativa (empresa fictícia, entrega + assinatura + ficha)
+      // — public/demo/index.html, mesma técnica do /tour acima.
+      {
+        source: "/demo",
+        destination: "/demo/index.html",
+      },
     ];
   },
 };

@@ -936,6 +936,7 @@ export default function Home() {
             <ul className="mt-6 space-y-3">
               {[
                 "Desperdício de EPI que o controle ajuda a evitar",
+                "Compras desnecessárias que o estoque mínimo e a lista de reposição evitam",
                 "Horas de ficha, planilha e conferência que voltam para a equipe",
                 "Quantos meses de MorSafe uma única ação trabalhista equivale",
               ].map((item) => (
@@ -971,10 +972,10 @@ export default function Home() {
                 Saldo estimado por mês
               </div>
               <div className="mt-1 text-[34px] font-bold leading-none tracking-tight">
-                R$ 231
+                R$ 351
               </div>
               <div className="mt-2 text-[12.5px] text-brand-200">
-                Economia de R$ 380 contra mensalidade de R${" "}
+                Economia de R$ 500 contra mensalidade de R${" "}
                 {PLANO_VALOR_MENSAL.essencial}
               </div>
             </div>
@@ -982,6 +983,10 @@ export default function Home() {
               <div className="flex justify-between gap-3 py-2.5">
                 <dt className="text-text-secondary">Desperdício de EPI evitado</dt>
                 <dd className="font-semibold">R$ 200/mês</dd>
+              </div>
+              <div className="flex justify-between gap-3 py-2.5">
+                <dt className="text-text-secondary">Compras desnecessárias evitadas</dt>
+                <dd className="font-semibold">R$ 120/mês</dd>
               </div>
               <div className="flex justify-between gap-3 py-2.5">
                 <dt className="text-text-secondary">Tempo de controle economizado</dt>

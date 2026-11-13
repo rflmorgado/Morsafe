@@ -429,6 +429,10 @@ const FAQ = [
     a: "Não. O MorSafe funciona 100% pelo navegador, no computador, tablet ou celular — não precisa instalar nada.",
   },
   {
+    q: "E se a internet ou a energia cair?",
+    a: "O MorSafe funciona pelo navegador, então precisa de conexão. Se a internet da empresa cair, qualquer celular com 4G acessa o sistema normalmente e a entrega é registrada na hora. Tudo o que já foi registrado fica guardado na nuvem e não se perde.",
+  },
+  {
     q: "Meus dados ficam seguros?",
     a: "Sim. Os dados da sua empresa ficam isolados dos de outras empresas clientes, com controle de acesso por usuário e conformidade com a LGPD.",
   },

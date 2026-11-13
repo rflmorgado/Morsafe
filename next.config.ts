@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
         source: "/demo",
         destination: "/demo/index.html",
       },
+      // Calculadora de economia com EPI — public/calculadora/index.html,
+      // mesma técnica do /tour e do /demo acima.
+      {
+        source: "/calculadora",
+        destination: "/calculadora/index.html",
+      },
     ];
   },
 };

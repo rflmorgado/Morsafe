@@ -958,7 +958,7 @@ export default function Home() {
                 Fazer minha simulação →
               </a>
               <span className="text-[12.5px] text-brand-200">
-                Leva 30 segundos · sem cadastro · nada é salvo
+                Leva 30 segundos · sem cadastro · seus números não são salvos
               </span>
             </div>
           </div>

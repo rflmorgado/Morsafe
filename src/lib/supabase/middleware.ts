@@ -25,6 +25,9 @@ const PUBLIC_PATHS = [
   // Demonstração interativa com empresa fictícia (public/demo/index.html) —
   // aberta por visitantes do site/Instagram, nunca logados.
   "/demo",
+  // Calculadora de economia com EPI (public/calculadora/index.html) —
+  // aberta por visitantes do site, LinkedIn e Instagram, nunca logados.
+  "/calculadora",
 ];
 
 /**

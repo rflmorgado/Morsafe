@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calculadora de economia com EPI | MorSafe</title>
+<meta name="description" content="Descubra em 30 segundos quanto o controle de EPI pode economizar para a sua empresa e quanto custaria o MorSafe. Simulação gratuita, nada é salvo.">
+<meta property="og:title" content="Quanto a falta de controle de EPI custa para a sua empresa?">
+<meta property="og:description" content="Preencha 3 números e veja a economia estimada com o MorSafe. Simulação gratuita, sem cadastro.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:image" content="https://www.morsafe.com.br/opengraph-image.png">
+<link rel="icon" href="/icon.png">
+<style>
+:root{
+  --fg:#16241c;--brand-50:#f3faf5;--brand-100:#e5f3ea;--brand-200:#c7e4d1;--brand-300:#9bcdae;--brand-400:#5cb37e;--brand-500:#34a05e;--brand-600:#278049;--brand-700:#1f6338;--brand-800:#1a4d2e;--brand-900:#123524;--brand-950:#0d2b1c;
+  --surface:#fff;--muted:#f4f7f5;--line:#e0e9e3;--line2:#c7d6cd;--t2:#5c6b62;--t3:#93a29a;
+  --danger-bg:#fdecea;--danger:#b3261e;--warn-bg:#fef6e0;--warn:#8a5a00;
+  --card:0 1px 2px rgba(18,53,36,.04),0 10px 24px -12px rgba(18,53,36,.18);
+  --btn:0 1px 2px rgba(18,53,36,.14),0 4px 10px -4px rgba(18,53,36,.38);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;color:var(--fg);background:var(--muted);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+button,input{font:inherit;color:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding:0 18px}
+header{background:var(--brand-950);color:#fff}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;padding-bottom:14px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:19px;letter-spacing:-.3px;text-decoration:none}
+.logo img{width:30px;height:30px;object-fit:contain}
+.logo b{color:#4fd37e}
+header nav{display:flex;gap:8px;flex-wrap:wrap}
+header nav a{font-size:13px;font-weight:600;text-decoration:none;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:6px 11px}
+header nav a.pri{background:#fff;color:var(--brand-900);border-color:#fff}
+.hero{padding:34px 0 18px}
+.hero h1{font-size:clamp(24px,4.4vw,34px);line-height:1.18;letter-spacing:-.6px;font-weight:700;max-width:720px}
+.hero p{color:var(--t2);margin-top:10px;max-width:640px;font-size:15.5px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;padding-bottom:28px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--card);padding:22px}
+.card h2{font-size:16px;font-weight:700;margin-bottom:4px}
+.card .sub{color:var(--t2);font-size:13.5px;margin-bottom:16px}
+.field{margin-bottom:16px}
+.field label{display:block;font-weight:600;font-size:14px;margin-bottom:3px}
+.field .hint{display:block;color:var(--t2);font-size:12.5px;margin-bottom:6px}
+.inp{display:flex;align-items:center;border:1px solid var(--line2);border-radius:10px;background:#fff;overflow:hidden}
+.inp:focus-within{border-color:var(--brand-500);box-shadow:0 0 0 3px var(--brand-100)}
+.inp span{padding:0 12px;color:var(--t2);font-weight:600;background:var(--brand-50);align-self:stretch;display:flex;align-items:center;font-size:14px}
+.inp input{border:0;outline:0;padding:11px 12px;width:100%;font-size:16px;font-weight:600;min-width:0}
+.adv summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--brand-700);padding:6px 0;list-style:none}
+.adv summary::-webkit-details-marker{display:none}
+.adv summary:before{content:"+ ";font-weight:700}
+.adv[open] summary:before{content:"− "}
+.adv .box{margin-top:10px;padding:14px;background:var(--brand-50);border:1px solid var(--brand-100);border-radius:12px}
+.adv .note{font-size:12.5px;color:var(--t2);margin-top:2px}
+.res{position:sticky;top:14px}
+.big{background:linear-gradient(160deg,var(--brand-800),var(--brand-950));color:#fff;border-radius:14px;padding:20px;margin-bottom:14px}
+.big small{display:block;color:#b9d8c5;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.big .v{font-size:clamp(30px,6vw,40px);font-weight:700;letter-spacing:-.8px;line-height:1.1;margin:6px 0 4px}
+.big .s{color:#cfe6d8;font-size:13.5px}
+.big.neg{background:linear-gradient(160deg,#5a4513,#2b2208)}
+.rows{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;font-size:14px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row b{font-weight:700;white-space:nowrap}
+.row.sum{background:var(--brand-50)}
+.alert{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:11px 13px;font-size:13.5px;margin-bottom:14px}
+.risk{background:var(--brand-50);border:1px solid var(--brand-100);border-radius:12px;padding:14px;margin-bottom:14px;font-size:14px}
+.risk h3{font-size:14px;margin-bottom:6px}
+.risk ul{padding-left:18px;margin-top:8px;color:var(--t2);font-size:13px}
+.risk li{margin-bottom:4px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:11px;padding:13px 16px;font-weight:700;font-size:15px;text-decoration:none;border:1px solid var(--line2);background:#fff;margin-top:8px}
+.btn.pri{background:linear-gradient(180deg,var(--brand-600),var(--brand-800));border-color:var(--brand-800);color:#fff;box-shadow:var(--btn)}
+.btn.pri:hover{background:var(--brand-800)}
+.btn:hover{border-color:var(--brand-500)}
+.fine{font-size:12px;color:var(--t2);margin-top:12px}
+footer{padding:8px 0 40px;color:var(--t2);font-size:12.5px}
+footer a{color:var(--brand-700)}
+@media (max-width:820px){
+  .grid{grid-template-columns:1fr}
+  .res{position:static}
+  .hero{padding-top:24px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <a class="logo" href="/"><img src="/icon.png" alt=""><span>Mor<b>Safe</b></span></a>
+    <nav>
+      <a href="/demo">Testar a demo</a>
+      <a class="pri" href="/">Conhecer o MorSafe</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Quanto a falta de controle de EPI pode estar custando para a sua empresa?</h1>
+    <p>Preencha 3 números e veja, na hora, a economia estimada e quanto custaria o MorSafe. Leva 30 segundos. Nada é salvo nem enviado.</p>
+  </section>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="t-in">
+      <h2 id="t-in">Os números da sua empresa</h2>
+      <p class="sub">Use valores aproximados, não precisa ser exato.</p>
+
+      <div class="field">
+        <label for="f">Quantos colaboradores recebem EPI?</label>
+        <span class="hint">Pessoas que retiram ou recebem equipamentos de proteção.</span>
+        <div class="inp"><input id="f" type="text" inputmode="numeric" value="40" autocomplete="off"><span>pessoas</span></div>
+      </div>
+
+      <div class="field">
+        <label for="g">Quanto a empresa gasta com EPI por mês?</label>
+        <span class="hint">Soma de luvas, botas, óculos, protetores, uniformes de proteção etc.</span>
+        <div class="inp"><span>R$</span><input id="g" type="text" inputmode="decimal" value="4.000" autocomplete="off"></div>
+      </div>
+
+      <div class="field">
+        <label for="h">Quantas horas por mês vão em ficha, planilha e conferência de EPI?</label>
+        <span class="hint">Tempo de quem anota entregas, procura assinatura, confere vencimento de C.A. e monta relatório.</span>
+        <div class="inp"><input id="h" type="text" inputmode="decimal" value="12" autocomplete="off"><span>horas</span></div>
+      </div>
+
+      <details class="adv">
+        <summary>Ajustar premissas da conta</summary>
+        <div class="box">
+          <div class="field">
+            <label for="ch">Custo de uma hora de quem faz esse controle</label>
+            <div class="inp"><span>R$</span><input id="ch" type="text" inputmode="decimal" value="30" autocomplete="off"></div>
+          </div>
+          <div class="field">
+            <label for="pd">Desperdício de EPI que o controle pode evitar</label>
+            <span class="hint">Reposição acima do necessário, entrega em duplicidade, perda sem rastro.</span>
+            <div class="inp"><input id="pd" type="text" inputmode="decimal" value="5" autocomplete="off"><span>% do gasto</span></div>
+          </div>
+          <div class="field">
+            <label for="rt">Redução do tempo de controle com o MorSafe</label>
+            <div class="inp"><input id="rt" type="text" inputmode="decimal" value="50" autocomplete="off"><span>% das horas</span></div>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="ac">Quanto custaria uma ação trabalhista ligada a EPI?</label>
+            <span class="hint">Valor de exemplo, troque pelo que você considera realista para a sua empresa.</span>
+            <div class="inp"><span>R$</span><input id="ac" type="text" inputmode="decimal" value="10.000" autocomplete="off"></div>
+          </div>
+          <p class="note">Os percentuais iniciais são conservadores e são só um ponto de partida. Altere para o que você acha mais próximo da sua realidade.</p>
+        </div>
+      </details>
+    </section>
+
+    <section class="card res" aria-live="polite" aria-labelledby="t-out">
+      <h2 id="t-out">O que a conta mostra</h2>
+      <p class="sub" id="plano-sub"></p>
+
+      <div class="big" id="big">
+        <small id="big-l">Economia estimada por mês</small>
+        <div class="v" id="big-v">—</div>
+        <div class="s" id="big-s"></div>
+      </div>
+
+      <div class="rows" id="rows"></div>
+      <div id="alert"></div>
+
+      <div class="risk">
+        <h3>Além da economia: o risco que o controle reduz</h3>
+        <div id="risk-line"></div>
+        <ul>
+          <li>A CLT (art. 166) obriga a empresa a fornecer EPI adequado, gratuitamente, e a NR-6 exige registro das entregas.</li>
+          <li>Pela Súmula 289 do TST, entregar o EPI não livra a empresa do adicional de insalubridade por si só. Ter o registro organizado ajuda a mostrar o que foi feito.</li>
+          <li>Multas da NR-28 variam conforme a gravidade e o número de empregados, e são reajustadas todo ano.</li>
+        </ul>
+      </div>
+
+      <a class="btn pri" id="wa" href="#" target="_blank" rel="noopener noreferrer">Falar com a MorSafe no WhatsApp</a>
+      <a class="btn" href="/demo">Testar a demo agora</a>
+      <p class="fine">Estimativa feita com os números que você informou, para ajudar na decisão. Não é parecer jurídico nem promessa de resultado. Nenhuma informação é salva ou enviada, a menos que você toque no botão de WhatsApp.</p>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">© MorSafe. Protegendo pessoas. Comprovando conformidade. · <a href="/">morsafe.com.br</a></div>
+</footer>
+
+<noscript><div class="wrap"><p class="alert" style="margin:16px 0">Esta calculadora precisa de JavaScript ativado para funcionar.</p></div></noscript>
+
+<script>
+(function(){
+  // Planos e preços iguais aos do site (src/lib/data/planos.ts)
+  var PLANOS=[
+    {n:"Start",lim:30,v:99},
+    {n:"Essencial",lim:75,v:149},
+    {n:"Profissional",lim:150,v:249},
+    {n:"Empresa",lim:300,v:399},
+    {n:"Industrial",lim:600,v:599}
+  ];
+  var IMPLANTACAO=390;
+  var WA_BASE="https://wa.me/5511927500869?text=";
+
+  function $(id){return document.getElementById(id)}
+  function num(el){
+    var s=String(el.value||"").replace(/\s/g,"").replace(/\./g,"").replace(",",".");
+    var n=parseFloat(s);
+    return isFinite(n)&&n>0?n:0;
+  }
+  var BRL=new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
+  function brl(n){return BRL.format(Math.round(n))}
+  function pick(f){
+    for(var i=0;i<PLANOS.length;i++){if(f<=PLANOS[i].lim)return PLANOS[i]}
+    return null;
+  }
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+  function calc(){
+    var f=num($("f")),g=num($("g")),h=num($("h")),ch=num($("ch")),pd=Math.min(num($("pd")),100)/100,rt=Math.min(num($("rt")),100)/100,ac=num($("ac"));
+    var plano=pick(f);
+    var evita=g*pd;                 // desperdício evitado por mês
+    var tempo=h*ch*rt;              // horas economizadas em reais por mês
+    var eco=evita+tempo;
+    var big=$("big"),rows=$("rows"),alertEl=$("alert");
+
+    if(f<=0){
+      $("plano-sub").textContent="Informe quantos colaboradores recebem EPI para começar.";
+      $("big-v").textContent="—";$("big-s").textContent="";rows.innerHTML="";alertEl.innerHTML="";
+      $("risk-line").innerHTML="";
+      $("wa").href=WA_BASE+encodeURIComponent("Olá! Vi a calculadora de economia no site do MorSafe e quero conversar.");
+      return;
+    }
+
+    var html="";
+    html+='<div class="row"><span>Desperdício de EPI evitado ('+Math.round(pd*100)+'% de '+brl(g)+')</span><b>'+brl(evita)+'/mês</b></div>';
+    html+='<div class="row"><span>Tempo de controle economizado ('+Math.round(h*rt*10)/10+' h × '+brl(ch)+')</span><b>'+brl(tempo)+'/mês</b></div>';
+    html+='<div class="row sum"><span>Economia estimada</span><b>'+brl(eco)+'/mês</b></div>';
+
+    var saldo,msg;
+    if(plano){
+      saldo=eco-plano.v;
+      $("plano-sub").innerHTML='Para '+f+' colaboradores, o plano indicado é o <b>'+esc(plano.n)+'</b> (até '+plano.lim+' pessoas).';
+      html+='<div class="row"><span>Mensalidade do plano '+esc(plano.n)+'</span><b>− '+brl(plano.v)+'/mês</b></div>';
+      html+='<div class="row sum"><span>Saldo mensal estimado</span><b>'+(saldo>=0?"":"− ")+brl(Math.abs(saldo))+'</b></div>';
+      html+='<div class="row"><span>Saldo em 12 meses</span><b>'+(saldo>=0?"":"− ")+brl(Math.abs(saldo*12))+'</b></div>';
+      html+='<div class="row"><span>Taxa de implantação (paga uma vez)</span><b>'+brl(IMPLANTACAO)+'</b></div>';
+      if(saldo>0){
+        var meses=IMPLANTACAO/saldo;
+        html+='<div class="row"><span>Tempo para recuperar a implantação</span><b>'+(meses<1?"menos de 1 mês":Math.ceil(meses)+(Math.ceil(meses)===1?" mês":" meses"))+'</b></div>';
+      }
+      big.className="big"+(saldo<0?" neg":"");
+      if(saldo>=0){
+        $("big-l").textContent="Saldo estimado por mês, já descontada a mensalidade";
+        $("big-v").textContent=brl(saldo);
+        $("big-s").textContent="Economia de "+brl(eco)+" contra mensalidade de "+brl(plano.v)+".";
+        alertEl.innerHTML="";
+      }else{
+        $("big-l").textContent="Economia estimada por mês";
+        $("big-v").textContent=brl(eco);
+        $("big-s").textContent="Mensalidade do plano: "+brl(plano.v)+".";
+        alertEl.innerHTML='<div class="alert">Com estes números, a economia direta ainda não cobre a mensalidade. Nesse caso o maior ganho do MorSafe está em ter as entregas registradas e comprovadas, como mostra o quadro de risco abaixo.</div>';
+      }
+      if(ac>0){
+        var anos=ac/(plano.v*12);
+        var txt=anos>=1?"cerca de "+(Math.round(anos*10)/10).toString().replace(".",",")+" anos":"cerca de "+Math.max(1,Math.round(anos*12))+" meses";
+        $("risk-line").innerHTML='Se uma única ação custar <b>'+brl(ac)+'</b>, esse valor equivale a <b>'+txt+'</b> de mensalidade do plano '+esc(plano.n)+'.';
+      }else{
+        $("risk-line").innerHTML='Informe, em "Ajustar premissas", quanto custaria uma ação para ver essa comparação.';
+      }
+      msg="Olá! Fiz a simulação no site do MorSafe: "+f+" colaboradores, gasto de "+brl(g)+"/mês com EPI e "+h+" h/mês de controle. A economia estimada deu "+brl(eco)+"/mês (plano "+plano.n+", "+brl(plano.v)+"/mês). Quero conversar.";
+    }else{
+      $("plano-sub").innerHTML='Acima de '+PLANOS[PLANOS.length-1].lim+' colaboradores o plano é <b>Enterprise</b>, sob consulta.';
+      html+='<div class="row"><span>Mensalidade</span><b>Sob consulta</b></div>';
+      big.className="big";
+      $("big-l").textContent="Economia estimada por mês";
+      $("big-v").textContent=brl(eco);
+      $("big-s").textContent="Plano Enterprise personalizado para a sua operação.";
+      alertEl.innerHTML="";
+      $("risk-line").innerHTML=ac>0?'Se uma única ação custar <b>'+brl(ac)+'</b>, esse valor já justifica olhar o controle de perto.':"";
+      msg="Olá! Fiz a simulação no site do MorSafe: "+f+" colaboradores, gasto de "+brl(g)+"/mês com EPI. A economia estimada deu "+brl(eco)+"/mês. Quero conversar sobre o plano Enterprise.";
+    }
+    rows.innerHTML=html;
+    $("wa").href=WA_BASE+encodeURIComponent(msg);
+  }
+
+  ["f","g","h","ch","pd","rt","ac"].forEach(function(id){
+    $(id).addEventListener("input",calc);
+  });
+  calc();
+})();
+</script>
+</body>
+</html>

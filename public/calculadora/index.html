@@ -96,7 +96,7 @@ footer a{color:var(--brand-700)}
 <main class="wrap">
   <section class="hero">
     <h1>Quanto a falta de controle de EPI pode estar custando para a sua empresa?</h1>
-    <p>Preencha 3 números e veja, na hora, a economia estimada e quanto custaria o MorSafe. Leva 30 segundos. Nada é salvo nem enviado.</p>
+    <p>Preencha 3 números e veja, na hora, a economia estimada (desperdício, compras evitadas e tempo de controle) e quanto custaria o MorSafe. Leva 30 segundos. Nada é salvo nem enviado.</p>
   </section>
 
   <div class="grid">
@@ -131,8 +131,13 @@ footer a{color:var(--brand-700)}
           </div>
           <div class="field">
             <label for="pd">Desperdício de EPI que o controle pode evitar</label>
-            <span class="hint">Reposição acima do necessário, entrega em duplicidade, perda sem rastro.</span>
+            <span class="hint">Entrega em duplicidade, perda sem rastro, EPI que vence sem ninguém perceber.</span>
             <div class="inp"><input id="pd" type="text" inputmode="decimal" value="5" autocomplete="off"><span>% do gasto</span></div>
+          </div>
+          <div class="field">
+            <label for="ce">Compras desnecessárias que o estoque mínimo evita</label>
+            <span class="hint">Comprar antes da hora, comprar a mais ou comprar de emergência, por falta de saber o saldo real.</span>
+            <div class="inp"><input id="ce" type="text" inputmode="decimal" value="3" autocomplete="off"><span>% do gasto</span></div>
           </div>
           <div class="field">
             <label for="rt">Redução do tempo de controle com o MorSafe</label>
@@ -160,6 +165,15 @@ footer a{color:var(--brand-700)}
 
       <div class="rows" id="rows"></div>
       <div id="alert"></div>
+
+      <div class="risk">
+        <h3>Como o MorSafe ajuda a comprar só o necessário</h3>
+        <ul style="margin-top:0">
+          <li>Você define o <b>limite de alerta</b> (o estoque mínimo) de cada EPI.</li>
+          <li>A tela <b>Itens para repor</b> mostra, na hora, o que ficou abaixo do limite, <b>quanto comprar</b> de cada item para voltar ao nível e o <b>custo estimado</b> do pedido. A lista pode ser exportada em CSV.</li>
+          <li>O MorSafe monta a lista de compra sozinho, a partir do saldo real. O pedido ao fornecedor continua sendo feito por você.</li>
+        </ul>
+      </div>
 
       <div class="risk">
         <h3>Além da economia: o risco que o controle reduz</h3>
@@ -212,11 +226,12 @@ footer a{color:var(--brand-700)}
   function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 
   function calc(){
-    var f=num($("f")),g=num($("g")),h=num($("h")),ch=num($("ch")),pd=Math.min(num($("pd")),100)/100,rt=Math.min(num($("rt")),100)/100,ac=num($("ac"));
+    var f=num($("f")),g=num($("g")),h=num($("h")),ch=num($("ch")),pd=Math.min(num($("pd")),100)/100,rt=Math.min(num($("rt")),100)/100,ac=num($("ac")),ce=Math.min(num($("ce")),100)/100;
     var plano=pick(f);
     var evita=g*pd;                 // desperdício evitado por mês
+    var compras=g*ce;               // compras desnecessárias evitadas (estoque mínimo + lista de reposição)
     var tempo=h*ch*rt;              // horas economizadas em reais por mês
-    var eco=evita+tempo;
+    var eco=evita+compras+tempo;
     var big=$("big"),rows=$("rows"),alertEl=$("alert");
 
     if(f<=0){
@@ -229,6 +244,7 @@ footer a{color:var(--brand-700)}
 
     var html="";
     html+='<div class="row"><span>Desperdício de EPI evitado ('+Math.round(pd*100)+'% de '+brl(g)+')</span><b>'+brl(evita)+'/mês</b></div>';
+    html+='<div class="row"><span>Compras desnecessárias evitadas ('+Math.round(ce*100)+'% de '+brl(g)+')</span><b>'+brl(compras)+'/mês</b></div>';
     html+='<div class="row"><span>Tempo de controle economizado ('+Math.round(h*rt*10)/10+' h × '+brl(ch)+')</span><b>'+brl(tempo)+'/mês</b></div>';
     html+='<div class="row sum"><span>Economia estimada</span><b>'+brl(eco)+'/mês</b></div>';
 
@@ -263,7 +279,7 @@ footer a{color:var(--brand-700)}
       }else{
         $("risk-line").innerHTML='Informe, em "Ajustar premissas", quanto custaria uma ação para ver essa comparação.';
       }
-      msg="Olá! Fiz a simulação no site do MorSafe: "+f+" colaboradores, gasto de "+brl(g)+"/mês com EPI e "+h+" h/mês de controle. A economia estimada deu "+brl(eco)+"/mês (plano "+plano.n+", "+brl(plano.v)+"/mês). Quero conversar.";
+      msg="Olá! Fiz a simulação no site do MorSafe: "+f+" colaboradores, gasto de "+brl(g)+"/mês com EPI e "+h+" h/mês de controle. A economia estimada deu "+brl(eco)+"/mês, contando desperdício, compras evitadas e tempo (plano "+plano.n+", "+brl(plano.v)+"/mês). Quero conversar.";
     }else{
       $("plano-sub").innerHTML='Acima de '+PLANOS[PLANOS.length-1].lim+' colaboradores o plano é <b>Enterprise</b>, sob consulta.';
       html+='<div class="row"><span>Mensalidade</span><b>Sob consulta</b></div>';
@@ -279,7 +295,7 @@ footer a{color:var(--brand-700)}
     $("wa").href=WA_BASE+encodeURIComponent(msg);
   }
 
-  ["f","g","h","ch","pd","rt","ac"].forEach(function(id){
+  ["f","g","h","ch","pd","ce","rt","ac"].forEach(function(id){
     $(id).addEventListener("input",calc);
   });
   calc();

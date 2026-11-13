@@ -120,10 +120,12 @@ const WHATSAPP_URL = `https://wa.me/5511927500869?text=${encodeURIComponent(
 const LINKEDIN_URL = "https://www.linkedin.com/company/morsafe-epi";
 const TAGLINE = "Protegendo pessoas. Comprovando conformidade.";
 
-const NAV_LINKS = [
+// "novo: true" mostra o selo "Novo" ao lado do link (ver o <nav> do header).
+const NAV_LINKS: { href: string; label: string; novo?: boolean }[] = [
   { href: "#inicio", label: "Início" },
   { href: "#funcionalidades", label: "Funcionalidades" },
   { href: "/demo", label: "Testar demo" },
+  { href: "/calculadora", label: "Calculadora", novo: true },
   { href: "#planos", label: "Planos" },
   { href: "#sobre", label: "Sobre" },
   { href: "#contato", label: "Contato" },
@@ -468,9 +470,14 @@ export default function Home() {
               <a
                 key={link.href}
                 href={link.href}
-                className="text-[13px] font-medium text-text-secondary hover:text-brand-700"
+                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-text-secondary hover:text-brand-700"
               >
                 {link.label}
+                {link.novo && (
+                  <span className="rounded-full bg-brand-700 px-1.5 py-0.5 text-[9.5px] font-bold uppercase leading-none tracking-wide text-white">
+                    Novo
+                  </span>
+                )}
               </a>
             ))}
           </nav>
@@ -549,6 +556,21 @@ export default function Home() {
                 Falar com a gente
               </a>
             </div>
+
+            {/* Chamada da calculadora de economia (13/11/2026) — ver a seção
+                "Calculadora de economia" mais abaixo. */}
+            <a
+              href="/calculadora"
+              className="mt-5 inline-flex max-w-full items-center gap-2.5 rounded-2xl border border-brand-200 bg-white py-1.5 pl-1.5 pr-4 text-[12.5px] font-semibold text-brand-800 shadow-sm transition hover:border-brand-500 sm:rounded-full"
+            >
+              <span className="shrink-0 rounded-full bg-brand-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Novo
+              </span>
+              <span>
+                Calculadora de economia: veja quanto o controle de EPI poupa na
+                sua empresa →
+              </span>
+            </a>
 
             <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] text-text-muted">
               <span className="inline-flex items-center gap-1.5">
@@ -880,6 +902,104 @@ export default function Home() {
                 className="h-auto w-full"
               />
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== Calculadora de economia =====
+          Adicionada em 13/11/2026 a pedido do Rafael — ferramenta nova do
+          site (public/calculadora/index.html, rota /calculadora): o dono da
+          empresa informa 3 números e vê a economia estimada e o plano certo,
+          e já chama a MorSafe pelo WhatsApp com a simulação na mensagem.
+          Fundo escuro de propósito, pra se destacar entre a demonstração e o
+          vídeo (seções claras). O cartão do lado é só um EXEMPLO ilustrativo
+          com os valores iniciais da própria calculadora — nada aqui promete
+          resultado, e a página da calculadora deixa claro que é estimativa. */}
+      <section
+        id="calculadora"
+        className="scroll-mt-16 border-b border-border-subtle bg-brand-950 text-white"
+      >
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14 lg:py-20">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-brand-700 bg-brand-900 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-200">
+              Novo · Calculadora de economia
+            </span>
+            <h2 className="mt-4 text-[26px] font-bold leading-tight tracking-tight text-white sm:text-[32px]">
+              Quanto a falta de controle de EPI custa para a sua empresa?
+            </h2>
+            <p className="mt-4 max-w-lg text-[14.5px] leading-relaxed text-brand-100/90">
+              Informe 3 números e veja, na hora, a economia estimada e o plano
+              certo para o tamanho da sua equipe. Você mesmo faz a conta, com
+              os números da sua empresa.
+            </p>
+
+            <ul className="mt-6 space-y-3">
+              {[
+                "Desperdício de EPI que o controle ajuda a evitar",
+                "Horas de ficha, planilha e conferência que voltam para a equipe",
+                "Quantos meses de MorSafe uma única ação trabalhista equivale",
+              ].map((item) => (
+                <li
+                  key={item}
+                  className="flex items-start gap-3 text-[14px] text-brand-50"
+                >
+                  <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-400" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
+              <a
+                href="/calculadora"
+                className="rounded-lg bg-white px-6 py-3 text-[13.5px] font-semibold text-brand-900 shadow-btn transition hover:bg-brand-50"
+              >
+                Fazer minha simulação →
+              </a>
+              <span className="text-[12.5px] text-brand-200">
+                Leva 30 segundos · sem cadastro · nada é salvo
+              </span>
+            </div>
+          </div>
+
+          <div className="mx-auto w-full max-w-sm rounded-2xl bg-surface p-5 text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.2),0_20px_48px_rgba(0,0,0,0.35)]">
+            <div className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+              Exemplo de simulação · 40 colaboradores
+            </div>
+            <div className="mt-3 rounded-xl bg-brand-950 p-4 text-white">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-200">
+                Saldo estimado por mês
+              </div>
+              <div className="mt-1 text-[34px] font-bold leading-none tracking-tight">
+                R$ 231
+              </div>
+              <div className="mt-2 text-[12.5px] text-brand-200">
+                Economia de R$ 380 contra mensalidade de R${" "}
+                {PLANO_VALOR_MENSAL.essencial}
+              </div>
+            </div>
+            <dl className="mt-4 divide-y divide-border-subtle text-[13px]">
+              <div className="flex justify-between gap-3 py-2.5">
+                <dt className="text-text-secondary">Desperdício de EPI evitado</dt>
+                <dd className="font-semibold">R$ 200/mês</dd>
+              </div>
+              <div className="flex justify-between gap-3 py-2.5">
+                <dt className="text-text-secondary">Tempo de controle economizado</dt>
+                <dd className="font-semibold">R$ 180/mês</dd>
+              </div>
+              <div className="flex justify-between gap-3 py-2.5">
+                <dt className="text-text-secondary">
+                  Plano {PLANO_LABEL.essencial}
+                </dt>
+                <dd className="font-semibold">
+                  − R$ {PLANO_VALOR_MENSAL.essencial}/mês
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-[11.5px] leading-relaxed text-text-muted">
+              Exemplo ilustrativo, com os valores iniciais da calculadora. Os
+              seus números podem ser diferentes.
+            </p>
           </div>
         </div>
       </section>
@@ -1217,6 +1337,15 @@ export default function Home() {
             na contratação, para qualquer plano. Sem fidelidade — cancele
             quando quiser.
           </p>
+          <p className="mt-3 text-[13px] text-text-secondary">
+            Não sabe qual plano combina com a sua empresa?{" "}
+            <a
+              href="/calculadora"
+              className="font-semibold text-brand-700 hover:underline"
+            >
+              Faça a simulação na calculadora de economia →
+            </a>
+          </p>
         </div>
       </section>
 
@@ -1466,6 +1595,9 @@ export default function Home() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-5 text-[12.5px] text-text-secondary">
+            <a href="/calculadora" className="hover:text-brand-700">
+              Calculadora de economia
+            </a>
             <Link href="/termos-de-uso" className="hover:text-brand-700">
               Termos de Uso
             </Link>

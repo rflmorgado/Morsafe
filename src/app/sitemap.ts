@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${BASE_URL}/tour`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE_URL}/demo`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE_URL}/calculadora`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE_URL}/termos-de-uso`, changeFrequency: "yearly", priority: 0.3 },
     {
       url: `${BASE_URL}/politica-de-privacidade`,

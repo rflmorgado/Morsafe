@@ -16,9 +16,10 @@
 import Link from "next/link";
 import { useState } from "react";
 
-const LINKS = [
+const LINKS: { href: string; label: string; novo?: boolean }[] = [
   { href: "#inicio", label: "Início" },
   { href: "#funcionalidades", label: "Funcionalidades" },
+  { href: "/calculadora", label: "Calculadora de economia", novo: true },
   { href: "#planos", label: "Planos" },
   { href: "#sobre", label: "Sobre" },
   { href: "#contato", label: "Contato" },
@@ -49,9 +50,14 @@ export function MobileNav() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="rounded-lg px-2 py-3 text-[14.5px] font-medium text-foreground hover:bg-surface-muted"
+                className="flex items-center gap-2 rounded-lg px-2 py-3 text-[14.5px] font-medium text-foreground hover:bg-surface-muted"
               >
                 {link.label}
+                {link.novo && (
+                  <span className="rounded-full bg-brand-700 px-1.5 py-0.5 text-[9.5px] font-bold uppercase leading-none tracking-wide text-white">
+                    Novo
+                  </span>
+                )}
               </a>
             ))}
             <Link

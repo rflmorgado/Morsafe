@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Calculadora de economia com EPI | MorSafe</title>
-<meta name="description" content="Descubra em 30 segundos quanto o controle de EPI pode economizar para a sua empresa e quanto custaria o MorSafe. Simulação gratuita, nada é salvo.">
+<meta name="description" content="Descubra em 30 segundos quanto o controle de EPI pode economizar para a sua empresa e quanto custaria o MorSafe. Simulação gratuita, os números que você digita não são salvos.">
 <meta property="og:title" content="Quanto a falta de controle de EPI custa para a sua empresa?">
 <meta property="og:description" content="Preencha 3 números e veja a economia estimada com o MorSafe. Simulação gratuita, sem cadastro.">
 <meta property="og:type" content="website">
@@ -96,7 +96,7 @@ footer a{color:var(--brand-700)}
 <main class="wrap">
   <section class="hero">
     <h1>Quanto a falta de controle de EPI pode estar custando para a sua empresa?</h1>
-    <p>Preencha 3 números e veja, na hora, a economia estimada (desperdício, compras evitadas e tempo de controle) e quanto custaria o MorSafe. Leva 30 segundos. Nada é salvo nem enviado.</p>
+    <p>Preencha 3 números e veja, na hora, a economia estimada (desperdício, compras evitadas e tempo de controle) e quanto custaria o MorSafe. Leva 30 segundos. Os números que você digita não são salvos nem enviados.</p>
   </section>
 
   <div class="grid">
@@ -186,8 +186,8 @@ footer a{color:var(--brand-700)}
       </div>
 
       <a class="btn pri" id="wa" href="#" target="_blank" rel="noopener noreferrer">Falar com a MorSafe no WhatsApp</a>
-      <a class="btn" href="/demo">Testar a demo agora</a>
-      <p class="fine">Estimativa feita com os números que você informou, para ajudar na decisão. Não é parecer jurídico nem promessa de resultado. Nenhuma informação é salva ou enviada, a menos que você toque no botão de WhatsApp.</p>
+      <a class="btn" id="demo-btn" href="/demo">Testar a demo agora</a>
+      <p class="fine">Estimativa feita com os números que você informou, para ajudar na decisão. Não é parecer jurídico nem promessa de resultado. Os números que você digita não são salvos nem enviados, a menos que você toque no botão de WhatsApp. Registramos apenas contagens anônimas de uso, sem cookies, sem IP e sem dados pessoais.</p>
     </section>
   </div>
 </main>
@@ -222,6 +222,38 @@ footer a{color:var(--brand-700)}
   function pick(f){
     for(var i=0;i<PLANOS.length;i++){if(f<=PLANOS[i].lim)return PLANOS[i]}
     return null;
+  }
+  // Medição anônima: só contagens (acesso, simulação, cliques) e o canal de origem.
+  // Sem cookies, sem IP e sem os números digitados. Ver /api/metricas.
+  var ORIGENS={linkedin:1,instagram:1,email:1,whatsapp:1,evento:1,site:1,direto:1,outro:1};
+  function origem(){
+    try{
+      var o=(new URLSearchParams(location.search).get("o")||"").toLowerCase();
+      if(Object.prototype.hasOwnProperty.call(ORIGENS,o))return o;
+      var r=document.referrer;
+      if(!r)return "direto";
+      var h=new URL(r).hostname.replace(/^www\./,"");
+      if(/(^|\.)(linkedin\.com|lnkd\.in)$/.test(h))return "linkedin";
+      if(/(^|\.)instagram\.com$/.test(h))return "instagram";
+      if(/(^|\.)(whatsapp\.com|wa\.me)$/.test(h))return "whatsapp";
+      if(/(^|\.)morsafe\.com\.br$/.test(h))return "site";
+      return "outro";
+    }catch(e){return "outro"}
+  }
+  var ORIG=origem();
+  function reg(ev,umaVez){
+    try{
+      if(umaVez){
+        var k="ms_calc_"+ev;
+        if(sessionStorage.getItem(k))return;
+        sessionStorage.setItem(k,"1");
+      }
+    }catch(e){}
+    try{
+      var d=JSON.stringify({e:ev,o:ORIG});
+      if(navigator.sendBeacon){navigator.sendBeacon("/api/metricas",d)}
+      else{fetch("/api/metricas",{method:"POST",body:d,keepalive:true})}
+    }catch(e){}
   }
   function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 
@@ -296,8 +328,11 @@ footer a{color:var(--brand-700)}
   }
 
   ["f","g","h","ch","pd","ce","rt","ac"].forEach(function(id){
-    $(id).addEventListener("input",calc);
+    $(id).addEventListener("input",function(){reg("simulacao",true);calc()});
   });
+  $("wa").addEventListener("click",function(){reg("whatsapp",false)});
+  $("demo-btn").addEventListener("click",function(){reg("demo",false)});
+  reg("acesso",true);
   calc();
 })();
 </script>
